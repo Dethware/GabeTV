@@ -9,13 +9,23 @@ A custom TV experience on a Valve Steam Machine, replacing a Google TV dongle, a
 
 ## Hardware and setup
 
+### Current setup (what's connected today)
+- **Display:** an older AMH 40" 4K monitor, 60 Hz only, plain HDMI with no smart features. The backlight is failing.
+- **Routing:** a cheap HDMI switch between the monitor and three sources: the Steam Machine, a Google TV dongle and a Nintendo Switch dock.
+- **Audio:** the Philips HTL3310 soundbar on an **analog** stereo cable. It's slow to wake on signal.
+- No usable HDMI-CEC/eARC chain today. Anything display-related (refresh rates, VRR, HDR, CEC) can't be tested until the new TV is installed.
+
+### Target setup (TV ordered, being installed)
+Everything below describes the target unless noted.
+
 - **Steam Machine**, hostname `gabecube`, stock SteamOS. Reachable with `ssh deck@gabecube`.
   - HDMI: HDMI 2.1 VRR works per Valve, output currently capped at 4K120. An update for 4K144 (FRL) / 4K240 (DSC) has been announced; check the SteamOS changelog.
   - HDMI-CEC on the Steam Machine is unreliable (spurious wake-from-sleep). Don't depend on it. The Steam Controller can wake the machine.
 - **TV:** LG OLED G6 55" (`OLED55G64LW`), wall-mounted, **kept offline**. The Wi-Fi/Bluetooth module may be physically removed later, which means IR-only remote. Should boot to the last HDMI input.
 - **Audio:** Philips HTL3310 soundbar on the TV's HDMI eARC port (Dolby Digital / LPCM 2ch).
 - **Input:** Steam Controller; the TV remote via HDMI-CEC passthrough or a USB IR receiver (FLIRC-style, appears as a keyboard); keyboard and mouse optional.
-- There is no HDMI switch any more. The Steam Machine is the only source.
+- The HDMI switch, Google TV dongle and Switch dock go away. The Steam Machine becomes the only source.
+- The Steam Machine itself, its SteamOS install and SSH access are already in place, so software work can start now on the current monitor.
 
 ## Decisions so far
 
