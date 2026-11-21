@@ -23,7 +23,7 @@ Everything below describes the target unless noted.
   - HDMI-CEC on the Steam Machine is unreliable (spurious wake-from-sleep). Don't depend on it. The Steam Controller can wake the machine.
 - **TV:** LG OLED G6 55" (`OLED55G64LW`), wall-mounted, **kept offline**. The Wi-Fi/Bluetooth module may be physically removed later, which means IR-only remote. Should boot to the last HDMI input.
 - **Audio:** Philips HTL3310 soundbar on the TV's HDMI eARC port (Dolby Digital / LPCM 2ch).
-- **Input:** Steam Controller; the TV remote via HDMI-CEC passthrough or a USB IR receiver (FLIRC-style, appears as a keyboard); keyboard and mouse optional.
+- **Input:** Steam Controller, plus the **Google TV dongle's remote, paired to the Steam Machine over Bluetooth** (navigation keys). Its IR side keeps controlling the TV directly (power, volume). The TV stays a dumb display. Fallbacks: HDMI-CEC passthrough, or a USB IR receiver (FLIRC-style). Keyboard and mouse optional.
 - The HDMI switch, Google TV dongle and Switch dock go away. The Steam Machine becomes the only source.
 - The Steam Machine itself, its SteamOS install and SSH access are already in place, so software work can start now on the current monitor.
 
