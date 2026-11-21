@@ -486,6 +486,20 @@ commands below work with it.
   other albums had none.) The thumbnail endpoint also defaults to `edited=false`, i.e. without
   rotations/crops made in Immich; the shell asks for `edited=true`.
 
+## Video playback in the shell (2026-11-21)
+
+- SteamOS ships ffmpeg 8.1.2 and Qt Multimedia 6.11.1 with the ffmpeg backend; mpv and
+  gst-libav are not installed. Mesa provides VA-API for the GPU.
+- Immich `GET /assets/{id}/video/playback` answers Range requests (206); for a phone video it
+  served a transcoded MP4 (104 MB vs. 81 MB original).
+- Qt's media player can't send custom headers, so the shell proxies through 127.0.0.1
+  (`ImmichMediaProxy`). Played fine, sound included: 1080p30 clips and a 3840x2160 h264
+  at 77 Mb/s.
+- Hardware decoding not confirmed: `libva` was loaded in the shell, but
+  `radeonsi_drv_video.so` wasn't mapped when checked after playback. Check during playback if
+  4K ever stutters. Harmless log noise: VDPAU probing for `libvdpau_nvidia.so`, and a
+  `spaVisitChoice: parse error` from Qt's PipeWire audio about the HDMI sink's IEC958 formats.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

@@ -65,7 +65,11 @@ Layouts and looks are placeholders; this is the plumbing.
   (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and
   previous two full-size images are preloaded and kept, so stepping to them is instant. Grids show whole photos (portraits upright); album covers are cropped.
   Images are requested with Immich's edits (`edited=true`) and EXIF rotation applied
-  (`autoTransform`). Videos show as tiles but don't play yet.
+  (`autoTransform`). Videos: OK plays/pauses, Back stops, left/right step on; the screen stays
+  awake while one plays. Qt Multimedia (ffmpeg backend) plays them through
+  `src/ImmichMediaProxy.*`, a loopback HTTP proxy that adds the API key (Qt's player can't
+  send headers) and passes Range requests through; a random token in its URLs keeps other
+  local programs out.
   It runs as a dedicated TV account on the Immich server, which sees the albums shared with
   it; that account owns no photos, so memories stay empty for now (the row hides itself).
   Server and key in `~/.config/tvshell/immich.conf` (mode 600; `[immich]` `url=`, `apiKey=`).
@@ -98,7 +102,7 @@ shell is the default interface: it comes up with Gaming Mode, before Steam has s
 takes the screen back when Steam finishes starting.
 
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`, `tvshell.steam`,
+Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`, `tvshell.mediaproxy`, `tvshell.steam`,
 `tvshell.steamlog`.
 
 Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
@@ -108,6 +112,6 @@ the shell picks it up again.
 ## Next
 
 - Hand the Assistant audio to speech recognition.
-- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, video playback; then Immich photos as the screensaver (needs its own design).
+- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos; then Immich photos as the screensaver (needs its own design).
 - Settings screen for the idle times.
 - More places: media apps, photos, emulators.

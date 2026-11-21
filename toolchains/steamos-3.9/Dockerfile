@@ -15,7 +15,7 @@ RUN pacman-key --init \
  && pacman -Syuu --noconfirm \
  && pacman -S --noconfirm --needed \
       base-devel cmake ninja \
-      qt6-base qt6-declarative qt6-shadertools qt6-tools \
+      qt6-base qt6-declarative qt6-multimedia qt6-shadertools qt6-tools \
       sdl3 libxcb \
  && pacman -Scc --noconfirm \
  && pacman -Q > /etc/toolchain-packages.txt

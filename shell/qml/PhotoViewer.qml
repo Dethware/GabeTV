@@ -1,8 +1,10 @@
 import QtQuick
+import QtMultimedia
 import TvShell
 
 // One photo, whole, on black (bars where the aspect ratio differs). Left/right move,
-// Back leaves.
+// Back leaves. On a video: OK plays/pauses (through the shell's media proxy, which adds the
+// Immich key), Back stops it first.
 //
 // Each photo goes thumbnail → preview → full size. Only the thumbnail loads right away
 // (usually cached from the grid); the bigger ones once the photo has been shown for a moment,
@@ -14,8 +16,31 @@ FocusScope {
     id: viewer
 
     required property ImmichClient immich
+    required property ImmichMediaProxy mediaProxy
     property var assets: []
     property int index: 0
+
+    // A video is loaded (playing or paused).
+    readonly property bool videoActive: video.source.toString().length > 0
+    readonly property bool playing: video.playbackState === MediaPlayer.PlayingState
+
+    function activate() {
+        if (!asset || asset.isImage)
+            return
+        if (!videoActive) {
+            video.source = mediaProxy.videoUrl(asset.id)
+            video.play()
+        } else if (playing) {
+            video.pause()
+        } else {
+            video.play()
+        }
+    }
+
+    function stopVideo() {
+        video.stop()
+        video.source = ""
+    }
 
     readonly property var asset: index >= 0 && index < assets.length ? assets[index] : null
     // The photo has been shown long enough to load the big versions.
@@ -43,12 +68,15 @@ FocusScope {
     }
 
     onIndexChanged: {
+        stopVideo()
         settled = false
         settle.restart()
     }
 
-    Keys.onBackPressed: closed()
-    Keys.onEscapePressed: closed()
+    Keys.onBackPressed: videoActive ? stopVideo() : closed()
+    Keys.onEscapePressed: videoActive ? stopVideo() : closed()
+    Keys.onReturnPressed: activate()
+    Keys.onEnterPressed: activate()
     Keys.onLeftPressed: event => step(-1, event.isAutoRepeat)
     Keys.onRightPressed: event => step(1, event.isAutoRepeat)
 
@@ -57,8 +85,13 @@ FocusScope {
         interval: 125
     }
 
-    // Opened (again): forget the old neighbourhood.
-    onVisibleChanged: if (visible) preloadCenter = -1
+    // Opened (again): forget the old neighbourhood. Closed: no video keeps playing.
+    onVisibleChanged: {
+        if (visible)
+            preloadCenter = -1
+        else
+            stopVideo()
+    }
 
     Timer {
         id: settle
@@ -121,13 +154,34 @@ FocusScope {
         onStatusChanged: if (status === Image.Ready) viewer.lastShown = source
     }
 
+    Video {
+        id: video
+
+        anchors.fill: parent
+        visible: viewer.videoActive
+        fillMode: VideoOutput.PreserveAspectFit
+
+        onErrorOccurred: (error, errorString) => console.warn("video:", errorString)
+    }
+
     Text {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 32
         color: "#808080"
         font.pixelSize: 24
-        text: (viewer.asset && !viewer.asset.isImage ? qsTr("Video (not playable yet)") + "   " : "")
-              + (viewer.index + 1) + " / " + viewer.assets.length
+        text: {
+            let state = ""
+            if (viewer.asset && !viewer.asset.isImage) {
+                if (video.error !== MediaPlayer.NoError)
+                    state = qsTr("Video can't play: %1").arg(video.errorString)
+                else if (!viewer.videoActive)
+                    state = qsTr("OK: play")
+                else if (!viewer.playing)
+                    state = qsTr("Paused")
+                state += "   "
+            }
+            return state + (viewer.index + 1) + " / " + viewer.assets.length
+        }
     }
 }

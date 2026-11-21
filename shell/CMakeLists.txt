@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pinned to what SteamOS 3.9.5 ships (see toolchains/steamos-3.9).
-find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Network Quick)
+find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Multimedia Network Quick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
@@ -86,6 +86,8 @@ qt_add_qml_module(tvshell
         src/ImmichClient.h
         src/ImmichConfig.cpp
         src/ImmichConfig.h
+        src/ImmichMediaProxy.cpp
+        src/ImmichMediaProxy.h
         src/NetworkAccess.cpp
         src/NetworkAccess.h
         src/PowerActions.cpp
@@ -105,6 +107,7 @@ target_link_libraries(tvshell
     PRIVATE
         Qt6::DBus
         Qt6::Gui
+        Qt6::Multimedia
         Qt6::Network
         Qt6::Quick
         SDL3::SDL3

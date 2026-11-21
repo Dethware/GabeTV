@@ -128,6 +128,18 @@ Window {
         id: immich
     }
 
+    ImmichMediaProxy {
+        id: mediaProxy
+    }
+
+    // Videos keep the screen awake while they play.
+    Timer {
+        interval: 30000
+        repeat: true
+        running: photoViewer.playing
+        onTriggered: idle.activity()
+    }
+
     FocusScope {
         id: home
 
@@ -209,6 +221,7 @@ Window {
         anchors.fill: parent
         visible: root.page === "viewer"
         immich: immich
+        mediaProxy: mediaProxy
         assets: photoGrid.assets
 
         onClosed: {
