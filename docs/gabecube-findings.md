@@ -274,16 +274,106 @@ until the light pulses.
   | Power | `XF86ScreenSaver` (160) |
   | **OK (centre)**, Assistant, YouTube, Netflix, Input (bottom right) | nothing |
 
-- *Inferred:* OK, YouTube, Netflix and Assistant send evdev codes above 247 (e.g.
-  `KEY_SELECT` = 353), which X11 keycodes (≤ 255 = evdev + 8) can't carry, so gamescope
-  can't deliver them to X11 clients (Steam's UI included). Input is probably IR-only, or
-  also a high code. Not verified: needs root to read the evdev codes.
+- Raw codes, read with `sudo evtest` (pressed OK, YouTube, Netflix, Assistant, Input, Power):
+
+  | Button | HID usage (`MSC_SCAN`) | evdev key (code) |
+  |---|---|---|
+  | OK | `c0041` | `KEY_SELECT` (353) |
+  | YouTube | `c0077` | `KEY_CAMERA_ACCESS_DISABLE` (588) |
+  | Netflix | `c0078` | `KEY_CAMERA_ACCESS_TOGGLE` (589) |
+  | Input (*inferred*, HID "Media Select TV") | `c0089` | `KEY_TV` (377) |
+  | Power | `c019e` | `KEY_SCREENLOCK` (152) |
+  | Assistant | — | nothing over HID (*inferred:* voice uses Google's vendor GATT service) |
+
+  The device also declares `KEY_PLAYPAUSE`, `KEY_SEARCH`, `KEY_KBDILLUMUP` (unused by this remote).
+- **Confirmed:** codes above 247 can't become X11 keycodes (evdev + 8 ≤ 255), so gamescope
+  can't deliver OK, YouTube, Netflix or Input to X11 clients (Steam's UI included).
 - Power arriving over Bluetooth means the shell can react to it (e.g. screen off / sleep),
   besides whatever the remote's IR side does to the TV.
-- Fix options (both need root and an `/etc/atomic-update.conf.d/` keep entry):
-  1. udev **hwdb remap** (`/etc/udev/hwdb.d/`, match `evdev:input:b0005v18D1p9450*`):
-     OK → `enter`, YouTube/Netflix/Assistant → spare keys. Works for every X11 client.
-  2. udev rule adding `uaccess` (or a group) for the remote, so our shell reads evdev directly.
+### Key remap (installed 2026-11-21)
+
+Files in this repo under `system/etc/`, installed with root to the same paths:
+- `udev/hwdb.d/90-chromecast-remote.hwdb`: OK → `enter`, YouTube → `prog1`, Netflix → `prog2`,
+  Input → `prog3`, Power → `sleep`.
+- `atomic-update.conf.d/tv-remote.conf`: keeps the `.hwdb` file across SteamOS updates.
+
+Install (as root): copy both, then `systemd-hwdb update` (writes `/etc/udev/hwdb.bin`, which
+shadows `/usr/lib/udev/hwdb.bin`) and `udevadm trigger --action=change --subsystem-match=input`.
+The trigger put the `KEYBOARD_KEY_*` properties on the device, but the keys only changed
+**after the remote reconnected** (here: a suspend/resume cycle).
+
+After an OS update, `/etc/udev/hwdb.bin` is dropped (not on the keep-list) and the `.hwdb`
+stays. `systemd-hwdb-update.service` (`ConditionNeedsUpdate=/etc`, runs when
+`/etc/udev/hwdb.d/` isn't empty) should rebuild it at boot. **Unverified until the next update**;
+if it doesn't, the remap is just missing until `systemd-hwdb update` runs again.
+
+Result in our X11 window:
+
+| Button | Now arrives as |
+|---|---|
+| OK | `Return` (36) |
+| YouTube / Netflix / Input | `XF86Launch1` (156) / `XF86Launch2` (157) / `XF86Launch3` (210) |
+| Power | logind: "Suspend key pressed" → **suspends the Steam Machine at once** (`HandleSuspendKey=suspend`, remote is tagged `power-switch`) |
+
+- Input confirmed as `c0089` (it produced `XF86Launch3`). Assistant sends no key (see below).
+- Suspend test: Power at 15:46:26 → s2idle. **Pressing the remote didn't wake it**; the
+  Steam Controller's Steam button did (15:46:41). bluetoothd logged
+  "Controller resume with wake event 0x0" (not a Bluetooth wake). The remote reconnected
+  18 s after resume, on its next button press. Our window got one `XF86WakeUp` on resume.
+- Wake path looks allowed: the BT adapter is Valve's USB module `28de:1401` (btusb) on the
+  same xHCI (`0000:07:00.3`) as the Steam Controller puck, both with `power/wakeup=enabled`;
+  bluez reports `WakeAllowed: yes` for the remote; Valve set `ScanIntervalSuspend=2240`,
+  `ScanWindowSuspend=224` in `/etc/bluetooth/main.conf`. Why the remote doesn't wake it
+  is unknown.
+- `btmon` trace across a suspend (2026-11-21 15:56–15:57; adapter reports as Qualcomm):
+  - Suspend: kernel disconnects the remote ("terminated by local host for suspend"), sets
+    LE passive scan, filter policy "ignore not in accept list", 1M PHY 1400 ms interval /
+    140 ms window (+ Coded PHY 4200/420 ms), scan enabled; MGMT "Controller Suspended:
+    page scanning and/or passive scanning". So wake-on-LE *is* configured.
+  - 10 ms later the remote advertises (`ADV_IND`, connectable, appearance Keyboard,
+    LE Limited Discoverable) and the controller reports it (still during suspend entry).
+  - Then **no events for 40 s** while OK was pressed repeatedly on the remote; resume came
+    from the Steam Controller ("wake event 0x0"); the remote reconnected 10 s after resume.
+  - Running `btmon` from an SSH session dies with the suspend; start it with `systemd-run`.
+- Second trace (16:01–16:02) with `ScanWindowSuspend=2240` (= interval, continuous scan;
+  temporary edit of Valve's `/etc/bluetooth/main.conf`, reverted afterwards):
+  - Remote is on the controller's accept list (`LE Add Device To Accept List` at startup).
+  - Suspend scan: window = interval 1400 ms, accept-list filter, **`Filter duplicates: Enabled`**.
+  - The remote's `ADV_IND` is reported 3 ms after the suspend scan starts, then **nothing for
+    50 s** of button presses; still no wake.
+  - On resume (Steam Controller) the kernel re-enables scanning and the remote's advert is
+    reported **at once**, connection 47 ms later: it had been advertising during suspend.
+  - **Conclusion (*inferred*, fits both traces):** the controller's duplicate filter already
+    saw the remote in that first report, so later adverts are dropped as duplicates and never
+    reach the host to wake it. The kernel sets that filter; no bluez setting changes it.
+    Not the scan duty cycle.
+- Wake with the remote is therefore not possible on stock SteamOS as is. Options: USB IR
+  receiver learning the remote's IR power code; CEC; a kernel fix (report upstream/to Valve).
+- For the shell to decide what Power does (screen off vs. suspend), it can hold a logind
+  `handle-suspend-key` inhibitor lock; logind then leaves the key to us.
+
+Alternative not used: a udev rule adding `uaccess` so our shell reads the remote's evdev directly.
+
+### GATT services and the Assistant button (tested 2026-11-21)
+
+Services (via bluez D-Bus `GetManagedObjects`, readable as `deck`):
+standard GAP/GATT/Device Info/Battery (`180f`)/Scan Parameters (`1813`)/HID (`1812`), plus
+- `ab5e0001-5a21-4f05-bc7d-af01f617b664`: **Android TV Voice** ("ATVV"). Chars: `ab5e0002`
+  TX (write), `ab5e0003` audio (notify), `ab5e0004` control (notify).
+- `f000bbc0-0451-4000-b000-000000000000`: TI OAD (*inferred:* firmware update).
+- `d343bfc0-5a21-4f05-bc7d-af01f617b664`, `6c6f6701-5a21-…`: Google vendor
+  (*inferred:* settings, maybe the IR code setup).
+
+Subscribed (`StartNotify` over D-Bus as `deck`, **no root**) to ATVV control + audio while
+pressing Assistant 4×, without any voice handshake:
+
+- Press → control `04 03 02 <n>` (`n` counts up: `23`, `24`, `25`, `26`), then audio packets
+  (160 bytes each, ~40/s) for as long as the button is held.
+- Release → control `00 02`, audio stops.
+- *Inferred from the Android TV voice protocol:* `04` = audio start, `00` = audio stop; the
+  audio is the remote's microphone (likely ADPCM).
+- So the shell can treat Assistant as a press/release button by watching `ab5e0004`, and
+  could do push-to-talk voice later.
 
 ## Waydroid prerequisites
 
@@ -308,8 +398,8 @@ until the light pulses.
 ## Open / untested
 
 - Does Steam rewrite `GAMESCOPECTRL_BASELAYER_APPID` on notifications or downloads finishing?
-- Remote: real evdev codes of OK/YouTube/Netflix/Assistant/Input (needs root); does the
-  dongle reclaim the remote if both are powered.
+- Remote: wake via a USB IR receiver or CEC; does the remap survive an OS update;
+  does the dongle reclaim the remote if both are powered.
 - How to give a Wayland window a real app ID with `--expose-wayland`.
 - How gamescope's "derived from cgroup/process hierarchy" app-ID lookup is triggered. It
   worked for the Steam-launched shortcut, but not for our own X windows on `:0` or `:1` with

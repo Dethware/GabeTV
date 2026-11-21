@@ -1,0 +1,10 @@
+# Chromecast with Google TV (2020) voice remote, over Bluetooth LE.
+# Several of its keys send evdev codes above 247, which X11 can't carry,
+# so gamescope can't deliver them to X11 clients. Remap them into range.
+# Keys: see docs/gabecube-findings.md, "Google TV remote over Bluetooth".
+evdev:input:b0005v18D1p9450*
+ KEYBOARD_KEY_c0041=enter
+ KEYBOARD_KEY_c0077=prog1
+ KEYBOARD_KEY_c0078=prog2
+ KEYBOARD_KEY_c0089=prog3
+ KEYBOARD_KEY_c019e=sleep
