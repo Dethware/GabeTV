@@ -9,6 +9,7 @@ FocusScope {
 
     required property IdleController idle
     required property ScreensaverSettings screensaver
+    required property ViewerSettings viewer
     required property ImmichClient immich
 
     signal closed()
@@ -53,6 +54,10 @@ FocusScope {
         return background === "blur" ? qsTr("Blurred photo") : background === "gradient" ? qsTr("Colour gradient") : qsTr("Black")
     }
 
+    function cycle(values, current, direction) {
+        return values[(values.indexOf(current) + direction + values.length) % values.length]
+    }
+
     function albumsText() {
         const count = screensaver.albums.length
         return count === 0 ? qsTr("None (clock)") : count === 1 ? qsTr("1 album") : qsTr("%1 albums").arg(count)
@@ -81,14 +86,23 @@ FocusScope {
               change: d => screensaver.interval = stepIn(photoDurations, screensaver.interval, d) },
             { label: qsTr("Transition"),
               value: () => transitionName(screensaver.transition),
-              change: d => screensaver.transition = transitionKinds[(transitionKinds.indexOf(screensaver.transition) + d + transitionKinds.length) % transitionKinds.length] },
+              change: d => screensaver.transition = cycle(transitionKinds, screensaver.transition, d) },
             { label: qsTr("Background"),
               value: () => backgroundName(screensaver.background),
-              change: d => screensaver.background = backgroundKinds[(backgroundKinds.indexOf(screensaver.background) + d + backgroundKinds.length) % backgroundKinds.length] },
+              change: d => screensaver.background = cycle(backgroundKinds, screensaver.background, d) },
             { label: qsTr("Show date and place"),
               value: () => screensaver.showInfo ? qsTr("On") : qsTr("Off"),
               change: d => screensaver.showInfo = !screensaver.showInfo,
               activate: () => screensaver.showInfo = !screensaver.showInfo },
+        ],
+        // Photos (the viewer)
+        [
+            { label: qsTr("Transition"),
+              value: () => transitionName(viewer.transition),
+              change: d => viewer.transition = cycle(transitionKinds, viewer.transition, d) },
+            { label: qsTr("Background"),
+              value: () => backgroundName(viewer.background),
+              change: d => viewer.background = cycle(backgroundKinds, viewer.background, d) },
         ],
     ]
 
@@ -120,7 +134,7 @@ FocusScope {
         width: 400
         spacing: 8
         focus: true
-        model: [qsTr("Power"), qsTr("Screensaver")]
+        model: [qsTr("Power"), qsTr("Screensaver"), qsTr("Photos")]
 
         delegate: SettingRow {
             required property string modelData

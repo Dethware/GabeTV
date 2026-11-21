@@ -112,14 +112,14 @@ FocusScope {
         anchors.fill: parent
         visible: saver.settings.background !== "black"
 
-        ScreensaverBackdrop {
+        PhotoBackdrop {
             id: backdropA
             anchors.fill: parent
             other: backdropB
             mode: saver.settings.background
         }
 
-        ScreensaverBackdrop {
+        PhotoBackdrop {
             id: backdropB
             anchors.fill: parent
             other: backdropA

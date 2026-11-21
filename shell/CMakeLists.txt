@@ -54,7 +54,7 @@ set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarBu
 set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
 set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
-set_source_files_properties(qml/ScreensaverBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverBackdrop.qml)
+set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -76,7 +76,7 @@ qt_add_qml_module(tvshell
         qml/PhotoLayer.qml
         qml/ScreensaverLayer.qml
         qml/AlbumPicker.qml
-        qml/ScreensaverBackdrop.qml
+        qml/PhotoBackdrop.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
@@ -106,6 +106,8 @@ qt_add_qml_module(tvshell
         src/SteamLibrary.h
         src/SteamLog.cpp
         src/SteamLog.h
+        src/ViewerSettings.cpp
+        src/ViewerSettings.h
 )
 
 # The generated QML type registration includes the headers by name.

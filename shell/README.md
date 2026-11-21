@@ -34,7 +34,7 @@ Layouts and looks are placeholders; this is the plumbing.
   `screensaverAfter`, `screenOffAfter`, `suspendAfter`.
   The left stick counts only while the shell is fully awake: a thumb resting on a Steam
   Controller trackpad that Steam maps to the stick moved it and ended the screensaver.
-- **Screensaver** (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `ScreensaverBackdrop.qml`,
+- **Screensaver** (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`,
   `src/ScreensaverSettings.*`): photos from the Immich albums chosen in Settings, in an order
   shuffled once each time it starts (`ImmichClient::loadScreensaver`: all chosen albums,
   images only, no duplicates), one at a time on a timer. Left/right browse without leaving
@@ -69,14 +69,20 @@ Layouts and looks are placeholders; this is the plumbing.
   `docs/gabecube-findings.md`.
 - **Settings** (`qml/SettingsPage.qml`): from the top bar's Settings entry (up from the games)
   or the controller's Start/≡. Categories on the left (Power: the three idle times;
-  Screensaver: albums, time per photo, transition, background, date and place); Right/OK goes
+  Screensaver: albums, time per photo, transition, background, date and place; Photos: the
+  viewer's transition and background); Right/OK goes
   into a category, left/right changes a value (saved and applied at once), OK on Albums opens
   a list of albums with checkmarks. Back goes out a level, then leaves.
 - **Photos** (`src/ImmichClient.*`, `qml/PhotosPlace.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`):
   a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
   (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
   (whole photo, black bars; preview first, then the full-size rendering), left/right move,
-  Back goes back. The viewer shows the cached thumbnail at once and loads the preview and
+  Back goes back. Moving between photos: slide (250 ms), crossfade or none, over the photo
+  blurred, its colours as a gradient, or black (Settings → Photos; `tvshell.conf`, `[viewer]`
+  `transition`, `background`; the backdrop is `qml/PhotoBackdrop.qml`, shared with the
+  screensaver). One transition at a time; presses during one go straight to the latest photo
+  next. A held key skips transitions, and the background follows once it stops for 0.2 s.
+  The viewer shows the cached thumbnail at once and loads the preview and
   full-size image after 250 ms on a photo; the last photo stays up until the next one shows
   (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and
   previous two full-size images are preloaded and kept, so stepping to them is instant. Grids show whole photos (portraits upright); album covers are cropped.

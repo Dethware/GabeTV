@@ -224,6 +224,7 @@ Window {
         visible: root.page === "viewer"
         immich: immich
         mediaProxy: mediaProxy
+        settings: viewerSettings
         assets: photoGrid.assets
 
         onClosed: {
@@ -239,6 +240,7 @@ Window {
         visible: root.page === "settings"
         idle: idle
         screensaver: screensaverSettings
+        viewer: viewerSettings
         immich: immich
 
         onClosed: root.showPage("home")
@@ -255,6 +257,10 @@ Window {
 
     ScreensaverSettings {
         id: screensaverSettings
+    }
+
+    ViewerSettings {
+        id: viewerSettings
     }
 
     Screensaver {

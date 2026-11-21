@@ -1,9 +1,9 @@
 import QtQuick
 import QtQuick.Effects
 
-// What the screensaver shows beside a photo: the photo blurred ("blur") or its colours as a
-// gradient ("gradient"). It stays put and crossfades while the photos slide over it: the new
-// one loads hidden, fades in on top, and the old one goes once it's covered.
+// What the screensaver and the viewer show beside a photo: the photo blurred ("blur") or its
+// colours as a gradient ("gradient"). It stays put and crossfades while the photos slide over
+// it: the new one loads hidden, fades in on top, and the old one goes once it's covered.
 // Drawn small and scaled up: blurring 96×54 pixels is cheap and smooth scaling hides the rest.
 // For the gradient the thumbnail is decoded at 3×2 pixels, so only its broad colours remain.
 Item {
