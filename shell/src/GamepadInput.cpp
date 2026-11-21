@@ -135,7 +135,11 @@ void GamepadInput::poll()
             emit activity();
             qCDebug(lcGamepad) << "button down" << SDL_GetGamepadStringForButton(SDL_GamepadButton(event.gbutton.button))
                                << (m_enabled ? "" : "(ignored, not on screen)");
-            if (const int key = keyForButton(event.gbutton.button))
+            if (m_enabled && event.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)
+                emit shoulderPressed(-1);
+            else if (m_enabled && event.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)
+                emit shoulderPressed(1);
+            else if (const int key = keyForButton(event.gbutton.button))
                 press(key);
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_UP:

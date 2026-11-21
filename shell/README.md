@@ -13,7 +13,8 @@ Layouts and looks are placeholders; this is the plumbing.
   ID is in it. On exit it removes its ID again. Does nothing outside gamescope.
 - **Input** (`src/GamepadInput.*`): the remote and keyboards arrive as normal key events.
   The controller is read through SDL3 from Steam's virtual Xbox pad and turned into key
-  events (A = Return, B/Back = Back, Start = Menu, d-pad/left stick = arrows with repeat),
+  events (A = Return, B/Back = Back, Start = Menu, d-pad/left stick = arrows with repeat; LB/RB as
+  their own signal),
   only while the shell is on screen and active, since the same pad feeds games.
 - **Steam's own screens**: Steam keeps the Steam and … buttons and draws its menu and Quick
   Access in its own window, behind the shell. The shell steps aside (`claim = false`) when
@@ -59,7 +60,11 @@ Layouts and looks are placeholders; this is the plumbing.
   a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
   (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
   (whole photo, black bars; preview first, then the full-size rendering), left/right move,
-  Back goes back. Videos show as tiles but don't play yet.
+  Back goes back. Grids show whole photos (portraits upright); album covers are cropped.
+  Images are requested with Immich's edits (`edited=true`) and EXIF rotation applied
+  (`autoTransform`). Videos show as tiles but don't play yet.
+  It runs as a dedicated TV account on the Immich server, which sees the albums shared with
+  it; that account owns no photos, so memories stay empty for now (the row hides itself).
   Server and key in `~/.config/tvshell/immich.conf` (mode 600; `[immich]` `url=`, `apiKey=`).
   A read-only key needs `album.read`, `memory.read`, `asset.read`, `asset.view` (and
   `person.read` for people later). `src/NetworkAccess.*` is the shell's network layer (also
@@ -67,7 +72,10 @@ Layouts and looks are placeholders; this is the plumbing.
   (`~/.cache/tvshell/network`, up to 2 GiB; asset images are served from the cache when present).
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
-- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos) and Settings; placeholder looks.
+- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos) and Settings. Left/right
+  only move the highlight (white); OK switches to the highlighted place (blue underline = the
+  place showing); the highlight stays on the tab, Down goes into the place. The controller's LB/RB switch places directly (a GamepadInput
+  signal, not a key event). Back inside a place returns to the top bar. Placeholder looks.
 
 ## Build and run
 

@@ -8,6 +8,8 @@ Rectangle {
     property string title
     property string subtitle
     property bool current
+    // Show the whole picture (photo grids) instead of filling the tile (covers).
+    property bool whole
 
     radius: 8
     color: "#1d252c"
@@ -25,8 +27,9 @@ Rectangle {
         source: tile.source
         sourceSize.width: 480
         sourceSize.height: 480
-        fillMode: Image.PreserveAspectCrop
+        fillMode: tile.whole ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         asynchronous: true
+        autoTransform: true
     }
 
     Rectangle {

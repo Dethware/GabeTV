@@ -33,6 +33,7 @@ FocusScope {
         sourceSize.height: viewer.height
         fillMode: Image.PreserveAspectFit
         asynchronous: true
+        autoTransform: true
         visible: full.status !== Image.Ready
     }
 
@@ -45,6 +46,7 @@ FocusScope {
         sourceSize.height: viewer.height
         fillMode: Image.PreserveAspectFit
         asynchronous: true
+        autoTransform: true
     }
 
     Text {

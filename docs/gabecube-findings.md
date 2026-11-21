@@ -480,6 +480,11 @@ commands below work with it.
   (`id[]`, `ratio[]`, `isImage[]`, `thumbhash[]`, …).
 - `GET /memories?for=YYYY-MM-DD` gives that day's memories with their assets (width, height,
   type); `data.year` for "on this day".
+- Orientation: some photos (e.g. in "London 2025") showed sideways in the viewer until Qt's
+  `Image.autoTransform` (EXIF orientation; off by default) was turned on, so at least some
+  `fullsize`/`preview` images keep the EXIF orientation flag. (A sample of 300 photos from
+  other albums had none.) The thumbnail endpoint also defaults to `edited=false`, i.e. without
+  rotations/crops made in Immich; the shell asks for `edited=true`.
 
 ## Waydroid prerequisites
 

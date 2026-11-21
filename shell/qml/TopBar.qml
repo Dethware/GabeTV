@@ -1,13 +1,22 @@
 import QtQuick
 
-// The bar above the places: tabs for the places (moving onto one switches to it) and Settings.
+// The bar above the places: a tab per place and Settings. Left/right only move the highlight;
+// OK switches to the highlighted place (the highlight stays on the tab; Down goes into it).
 FocusScope {
     id: bar
 
     property var tabs: []
     property int currentTab: 0
 
+    signal tabActivated(int index)
     signal settingsActivated()
+
+    // The controller's shoulder buttons: switch directly to the previous/next place.
+    function step(direction) {
+        const next = currentTab + direction
+        if (next >= 0 && next < tabs.length)
+            currentTab = next
+    }
 
     implicitHeight: 120
 
@@ -30,11 +39,19 @@ FocusScope {
 
                 text: modelData
                 selected: bar.currentTab === index
+                // Entering the bar lands on the current place's tab.
                 focus: bar.currentTab === index
 
-                onActiveFocusChanged: if (activeFocus) bar.currentTab = index
                 KeyNavigation.right: index + 1 < tabRepeater.count ? tabRepeater.itemAt(index + 1) : settingsButton
                 KeyNavigation.left: index > 0 ? tabRepeater.itemAt(index - 1) : null
+                Keys.onReturnPressed: {
+                    bar.currentTab = index
+                    bar.tabActivated(index)
+                }
+                Keys.onEnterPressed: {
+                    bar.currentTab = index
+                    bar.tabActivated(index)
+                }
             }
         }
     }

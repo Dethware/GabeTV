@@ -54,6 +54,7 @@ FocusScope {
             width: 352
             height: 260
             source: page.immich.imageUrl(modelData.id, "thumbnail")
+            whole: true
             subtitle: modelData.isImage ? "" : qsTr("Video")
             title: modelData.isImage ? "" : qsTr("Video")
             current: GridView.isCurrentItem && grid.activeFocus

@@ -37,6 +37,8 @@ public:
 signals:
     // Any button or a real stick movement, also while disabled (for idle tracking).
     void activity();
+    // LB (-1) / RB (+1), only while enabled. Controller-only: no key event.
+    void shoulderPressed(int direction);
     void windowChanged();
     void enabledChanged();
     void countChanged();

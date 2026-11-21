@@ -50,7 +50,7 @@ Everything below describes the target unless noted.
 | Jellyfin | Must be remote-friendly. Test Jellyfin Media Player TV mode and the web client's TV layout. The Android TV app works but needs configuration. | No desktop-isms allowed. |
 | YouTube | Wants the TV-style UI with multiple accounts and remote navigation. **Test `youtube.com/tv` in a browser kiosk first** (the same leanback UI smart TVs use). | Android route possible but see Waydroid caveats. |
 | Symfonium | Android-only → **Waydroid**. | Paid app, uses Google Play licensing, so it needs GApps and a registered device. Server type still to confirm. |
-| Immich photos | **Build natively** in the shell: photo viewer and screensaver via the Immich API (albums, memories, random). | Good first module. On OLED: dim or switch off after idle; never a static image for hours. The current Android TV app's screensaver is broken. |
+| Immich photos | **Build natively** in the shell: photo viewer and screensaver via the Immich API (albums, memories, random). Photos place exists (albums, grid, viewer). | The shell uses a **dedicated TV account** on photos.peterix.cz that sees the albums shared with it; it owns no photos, so Immich's memories stay empty until the TV knows about people (their own accounts). On OLED: dim or switch off after idle; never a static image for hours. The current Android TV app's screensaver is broken. |
 | Ring Fit Adventure | Ryujinx 1.3.3 runs the dump (`~/Games/switch/ringfit/`). | Ring-Con support is uncertain in Ryujinx; Eden (yuzu lineage) has it. |
 
 ### Waydroid caveats
@@ -87,7 +87,7 @@ Questions to answer:
 
 ## Open questions
 
-- Who uses the TV? Shared space vs. user profiles in the shell.
+- Who uses the TV? Shared space vs. user profiles in the shell. With people, the shell could show each person's own Immich photos and memories (today it only has the TV account's shared albums).
 - Which server does Symfonium talk to (Navidrome, Jellyfin, other)?
 - Idle/power policy: screensaver → dim → off. How do we turn the TV off without relying on the Steam Machine's CEC?
 

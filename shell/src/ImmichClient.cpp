@@ -182,6 +182,7 @@ QUrl ImmichClient::imageUrl(const QString &assetId, const QString &size) const
         return {};
     QUrl url = m_config.url;
     url.setPath(url.path() + QStringLiteral("/api/assets/%1/thumbnail").arg(assetId));
-    url.setQuery(QStringLiteral("size=") + size);
+    // edited=true: show rotations and crops made in Immich (the API defaults to the unedited image).
+    url.setQuery(QStringLiteral("size=%1&edited=true").arg(size));
     return url;
 }

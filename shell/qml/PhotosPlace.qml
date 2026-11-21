@@ -9,6 +9,8 @@ FocusScope {
 
     signal albumOpened(string albumId, string name)
     signal memoryOpened(var memory)
+    // Up from the topmost row: the top bar should take over.
+    signal leftUpward()
 
     readonly property bool hasMemories: immich.memories.length > 0
 
@@ -63,6 +65,7 @@ FocusScope {
         }
 
         KeyNavigation.down: albums
+        Keys.onUpPressed: place.leftUpward()
         Keys.onReturnPressed: place.memoryOpened(model[currentIndex])
         Keys.onEnterPressed: place.memoryOpened(model[currentIndex])
     }
@@ -105,8 +108,15 @@ FocusScope {
             current: GridView.isCurrentItem && albums.activeFocus
         }
 
-        KeyNavigation.up: place.hasMemories ? memories : null
-        KeyNavigation.priority: KeyNavigation.AfterItem
+        // From the first row: to the memories, or out of the place.
+        Keys.onUpPressed: event => {
+            if (currentIndex >= Math.floor(width / cellWidth))
+                event.accepted = false
+            else if (place.hasMemories)
+                memories.forceActiveFocus()
+            else
+                place.leftUpward()
+        }
         Keys.onReturnPressed: place.albumOpened(model[currentIndex].id, model[currentIndex].name)
         Keys.onEnterPressed: place.albumOpened(model[currentIndex].id, model[currentIndex].name)
     }

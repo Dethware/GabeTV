@@ -111,6 +111,13 @@ Window {
         window: root
         enabled: root.active && (baseLayer.onScreen || !baseLayer.available)
         onActivity: idle.activity()
+        // LB/RB: previous/next place, directly (only on the home screen, not over dialogs).
+        onShoulderPressed: direction => {
+            if (root.page !== "home" || powerDialog.visible)
+                return
+            topBar.step(direction)
+            home.currentPlace.forceActiveFocus()
+        }
     }
 
     SteamLibrary {
@@ -132,6 +139,9 @@ Window {
 
         // The controller's Start/≡ opens the settings from anywhere on the home page.
         Keys.onMenuPressed: root.showPage("settings")
+        // Back from inside a place: up to the top bar, so there's always a way out.
+        Keys.onBackPressed: topBar.forceActiveFocus()
+        Keys.onEscapePressed: topBar.forceActiveFocus()
 
         TopBar {
             id: topBar
@@ -173,8 +183,7 @@ Window {
             focus: home.currentPlace === photos
             immich: immich
 
-            KeyNavigation.up: topBar
-            KeyNavigation.priority: KeyNavigation.AfterItem
+            onLeftUpward: topBar.forceActiveFocus()
             onAlbumOpened: (albumId, name) => root.openAlbum(albumId, name)
             onMemoryOpened: memory => root.openMemory(memory)
         }
