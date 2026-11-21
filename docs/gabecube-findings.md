@@ -250,6 +250,41 @@ Steam kept focus throughout.
   wakes when the signal returns. Nothing wakes the output automatically: our shell would
   set it back to `0` on input.
 
+## Google TV remote over Bluetooth (tested 2026-11-21)
+
+Remote: Chromecast with Google TV (2020) voice remote. Pairing mode: hold **Back + Home**
+until the light pulses.
+
+- Paired from SSH with `bluetoothctl --agent NoInputNoOutput` (`pair`, `trust`, `connect`).
+  The first `pair` timed out after 20 s, the second succeeded. No root needed.
+- Shows up as BLE HID "Chromecast Remote" (`18D1:9450`, hid-generic via uhid), one evdev
+  device, plus Battery Service (battery level readable via `bluetoothctl info`).
+- Stayed connected to gabecube for 5+ minutes after pairing; the dongle didn't take it back.
+- udev doesn't classify it as a keyboard (`ID_INPUT_KEY` only, no `ID_INPUT_KEYBOARD`), so
+  it gets **no `uaccess` tag**: `deck` can't read its evdev node; only root can.
+- gamescope does pick it up (it opens devices via logind). Keys our X11 window received:
+
+  | Button | X11 keysym (keycode) |
+  |---|---|
+  | Ring up/down/left/right | `Up` (111) `Down` (116) `Left` (113) `Right` (114) |
+  | Back | `XF86Back` (166) |
+  | Home | `XF86HomePage` (180) |
+  | Mute | `XF86AudioMute` (121) |
+  | Volume rocker (side) | `XF86AudioRaiseVolume` (123) / `XF86AudioLowerVolume` (122) |
+  | Power | `XF86ScreenSaver` (160) |
+  | **OK (centre)**, Assistant, YouTube, Netflix, Input (bottom right) | nothing |
+
+- *Inferred:* OK, YouTube, Netflix and Assistant send evdev codes above 247 (e.g.
+  `KEY_SELECT` = 353), which X11 keycodes (≤ 255 = evdev + 8) can't carry, so gamescope
+  can't deliver them to X11 clients (Steam's UI included). Input is probably IR-only, or
+  also a high code. Not verified: needs root to read the evdev codes.
+- Power arriving over Bluetooth means the shell can react to it (e.g. screen off / sleep),
+  besides whatever the remote's IR side does to the TV.
+- Fix options (both need root and an `/etc/atomic-update.conf.d/` keep entry):
+  1. udev **hwdb remap** (`/etc/udev/hwdb.d/`, match `evdev:input:b0005v18D1p9450*`):
+     OK → `enter`, YouTube/Netflix/Assistant → spare keys. Works for every X11 client.
+  2. udev rule adding `uaccess` (or a group) for the remote, so our shell reads evdev directly.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
@@ -273,7 +308,8 @@ Steam kept focus throughout.
 ## Open / untested
 
 - Does Steam rewrite `GAMESCOPECTRL_BASELAYER_APPID` on notifications or downloads finishing?
-- Input from the TV remote: CEC passthrough (`cecd` evdev) vs. a USB IR receiver.
+- Remote: real evdev codes of OK/YouTube/Netflix/Assistant/Input (needs root); does the
+  dongle reclaim the remote if both are powered.
 - How to give a Wayland window a real app ID with `--expose-wayland`.
 - How gamescope's "derived from cgroup/process hierarchy" app-ID lookup is triggered. It
   worked for the Steam-launched shortcut, but not for our own X windows on `:0` or `:1` with
