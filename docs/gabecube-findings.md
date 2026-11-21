@@ -316,6 +316,7 @@ Result in our X11 window:
 | Power | logind: "Suspend key pressed" → **suspends the Steam Machine at once** (`HandleSuspendKey=suspend`, remote is tagged `power-switch`) |
 
 - Input confirmed as `c0089` (it produced `XF86Launch3`). Assistant sends no key (see below).
+- Games can use it too: Isles of Sea and Sky was playable with the remote (keyboard input).
 - Suspend test: Power at 15:46:26 → s2idle. **Pressing the remote didn't wake it**; the
   Steam Controller's Steam button did (15:46:41). bluetoothd logged
   "Controller resume with wake event 0x0" (not a Bluetooth wake). The remote reconnected
