@@ -3,6 +3,8 @@
 #include <QGuiApplication>
 #include <QLoggingCategory>
 
+#include <xcb/xtest.h>
+
 #include <cstdlib>
 #include <memory>
 
@@ -84,6 +86,8 @@ void BaseLayer::connectToX11()
     m_steamGame = atom("STEAM_GAME");
     m_baseLayer = atom("GAMESCOPECTRL_BASELAYER_APPID");
     m_focusedApp = atom("GAMESCOPE_FOCUSED_APP");
+    // Steam writes this whenever it opens its main menu or Quick Access.
+    m_blurMode = atom("GAMESCOPE_BLUR_MODE");
 
     // Watch the root window's properties. Keep whatever Qt already selected there.
     auto attributes = reply(xcb_get_window_attributes_reply(
@@ -93,7 +97,60 @@ void BaseLayer::connectToX11()
     xcb_flush(m_connection);
 
     qGuiApp->installNativeEventFilter(this);
+    grabHomeKey();
     emit availableChanged();
+}
+
+xcb_keycode_t BaseLayer::keycodeFor(xcb_keysym_t keysym) const
+{
+    const xcb_setup_t *setup = xcb_get_setup(m_connection);
+    const int count = setup->max_keycode - setup->min_keycode + 1;
+    auto mapping = reply(xcb_get_keyboard_mapping_reply(
+        m_connection, xcb_get_keyboard_mapping(m_connection, setup->min_keycode, count), nullptr));
+    if (!mapping)
+        return 0;
+    const xcb_keysym_t *keysyms = xcb_get_keyboard_mapping_keysyms(mapping.get());
+    const int perKeycode = mapping->keysyms_per_keycode;
+    for (int i = 0; i < count * perKeycode; ++i) {
+        if (keysyms[i] == keysym)
+            return setup->min_keycode + i / perKeycode;
+    }
+    return 0;
+}
+
+void BaseLayer::toggleQuickAccess()
+{
+    if (!m_root)
+        return;
+    constexpr xcb_keysym_t ControlL = 0xFFE3;
+    constexpr xcb_keysym_t Digit2 = 0x0032;
+    const xcb_keycode_t control = keycodeFor(ControlL);
+    const xcb_keycode_t two = keycodeFor(Digit2);
+    if (!control || !two)
+        return;
+    qCInfo(lcBaseLayer) << "sending Ctrl+2 (Quick Access)";
+    xcb_test_fake_input(m_connection, XCB_KEY_PRESS, control, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
+    xcb_test_fake_input(m_connection, XCB_KEY_PRESS, two, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
+    xcb_test_fake_input(m_connection, XCB_KEY_RELEASE, two, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
+    xcb_test_fake_input(m_connection, XCB_KEY_RELEASE, control, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
+    xcb_flush(m_connection);
+}
+
+void BaseLayer::grabHomeKey()
+{
+    constexpr xcb_keysym_t XF86HomePage = 0x1008FF18;
+    m_homeKeycode = keycodeFor(XF86HomePage);
+    if (!m_homeKeycode) {
+        qCWarning(lcBaseLayer) << "no keycode for XF86HomePage; Home won't work while Steam has focus";
+        return;
+    }
+    auto error = reply(xcb_request_check(
+        m_connection, xcb_grab_key_checked(m_connection, 1, m_root, XCB_MOD_MASK_ANY, m_homeKeycode,
+                                           XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC)));
+    if (error)
+        qCWarning(lcBaseLayer) << "could not grab Home (keycode" << m_homeKeycode << "), X error" << error->error_code;
+    else
+        qCInfo(lcBaseLayer) << "grabbed Home, keycode" << m_homeKeycode;
 }
 
 void BaseLayer::tagWindow()
@@ -164,11 +221,26 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
     if (eventType != "xcb_generic_event_t")
         return false;
     auto *event = static_cast<xcb_generic_event_t *>(message);
-    if ((event->response_type & ~0x80) != XCB_PROPERTY_NOTIFY)
+    const uint8_t type = event->response_type & ~0x80;
+    if (type == XCB_KEY_PRESS && m_homeKeycode) {
+        auto *key = reinterpret_cast<xcb_key_press_event_t *>(event);
+        if (key->detail == m_homeKeycode && key->event == m_root) {
+            qCInfo(lcBaseLayer) << "Home pressed (global grab)";
+            emit homePressed();
+            return true;
+        }
+    }
+    if (type != XCB_PROPERTY_NOTIFY)
         return false;
     auto *notify = reinterpret_cast<xcb_property_notify_event_t *>(event);
-    if (notify->window == m_root && (notify->atom == m_baseLayer || notify->atom == m_focusedApp))
+    if (notify->window != m_root)
+        return false;
+    if (notify->atom == m_baseLayer || notify->atom == m_focusedApp) {
         QMetaObject::invokeMethod(this, &BaseLayer::evaluate, Qt::QueuedConnection);
+    } else if (notify->atom == m_blurMode && m_onScreen && !m_gameRunning) {
+        qCInfo(lcBaseLayer) << "Steam opened its menu";
+        emit steamMenuOpened();
+    }
     return false;
 }
 

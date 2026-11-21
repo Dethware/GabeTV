@@ -180,6 +180,32 @@ shortcut app ID 3564817749, launched with `steam://rungameid/<(appid << 32) | 0x
 - Removing the shortcut: stop Steam and delete `shortcuts.vdf` (it didn't exist before);
   Steam keeps a playtime entry for the app ID in `localconfig.vdf`.
 
+### Steam button, Quick Access and Home while the shell has the screen (tested 2026-11-21)
+
+- Steam keeps the Steam and … buttons (they never reach SDL). Its main menu and Quick
+  Access are drawn **in Steam's own window**, so with the shell on top they open unseen
+  (only Steam's sounds play).
+- The shell's window does **not** lose X focus when they open (a Tk test window did earlier).
+- Steam button: Steam writes root `GAMESCOPE_BLUR_MODE` (value 0) each time its main menu
+  opens; nothing when it closes. The shell uses that to step aside (works).
+- Quick Access (…): **no X property change at all**, neither on the root nor on Steam's
+  window (`STEAM_OVERLAY`, `STEAM_INPUT_FOCUS`, `STEAM_NOTIFICATION` unchanged). Only Steam's
+  logs show it: `logs/webhelper.txt` `QuickAccess_uid2-'QuickAcces': WasHidden 0` (open) /
+  `WasHidden 1` (closed); `logs/controller_ui.txt` `Guide button sent to JS` for the Steam
+  button.
+- Remote Home: a passive key grab on the root window (`xcb_grab_key`, keycode 180 =
+  `XF86HomePage`) delivers it to the shell even while Steam has focus (works).
+- Controller: **while Steam's own UI has focus, Steam doesn't feed its virtual pad** (no
+  events at all reach SDL), so no controller gesture can reach the shell then. Buttons are
+  seen only while the shell (or a game) has focus.
+- Steam's Big Picture shortcut **Ctrl+2** toggles Quick Access (sent with XTest /
+  `xdotool key ctrl+2` while Steam is focused; logged as `WasHidden 0`/`1`). Ctrl+1 is
+  presumably the main menu (not tried).
+- Handing the screen to Steam right after Quick Access opened: once Steam closed it again
+  ~1 s later (focus change), twice it stayed open.
+- Steam's UI is Chromium (CEF); Decky Loader hooks it via CEF remote debugging
+  (`.cef-enable-remote-debugging`, not enabled here). Option for deeper integration.
+
 ### Native Wayland clients (tested 2026-11-21)
 
 - gamescope's socket `gamescope-0` advertises `xdg_wm_base` v3 and `zwlr_layer_shell_v1` v4,

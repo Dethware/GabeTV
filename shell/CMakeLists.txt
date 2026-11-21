@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Quick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
+pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
 
 qt_standard_project_setup(REQUIRES 6.11)
 
@@ -38,6 +38,8 @@ qt_add_qml_module(tvshell
         src/GamepadInput.h
         src/SteamLibrary.cpp
         src/SteamLibrary.h
+        src/SteamLog.cpp
+        src/SteamLog.h
 )
 
 # The generated QML type registration includes the headers by name.

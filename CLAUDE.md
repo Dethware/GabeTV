@@ -36,6 +36,12 @@ Everything below describes the target unless noted.
    - Rejected for now: running our shell as a non-Steam shortcut (slow start, Steam's controller prompt, Steam treats it as a running game). Native Wayland would need `--expose-wayland` and has no real app ID.
 3. **The UI concept is "places", not shelves.** It's a spatial library with stable positions that never auto-reorder, and it unifies every source (Steam, emulators, media apps, photos). It must be fully navigable with a d-pad or TV remote, with no mouse or keyboard needed.
 4. **No Steam startup movies or Steam screensaver.** Our shell owns idle behavior: screensaver (Immich photos), dimming, screen off.
+5. **The device you pick up suggests what you want to do.** Not a rule, but it guides the design:
+   - the remote → the TV (shell, media): its Home brings back the shell;
+   - the Steam Controller → Steam games: its Steam buttons open Steam's own screens; no controller way back to the shell is needed for now (Steam keeps the controller while its UI has focus anyway);
+   - Nintendo controllers (Joy-Con) → Nintendo games (Ryujinx/Eden);
+   - a Joy-Con attached to the Ring-Con → Ring Fit Adventure.
+   So the shell may later react to which device wakes up or connects, e.g. offer Ring Fit when a Ring-Con shows up.
 
 ## Apps and the plan for each
 

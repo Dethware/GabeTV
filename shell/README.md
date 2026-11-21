@@ -15,6 +15,14 @@ Layouts and looks are placeholders; this is the plumbing.
   The controller is read through SDL3 from Steam's virtual Xbox pad and turned into key
   events (A = Return, B/Back = Back, Start = Menu, d-pad/left stick = arrows with repeat),
   only while the shell is on screen and active, since the same pad feeds games.
+- **Steam's own screens**: Steam keeps the Steam and … buttons and draws its menu and Quick
+  Access in its own window, behind the shell. The shell steps aside (`claim = false`) when
+  Steam opens its menu (Steam writes root `GAMESCOPE_BLUR_MODE`) or Quick Access (only visible
+  in Steam's `logs/webhelper.txt`, followed by `src/SteamLog.*`). If Steam closes Quick Access
+  right after the handoff, the shell re-opens it with Steam's Ctrl+2 shortcut (XTest).
+  The remote's **Home** (grabbed on the root window) brings the shell back. There's no
+  controller way back for now: picking up the controller suggests playing, and Steam doesn't
+  feed its virtual pad while its UI has focus anyway.
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
 - **UI** (`qml/`): one place with a grid of games.
@@ -35,7 +43,7 @@ enable it, so it runs until stopped or until Gaming Mode restarts.
 `systemctl --user enable tvshell` would start it with every Gaming Mode session.
 
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.steam`.
+Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.steam`, `tvshell.steamlog`.
 
 Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
 in the shell; suspend and resume. Steam recreates its virtual pad after a game and after resume;

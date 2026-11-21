@@ -131,6 +131,8 @@ void GamepadInput::poll()
             }
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            qCDebug(lcGamepad) << "button down" << SDL_GetGamepadStringForButton(SDL_GamepadButton(event.gbutton.button))
+                               << (m_enabled ? "" : "(ignored, not on screen)");
             if (const int key = keyForButton(event.gbutton.button))
                 press(key);
             break;

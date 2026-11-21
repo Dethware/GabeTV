@@ -49,9 +49,18 @@ public:
     // gamescope reports our app ID as the focused one.
     bool onScreen() const { return m_onScreen; }
 
+    // Steam's Big Picture shortcut for Quick Access (Ctrl+2), sent as real input via XTest to
+    // whichever window has focus. Toggles: only call it while Steam has the screen.
+    Q_INVOKABLE void toggleQuickAccess();
+
     bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
 
 signals:
+    // The remote's Home key, grabbed on the root window: arrives even while Steam has focus.
+    void homePressed();
+    // Steam opened its main menu or Quick Access while the shell was on screen. Steam draws those
+    // in its own window, which is behind ours: the shell should step aside (claim = false).
+    void steamMenuOpened();
     void windowChanged();
     void claimChanged();
     void availableChanged();
@@ -60,6 +69,8 @@ signals:
 
 private:
     void connectToX11();
+    void grabHomeKey();
+    xcb_keycode_t keycodeFor(xcb_keysym_t keysym) const;
     void tagWindow();
     void evaluate();
     void release();
@@ -77,4 +88,6 @@ private:
     xcb_atom_t m_steamGame = 0;
     xcb_atom_t m_baseLayer = 0;
     xcb_atom_t m_focusedApp = 0;
+    xcb_atom_t m_blurMode = 0;
+    xcb_keycode_t m_homeKeycode = 0;
 };
