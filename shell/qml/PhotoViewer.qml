@@ -1,5 +1,6 @@
 import QtQuick
 import QtMultimedia
+import QtQuick.Effects
 import TvShell
 
 // One photo, whole, over a background (the photo blurred, its colours, or black; see
@@ -335,12 +336,26 @@ FocusScope {
         }
     }
 
+    // Position and video state, bottom right; outlined like the screensaver's date and place.
     Text {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 32
-        color: "#808080"
-        font.pixelSize: 24
+        anchors.margins: 64
+        color: "white"
+        style: Text.Outline
+        styleColor: "black"
+        font.pixelSize: 48
+        font.weight: Font.DemiBold
+
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "black"
+            shadowBlur: 0.6
+            shadowOpacity: 0.9
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 0
+        }
         text: {
             let state = ""
             if (viewer.asset && !viewer.asset.isImage) {
