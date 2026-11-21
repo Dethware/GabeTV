@@ -336,6 +336,15 @@ FocusScope {
         }
     }
 
+    // Date and place, bottom left (opposite the counter).
+    PhotoInfo {
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 64
+        asset: viewer.asset
+        visible: hasInfo
+    }
+
     // Position and video state, bottom right; outlined like the screensaver's date and place.
     Text {
         anchors.right: parent.right

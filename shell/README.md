@@ -82,6 +82,8 @@ Layouts and looks are placeholders; this is the plumbing.
   `transition`, `background`; the backdrop is `qml/PhotoBackdrop.qml`, shared with the
   screensaver). One transition at a time; presses during one go straight to the latest photo
   next. A held key skips transitions, and the background follows once it stops for 0.2 s.
+  Date and place (Immich's `city`, `country`) at the bottom left, the position at the bottom
+  right, both outlined like the screensaver's (`qml/PhotoInfo.qml`, shared).
   The viewer shows the cached thumbnail at once and loads the preview and
   full-size image after 250 ms on a photo; the last photo stays up until the next one shows
   (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and

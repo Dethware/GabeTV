@@ -55,6 +55,7 @@ set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS Phot
 set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
+set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -77,6 +78,7 @@ qt_add_qml_module(tvshell
         qml/ScreensaverLayer.qml
         qml/AlbumPicker.qml
         qml/PhotoBackdrop.qml
+        qml/PhotoInfo.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h

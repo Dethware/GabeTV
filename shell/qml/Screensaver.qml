@@ -167,57 +167,23 @@ FocusScope {
 
     // Date and place, bottom left. It moves to a new spot nearby every few minutes, gliding
     // slowly, so it never sits on the same OLED pixels for long without jumping around.
-    Column {
+    PhotoInfo {
         id: info
-
-        readonly property var asset: saver.slideshow ? saver.assets[saver.index] : null
-        readonly property string date: asset && asset.date
-                                       ? Qt.formatDate(new Date(asset.date + "T12:00:00"), "d MMMM yyyy") : ""
-        readonly property string place: asset && asset.place ? asset.place : ""
 
         function drift() {
             x = 48 + Math.random() * 64
             y = saver.height - height - 48 - Math.random() * 48
         }
 
+        asset: saver.slideshow && saver.shownIndex >= 0 ? saver.assets[saver.shownIndex] : null
         x: 72
         y: saver.height - height - 72
         // Above the photo layers (they raise themselves to z 1 when revealed).
         z: 2
-        spacing: 4
-        visible: saver.slideshow && saver.settings.showInfo && (date.length > 0 || place.length > 0)
-
-        layer.enabled: visible
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "black"
-            shadowBlur: 0.6
-            shadowOpacity: 0.9
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: 0
-        }
+        visible: saver.slideshow && saver.settings.showInfo && hasInfo
 
         Behavior on x { NumberAnimation { duration: 4000; easing.type: Easing.InOutSine } }
         Behavior on y { NumberAnimation { duration: 4000; easing.type: Easing.InOutSine } }
-
-        Text {
-            visible: text.length > 0
-            color: "white"
-            style: Text.Outline
-            styleColor: "black"
-            font.pixelSize: 64
-            font.weight: Font.DemiBold
-            text: info.date
-        }
-
-        Text {
-            visible: text.length > 0
-            color: "#e0e0e0"
-            style: Text.Outline
-            styleColor: "black"
-            font.pixelSize: 48
-            text: info.place
-        }
 
         Timer {
             interval: 5 * 60 * 1000
