@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(tvshell
     VERSION 0.1.0
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -13,8 +13,24 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Quick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
+find_package(Threads REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.11)
+
+# Vendored (3rdparty/miniaudio/README.md). Audio backends are loaded at runtime.
+add_library(miniaudio STATIC
+    3rdparty/miniaudio/miniaudio.c
+)
+target_include_directories(miniaudio
+    SYSTEM PUBLIC
+        3rdparty/miniaudio
+)
+target_link_libraries(miniaudio
+    PRIVATE
+        Threads::Threads
+        ${CMAKE_DL_LIBS}
+        m
+)
 
 qt_add_executable(tvshell
     src/main.cpp
@@ -25,6 +41,11 @@ set_source_files_properties(qml/Main.qml PROPERTIES QT_RESOURCE_ALIAS Main.qml)
 set_source_files_properties(qml/GamesPlace.qml PROPERTIES QT_RESOURCE_ALIAS GamesPlace.qml)
 set_source_files_properties(qml/GameTile.qml PROPERTIES QT_RESOURCE_ALIAS GameTile.qml)
 set_source_files_properties(qml/Screensaver.qml PROPERTIES QT_RESOURCE_ALIAS Screensaver.qml)
+set_source_files_properties(qml/PowerDialog.qml PROPERTIES QT_RESOURCE_ALIAS PowerDialog.qml)
+set_source_files_properties(qml/SettingRow.qml PROPERTIES QT_RESOURCE_ALIAS SettingRow.qml)
+set_source_files_properties(qml/SettingsPage.qml PROPERTIES QT_RESOURCE_ALIAS SettingsPage.qml)
+set_source_files_properties(qml/TopBar.qml PROPERTIES QT_RESOURCE_ALIAS TopBar.qml)
+set_source_files_properties(qml/AssistantIndicator.qml PROPERTIES QT_RESOURCE_ALIAS AssistantIndicator.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -33,13 +54,26 @@ qt_add_qml_module(tvshell
         qml/GamesPlace.qml
         qml/GameTile.qml
         qml/Screensaver.qml
+        qml/PowerDialog.qml
+        qml/SettingRow.qml
+        qml/SettingsPage.qml
+        qml/TopBar.qml
+        qml/AssistantIndicator.qml
     SOURCES
+        src/AudioPlayer.cpp
+        src/AudioPlayer.h
         src/BaseLayer.cpp
         src/BaseLayer.h
         src/GamepadInput.cpp
         src/GamepadInput.h
+        src/ImaAdpcm.cpp
+        src/ImaAdpcm.h
         src/IdleController.cpp
         src/IdleController.h
+        src/PowerActions.cpp
+        src/PowerActions.h
+        src/RemoteAssistant.cpp
+        src/RemoteAssistant.h
         src/SteamLibrary.cpp
         src/SteamLibrary.h
         src/SteamLog.cpp
@@ -56,4 +90,5 @@ target_link_libraries(tvshell
         Qt6::Quick
         SDL3::SDL3
         PkgConfig::XCB
+        miniaudio
 )

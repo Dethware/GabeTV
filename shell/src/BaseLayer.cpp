@@ -1,5 +1,6 @@
 #include "BaseLayer.h"
 
+#include <QDBusConnection>
 #include <QGuiApplication>
 #include <QLoggingCategory>
 
@@ -12,8 +13,11 @@ Q_LOGGING_CATEGORY(lcBaseLayer, "tvshell.baselayer")
 
 namespace {
 
-// Steam's UI (re)start: base layer rewritten, then GAMESCOPE_BLUR_MODE ~30 ms later.
-constexpr int SteamRestartWindowMs = 1000;
+// Steam's UI (re)start: it rewrites the base layer, then writes GAMESCOPE_BLUR_MODE (seen at
+// +30 ms and +340 ms) without opening any menu. Short, so real menu presses still count.
+constexpr int SteamRestartWindowMs = 2000;
+constexpr int PowerHoldMs = 800;
+constexpr int PowerReleaseSettleMs = 80;
 
 template<typename T>
 using XcbReply = std::unique_ptr<T, decltype(&std::free)>;
@@ -38,6 +42,22 @@ BaseLayer::BaseLayer(QObject *parent)
     : QObject(parent)
     , m_claim(qEnvironmentVariableIntValue("TVSHELL_NO_CLAIM") == 0)
 {
+    m_powerHoldTimer.setSingleShot(true);
+    m_powerHoldTimer.setInterval(PowerHoldMs);
+    connect(&m_powerHoldTimer, &QTimer::timeout, this, [this] {
+        qCInfo(lcBaseLayer) << "Power held";
+        emit powerHeld();
+    });
+    m_powerReleaseTimer.setSingleShot(true);
+    m_powerReleaseTimer.setInterval(PowerReleaseSettleMs);
+    connect(&m_powerReleaseTimer, &QTimer::timeout, this, [this] {
+        m_powerDown = false;
+        if (m_powerHoldTimer.isActive()) {
+            m_powerHoldTimer.stop();
+            qCInfo(lcBaseLayer) << "Power pressed";
+            emit powerPressed();
+        }
+    });
     connectToX11();
 }
 
@@ -102,6 +122,10 @@ void BaseLayer::connectToX11()
 
     qGuiApp->installNativeEventFilter(this);
     grabKeys();
+    QDBusConnection::systemBus().connect(QStringLiteral("org.freedesktop.login1"),
+                                         QStringLiteral("/org/freedesktop/login1"),
+                                         QStringLiteral("org.freedesktop.login1.Manager"),
+                                         QStringLiteral("PrepareForSleep"), this, SLOT(prepareForSleep(bool)));
     emit availableChanged();
 }
 
@@ -148,6 +172,21 @@ void BaseLayer::grabKeys()
     m_sleepKeycode = grabKey(XF86Sleep, "Sleep");
 }
 
+void BaseLayer::prepareForSleep(bool start)
+{
+    if (start || !m_root)
+        return;
+    qCInfo(lcBaseLayer) << "resumed: grabbing Home and Power again";
+    for (xcb_keycode_t keycode : {m_homeKeycode, m_sleepKeycode}) {
+        if (keycode)
+            xcb_ungrab_key(m_connection, keycode, m_root, XCB_MOD_MASK_ANY);
+    }
+    m_powerDown = false;
+    m_powerHoldTimer.stop();
+    m_powerReleaseTimer.stop();
+    grabKeys();
+}
+
 // Passive grab on the root window: the key reaches us whichever window has focus.
 xcb_keycode_t BaseLayer::grabKey(xcb_keysym_t keysym, const char *name)
 {
@@ -156,8 +195,11 @@ xcb_keycode_t BaseLayer::grabKey(xcb_keysym_t keysym, const char *name)
         qCWarning(lcBaseLayer) << "no keycode for" << name;
         return 0;
     }
+    // owner_events = false: while the grab is active (key held), the press *and* the release
+    // come to the root window, where we look for them. With true, X delivered the release to the
+    // shell's own window instead, and Power looked stuck down.
     auto error = reply(xcb_request_check(
-        m_connection, xcb_grab_key_checked(m_connection, 1, m_root, XCB_MOD_MASK_ANY, keycode,
+        m_connection, xcb_grab_key_checked(m_connection, 0, m_root, XCB_MOD_MASK_ANY, keycode,
                                            XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC)));
     if (error) {
         qCWarning(lcBaseLayer) << "could not grab" << name << "(keycode" << keycode << "), X error" << error->error_code;
@@ -238,8 +280,17 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
     const uint8_t type = event->response_type & ~0x80;
     if (type == XCB_KEY_PRESS || type == XCB_KEY_RELEASE) {
         auto *key = reinterpret_cast<xcb_key_press_event_t *>(event);
-        if (key->event != m_root || !key->detail)
+        if (!key->detail)
             return false;
+        // A Power release must never get lost, wherever X delivers it.
+        if (type == XCB_KEY_RELEASE && key->detail == m_sleepKeycode && key->event != m_root) {
+            m_powerReleaseTimer.start();
+            return true;
+        }
+        if (key->event != m_root)
+            return false;
+        qCDebug(lcBaseLayer) << (type == XCB_KEY_PRESS ? "root key press" : "root key release") << key->detail
+                             << "time" << key->time << "state" << key->state;
         if (key->detail == m_homeKeycode) {
             if (type == XCB_KEY_PRESS) {
                 qCInfo(lcBaseLayer) << "Home pressed (global grab)";
@@ -249,8 +300,14 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
         }
         if (key->detail == m_sleepKeycode) {
             if (type == XCB_KEY_PRESS) {
-                qCInfo(lcBaseLayer) << "Power pressed (global grab)";
-                emit powerPressed();
+                if (m_powerReleaseTimer.isActive()) {
+                    m_powerReleaseTimer.stop(); // auto-repeat: still held
+                } else if (!m_powerDown) {
+                    m_powerDown = true;
+                    m_powerHoldTimer.start();
+                }
+            } else {
+                m_powerReleaseTimer.start();
             }
             return true;
         }
@@ -261,14 +318,19 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
     if (notify->window != m_root)
         return false;
     if (notify->atom == m_baseLayer || notify->atom == m_focusedApp) {
-        if (notify->atom == m_baseLayer)
-            m_sinceBaseLayerChange.start();
+        if (notify->atom == m_baseLayer) {
+            // Steam replaced the list (our ID gone) while no game was running: Steam (re)started.
+            // A game ending also drops our ID, but then a game was running until now.
+            const QList<quint32> layer = readRootCardinals(m_baseLayer);
+            if (!m_gameRunning && !layer.contains(AppId) && m_claim)
+                m_sinceSteamStart.start();
+        }
         QMetaObject::invokeMethod(this, &BaseLayer::evaluate, Qt::QueuedConnection);
     } else if (notify->atom == m_inputCounter) {
         emit inputActivity();
-    } else if (notify->atom == m_blurMode && m_sinceBaseLayerChange.isValid()
-               && m_sinceBaseLayerChange.elapsed() < SteamRestartWindowMs) {
-        qCInfo(lcBaseLayer) << "ignoring Steam's blur write right after a base layer change (Steam UI restart?)";
+    } else if (notify->atom == m_blurMode && m_sinceSteamStart.isValid()
+               && m_sinceSteamStart.elapsed() < SteamRestartWindowMs) {
+        qCInfo(lcBaseLayer) << "ignoring Steam's blur write while Steam is starting";
     } else if (notify->atom == m_blurMode && m_onScreen && !m_gameRunning) {
         qCInfo(lcBaseLayer) << "Steam opened its menu";
         emit steamMenuOpened();

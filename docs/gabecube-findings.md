@@ -278,12 +278,28 @@ Steam kept focus throughout.
   "Suspend key pressed short" but doesn't suspend.
 - Root `GAMESCOPE_INPUT_COUNTER` increments on keyboard-type input through gamescope (seen
   for the remote's keys, including Power); a key press handled by a root grab bumps it too.
-- Steam's own idle settings (2026-11-21): dimming off, screensaver after 5 min, sleep after
-  60 min. In its files only `IdleBacklightDim*Seconds` and `CurrentScreensaver` show up.
-  Steam's screensaver seems to close open Steam menus (with sounds) when it starts.
+- Steam's own idle settings live in `~/.local/share/Steam/config/config.vdf`:
+  `IdleBacklightDimACSeconds`, `IdleScreensaverACSeconds`, `IdleSuspendACSeconds` (also
+  `…BatterySeconds` variants) and `CurrentScreensaver`. A value only appears once changed
+  from Steam's default. Defaults seen: dimming off, screensaver after 5 min, sleep after
+  60 min. Since 2026-11-21 all three AC values are `0` (off); the shell's idle chain replaces
+  them. Steam's screensaver seemed to close open Steam menus (with sounds) when it started.
 - Untested: what the LG G6 does on signal loss (standby after a timeout?), and how it
   wakes when the signal returns. Nothing wakes the output automatically: our shell would
   set it back to `0` on input.
+
+## Switching off the Steam Controller (tested 2026-11-21)
+
+- The controller connects through its USB puck, `28de:1305` ("Valve Software Steam Controller
+  Puck"; SDL calls it the Nereid dongle, `1304` = Proteus dongle). It exposes four HID
+  interfaces (`hidraw2`–`5`), all with a uaccess ACL for `deck`; Steam has them open too.
+- SDL's driver for the new controller (`SDL_hidapi_steam_triton.c`, "Triton") uses the same
+  feature-report messages as the classic Steam Controller. `ID_TURN_OFF_CONTROLLER = 0x9F` is
+  defined there but unused.
+- Sending `01 9F 04 6F 66 66 21` (report ID 1, type 0x9F, length 4, "off!"), padded to 64 bytes,
+  with `HIDIOCSFEATURE` as `deck`: accepted on `hidraw2`, `EPIPE` on the other three (no
+  controller in those slots). Steam's `logs/controller.txt` then showed the wireless link
+  ending ("Disconnect (Spontaneous)"). No root, Steam kept running.
 
 ## Google TV remote over Bluetooth (tested 2026-11-21)
 
@@ -408,8 +424,45 @@ pressing Assistant 4×, without any voice handshake:
 - Release → control `00 02`, audio stops.
 - *Inferred from the Android TV voice protocol:* `04` = audio start, `00` = audio stop; the
   audio is the remote's microphone (likely ADPCM).
-- So the shell can treat Assistant as a press/release button by watching `ab5e0004`, and
-  could do push-to-talk voice later.
+- That behaviour (hold-to-talk) was the remote's state left over from the dongle. After the
+  remote reconnected a few times it sent **nothing** for Assistant until the host sent a
+  capabilities request; the host has to pick the interaction model.
+
+#### Voice protocol details (2026-11-21, evening)
+
+Reference: Google's Android TV reference remote firmware in AOSP,
+`platform/hardware/telink/atv/refDesignRcu` @ `47d234ba…`, `application/audio/gl_audio.{c,h}`.
+The Chromecast remote runs different firmware (its replies differ in layout) but the
+commands below work with it.
+
+- Host → remote on `ab5e0002` (write without response):
+  - GET_CAPS `0A <ver hi> <ver lo> <codecs hi> <codecs lo> <model>`. Version `01 00` selects
+    protocol 1.0. **Model is a plain value**: `00` on request, `01` press-to-talk, `03`
+    hold-to-talk; any other value (e.g. `07`, `04`, `02`) makes the remote ignore the button.
+  - MIC_OPEN `0C <mode>` (2 bytes; on-request model), MIC_CLOSE `0D <stream id>`,
+    MIC_EXTEND `0E <stream id>`.
+- Remote → host on `ab5e0004` (notify): CAPS_RESP `0B …`, AUDIO_START `04 <reason> <codec>
+  <stream>`, AUDIO_STOP `00 <reason>`, START_SEARCH `08`, SYNC `0A …`, MIC_OPEN_ERROR `0C <code>`.
+- The Chromecast remote's CAPS_RESP for `0a 01 00 00 03 03`: `0b 01 00 02 03 00 a0 01 00 1a`
+  = version 1.0, codec `02` (ADPCM 16 kHz), model `03` (confirms the request; it stayed `00`
+  for invalid values), frame size `00 a0` (160), then `01 00 1a` (unknown).
+- Hold-to-talk: press → `04 03 02 <stream>` + audio, release → `00 02`. No host replies.
+  On request: press → `08`; the host must send MIC_OPEN; the stream ends with MIC_CLOSE or a
+  15 s timeout (`00 08`).
+- Audio (reference firmware): IMA ADPCM, 240 samples per packet (15 ms at 16 kHz), sent as
+  raw chunks of the frame size; predictor/step index travel only in SYNC messages on the
+  control characteristic.
+- Audio (Chromecast remote, captured and decoded 2026-11-21): **160-byte notifications of raw
+  IMA ADPCM, no header**, ~50/s = 16 kHz mono; **high nibble first**. No SYNC messages were
+  sent, so each press decodes as one stream from predictor 0 / step index 0. (Low nibble first
+  drifts away; a smoothness metric favoured the wrong order, the waveform picture didn't.)
+  Microphone level is low: speech peaks ~7% of full scale. Sounds clear when amplified.
+- The shell (2026-11-21) sends GET_CAPS with hold-to-talk on every (re)subscribe, decodes the
+  audio while Assistant is held (ring follows the decoded level) and plays it back on release
+  through miniaudio (picked "HDMI / DisplayPort Digital Stereo" via its PulseAudio backend).
+  Works.
+- With two D-Bus clients subscribed (StartNotify) to the same characteristic, each client
+  received every notification twice.
 
 ## Waydroid prerequisites
 

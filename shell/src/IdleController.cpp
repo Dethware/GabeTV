@@ -14,21 +14,26 @@ Q_LOGGING_CATEGORY(lcIdle, "tvshell.idle")
 
 namespace {
 
+QString configPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/tvshell/tvshell.conf");
+}
+
 constexpr int TickMs = 1000;
 // Key presses this soon after waking up only woke us; don't let them act.
 constexpr int SwallowAfterWakeMs = 400;
 // The Power press that turned the screen off also shows up as input (gamescope's input
 // counter, its key release): don't let that wake the screen right away.
 constexpr int IgnoreAfterScreenOffMs = 1000;
+// A short Power press completes (on release) this soon after its press woke the screen.
+constexpr int JustWokeMs = 1500;
 
 } // namespace
 
 IdleController::IdleController(QObject *parent)
     : QObject(parent)
 {
-    QSettings settings(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
-                           + QStringLiteral("/tvshell/tvshell.conf"),
-                       QSettings::IniFormat);
+    QSettings settings(configPath(), QSettings::IniFormat);
     settings.beginGroup(QStringLiteral("idle"));
     m_screensaverAfter = settings.value(QStringLiteral("screensaverAfter"), m_screensaverAfter).toInt();
     m_screenOffAfter = settings.value(QStringLiteral("screenOffAfter"), m_screenOffAfter).toInt();
@@ -75,6 +80,33 @@ void IdleController::setCounting(bool counting)
     emit countingChanged();
 }
 
+void IdleController::setScreensaverAfter(int seconds)
+{
+    saveTime(QStringLiteral("screensaverAfter"), m_screensaverAfter, seconds);
+}
+
+void IdleController::setScreenOffAfter(int seconds)
+{
+    saveTime(QStringLiteral("screenOffAfter"), m_screenOffAfter, seconds);
+}
+
+void IdleController::setSuspendAfter(int seconds)
+{
+    saveTime(QStringLiteral("suspendAfter"), m_suspendAfter, seconds);
+}
+
+void IdleController::saveTime(const QString &key, int &member, int seconds)
+{
+    seconds = qMax(0, seconds);
+    if (member == seconds)
+        return;
+    member = seconds;
+    QSettings settings(configPath(), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("idle/") + key, seconds);
+    qCInfo(lcIdle) << key << "set to" << seconds << "s";
+    emit timesChanged();
+}
+
 void IdleController::activity()
 {
     if (m_state == State::ScreenOff && m_sinceScreenOffRequest.isValid()
@@ -89,6 +121,15 @@ void IdleController::activity()
         m_sinceWake.start();
         setState(State::Active);
     }
+}
+
+void IdleController::togglePower()
+{
+    const bool justWoke = m_sinceWake.isValid() && m_sinceWake.elapsed() < JustWokeMs;
+    if (m_state == State::ScreenOff || justWoke)
+        activity();
+    else
+        screenOff();
 }
 
 void IdleController::screenOff()

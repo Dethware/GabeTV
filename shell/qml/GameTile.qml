@@ -18,7 +18,7 @@ Item {
         radius: 8
         color: "#1d252c"
         border.color: "white"
-        border.width: tile.GridView.isCurrentItem ? 6 : 0
+        border.width: tile.GridView.isCurrentItem && tile.GridView.view.activeFocus ? 6 : 0
 
         Image {
             id: coverImage

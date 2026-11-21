@@ -10,23 +10,10 @@ FocusScope {
     // Pick up games installed or removed while a game or Steam had the screen.
     onOnScreenChanged: if (onScreen) library.reload()
 
-    Text {
-        id: heading
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.margins: 48
-        color: "white"
-        font.pixelSize: 48
-        text: qsTr("Games")
-    }
-
     GridView {
         id: grid
 
-        anchors.top: heading.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        anchors.fill: parent
         anchors.margins: 32
         focus: true
         model: place.library

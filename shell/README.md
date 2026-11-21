@@ -32,9 +32,29 @@ Layouts and looks are placeholders; this is the plumbing.
   Times in `~/.config/tvshell/tvshell.conf`, `[idle]` group, seconds, 0 = never:
   `screensaverAfter`, `screenOffAfter`, `suspendAfter`. The screensaver is a placeholder
   (moving clock); Immich photos later.
-- **Power** (the remote's, remapped to the sleep key): screen off, again → on. The shell holds
-  a logind `handle-suspend-key` inhibitor lock so logind doesn't suspend, and grabs the key on
-  the root window like Home, so it works during games and in Steam's screens too.
+- **Power** (the remote's, remapped to the sleep key): a short press turns the screen off,
+  again → on; held for 0.8 s it opens the power dialog (Sleep, Power off, Turn off controllers,
+  Cancel; starts on Cancel), not yet over a running game. The shell holds a logind
+  `handle-suspend-key` inhibitor lock so logind doesn't suspend, and grabs the key on the root
+  window like Home, so it works in Steam's screens and games too. The grabs use
+  `owner_events = false`: with `true`, X delivered the release to the shell's own window and
+  Power looked stuck down. A held key auto-repeats as release/press pairs every 40 ms; a
+  release only counts after 80 ms without a new press. Both grabs are redone after a resume.
+  "Turn off controllers" (`src/PowerActions.*`) sends the Steam Controller "turn off" feature
+  report (`01 9F 04 "off!"`, 64 bytes) to each HID interface of a Steam Controller puck
+  (`28de:1304`/`1305`) through hidraw, which `deck` may open alongside Steam; and disconnects
+  Bluetooth gamepads through bluez (not the remote).
+- **Assistant** (`src/RemoteAssistant.*`, `qml/AssistantIndicator.qml`): the remote's
+  Assistant button and microphone through its Android TV Voice service over bluez D-Bus (no
+  root). On (re)subscribing it asks the remote for the hold-to-talk model. While Assistant is
+  held, the audio is decoded (`src/ImaAdpcm.*`, IMA ADPCM 16 kHz) and a ring at the bottom
+  follows its level; on release the recording is normalized and played back
+  (`src/AudioPlayer.*`, vendored miniaudio in `3rdparty/miniaudio/`). Not connected to anything
+  else yet (later: speech recognition / a local model on mikoshi). Protocol notes in
+  `docs/gabecube-findings.md`.
+- **Settings** (`qml/SettingsPage.qml`): from the top bar's Settings entry (up from the games)
+  or the controller's Start/≡. A Power category with the three idle times; left/right changes
+  a value, saved and applied at once; Back leaves.
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
 - **UI** (`qml/`): one place with a grid of games.
@@ -48,24 +68,25 @@ or loaded first.
     ./deploy.sh           # copy to gabecube, install the user unit, restart it
     ./deploy.sh --log     # follow its log
     ./deploy.sh --stop    # stop it; Steam gets the screen back
+    ./deploy.sh --enable  # start it with every Gaming Mode session (--disable to undo)
 
 `deploy/tvshell.service` is a user unit that belongs to the Gaming Mode session
-(`PartOf=graphical-session.target`, reads `%t/gamescope-environment`). `deploy.sh` doesn't
-enable it, so it runs until stopped or until Gaming Mode restarts.
-`systemctl --user enable tvshell` would start it with every Gaming Mode session.
+(`PartOf=graphical-session.target`, reads `%t/gamescope-environment`). Enabled on gabecube
+since 2026-11-21 (link in `~/.config/systemd/user/gamescope-session.target.wants/`), so the
+shell is the default interface: it comes up with Gaming Mode, before Steam has started, and
+takes the screen back when Steam finishes starting.
 
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.steam`,
+Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.steam`,
 `tvshell.steamlog`.
 
 Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
-in the shell; suspend and resume. Steam recreates its virtual pad after a game and after resume;
+in the shell; suspend and resume; a full Gaming Mode restart (Steam restarting included). Steam recreates its virtual pad after a game and after resume;
 the shell picks it up again.
 
 ## Next
 
-- Returning after a Steam restart: implemented, not yet seen in use.
-- Assistant button (bluez D-Bus, Android TV Voice control channel).
+- Hand the Assistant audio to speech recognition.
 - Immich photos as the screensaver.
 - Settings screen for the idle times.
 - More places: media apps, photos, emulators.

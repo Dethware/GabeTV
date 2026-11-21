@@ -5,6 +5,7 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QTimer>
 #include <QWindow>
 #include <QtQml/qqmlregistration.h>
 
@@ -59,8 +60,10 @@ public:
 signals:
     // The remote's Home key, grabbed on the root window: arrives even while Steam has focus.
     void homePressed();
-    // The remote's Power (remapped to the sleep key), grabbed the same way.
+    // The remote's Power (remapped to the sleep key), grabbed the same way: a short press...
     void powerPressed();
+    // ...or held for a moment (fires while still held).
+    void powerHeld();
     // gamescope counted user input (GAMESCOPE_INPUT_COUNTER), wherever it went.
     void inputActivity();
     // Steam opened its main menu or Quick Access while the shell was on screen. Steam draws those
@@ -71,6 +74,11 @@ signals:
     void availableChanged();
     void gameRunningChanged();
     void onScreenChanged();
+
+private slots:
+    // logind: false after resume. Grab both keys afresh and forget any half-seen Power press
+    // (its release may have happened while we were suspended).
+    void prepareForSleep(bool start);
 
 private:
     void connectToX11();
@@ -98,7 +106,12 @@ private:
     xcb_atom_t m_inputCounter = 0;
     xcb_keycode_t m_homeKeycode = 0;
     xcb_keycode_t m_sleepKeycode = 0;
-    // When the base layer last changed. Steam also writes GAMESCOPE_BLUR_MODE when its UI
-    // (re)starts, right after rewriting the base layer; that isn't its menu opening.
-    QElapsedTimer m_sinceBaseLayerChange;
+    // Power short/long press. A held key may auto-repeat as release+press pairs, so a release
+    // only counts when no press follows quickly.
+    bool m_powerDown = false;
+    QTimer m_powerHoldTimer;
+    QTimer m_powerReleaseTimer;
+    // Since Steam's UI last (re)started. Steam writes GAMESCOPE_BLUR_MODE a few times while
+    // starting; that isn't its menu opening.
+    QElapsedTimer m_sinceSteamStart;
 };
