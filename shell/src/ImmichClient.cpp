@@ -8,7 +8,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QDateTime>
 #include <QNetworkReply>
+#include <QRandomGenerator>
 #include <QUrlQuery>
 
 #include <algorithm>
@@ -174,6 +176,78 @@ void ImmichClient::loadAlbumBuckets(const QString &albumId, QStringList buckets)
             emit albumAssetsChanged();
             loadAlbumBuckets(albumId, buckets);
         });
+}
+
+void ImmichClient::loadScreensaver(const QStringList &albumIds)
+{
+    const int generation = ++m_screensaverGeneration;
+    m_screensaverCollected.clear();
+    m_screensaverIds.clear();
+    m_screensaverAssets.clear();
+    m_screensaverPending = 0;
+    if (!configured() || albumIds.isEmpty()) {
+        emit screensaverChanged();
+        return;
+    }
+    for (const QString &albumId : albumIds) {
+        ++m_screensaverPending;
+        get(QStringLiteral("/timeline/buckets"), {{QStringLiteral("albumId"), albumId}},
+            [this, albumId, generation](const QByteArray &json) {
+                if (generation != m_screensaverGeneration)
+                    return;
+                for (const QJsonValue &value : QJsonDocument::fromJson(json).array()) {
+                    const QString bucket = value.toObject().value(QStringLiteral("timeBucket")).toString();
+                    ++m_screensaverPending;
+                    get(QStringLiteral("/timeline/bucket"),
+                        {{QStringLiteral("albumId"), albumId}, {QStringLiteral("timeBucket"), bucket}},
+                        [this, generation](const QByteArray &json) {
+                            if (generation != m_screensaverGeneration)
+                                return;
+                            const QJsonObject c = QJsonDocument::fromJson(json).object();
+                            const QJsonArray ids = c.value(QStringLiteral("id")).toArray();
+                            const QJsonArray images = c.value(QStringLiteral("isImage")).toArray();
+                            const QJsonArray ratios = c.value(QStringLiteral("ratio")).toArray();
+                            const QJsonArray created = c.value(QStringLiteral("fileCreatedAt")).toArray();
+                            const QJsonArray offsets = c.value(QStringLiteral("localOffsetHours")).toArray();
+                            const QJsonArray cities = c.value(QStringLiteral("city")).toArray();
+                            const QJsonArray countries = c.value(QStringLiteral("country")).toArray();
+                            for (qsizetype i = 0; i < ids.size(); ++i) {
+                                const QString id = ids.at(i).toString();
+                                if (!images.at(i).toBool(true) || m_screensaverIds.contains(id))
+                                    continue;
+                                m_screensaverIds.insert(id);
+                                QVariantMap a = asset(id, ratios.at(i).toDouble(1.5), true);
+                                QDateTime when = QDateTime::fromString(created.at(i).toString(), Qt::ISODateWithMs);
+                                if (when.isValid())
+                                    a.insert(QStringLiteral("date"),
+                                             when.toUTC().addSecs(qint64(offsets.at(i).toDouble() * 3600)).date().toString(Qt::ISODate));
+                                QStringList place;
+                                for (const QJsonValue &part : {cities.at(i), countries.at(i)}) {
+                                    if (!part.toString().isEmpty())
+                                        place << part.toString();
+                                }
+                                a.insert(QStringLiteral("place"), place.join(QStringLiteral(", ")));
+                                m_screensaverCollected.append(a);
+                            }
+                            screensaverRequestDone(generation);
+                        });
+                }
+                screensaverRequestDone(generation);
+            });
+    }
+    emit screensaverChanged();
+}
+
+void ImmichClient::screensaverRequestDone(int generation)
+{
+    if (generation != m_screensaverGeneration || --m_screensaverPending > 0)
+        return;
+    // The order for this whole screensaver run, decided once.
+    std::shuffle(m_screensaverCollected.begin(), m_screensaverCollected.end(), *QRandomGenerator::global());
+    m_screensaverAssets = m_screensaverCollected;
+    m_screensaverCollected.clear();
+    qCInfo(lcImmich) << "screensaver:" << m_screensaverAssets.size() << "photos, shuffled";
+    emit screensaverChanged();
 }
 
 QUrl ImmichClient::imageUrl(const QString &assetId, const QString &size) const

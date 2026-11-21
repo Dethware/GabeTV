@@ -53,8 +53,11 @@ public:
     int suspendAfter() const { return m_suspendAfter; }
     void setSuspendAfter(int seconds);
 
-    // Any user input, from anywhere.
+    // Any user input, from anywhere: restarts the idle time and turns the screen back on, but
+    // doesn't end the screensaver (key presses decide that, in eventFilter).
     Q_INVOKABLE void activity();
+    // Back to Active from anything: explicit wake-ups (Home, Assistant, the power dialog).
+    Q_INVOKABLE void wake();
     // The remote's Power: screen off now, wherever we are.
     Q_INVOKABLE void screenOff();
     // A short Power press: screen off, or on again if it's off. The press itself already counts

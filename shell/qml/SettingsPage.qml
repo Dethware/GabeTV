@@ -2,20 +2,28 @@ import QtQuick
 import TvShell
 
 // Settings, laid out like Steam's: categories on the left, options on the right.
-// Up/down picks an option, left/right changes its value, Back leaves.
+// Categories: up/down, Right/OK goes into the options. Options: up/down picks, left/right
+// changes the value, OK toggles or opens. Back goes out a level; from the categories it leaves.
 FocusScope {
     id: page
 
     required property IdleController idle
+    required property ScreensaverSettings screensaver
+    required property ImmichClient immich
 
     signal closed()
 
     // Seconds; 0 = never.
-    readonly property var durations: [0, 60, 120, 300, 600, 900, 1800, 2700, 3600, 7200, 14400]
+    readonly property var idleDurations: [0, 60, 120, 300, 600, 900, 1800, 2700, 3600, 7200, 14400]
+    readonly property var photoDurations: [5, 10, 15, 30, 60, 120]
+    readonly property var transitionKinds: ["slide", "fade", "none"]
+    readonly property var backgroundKinds: ["blur", "gradient", "black"]
 
     function formatDuration(seconds) {
         if (seconds === 0)
             return qsTr("Never")
+        if (seconds < 60)
+            return qsTr("%1 seconds").arg(seconds)
         if (seconds < 3600) {
             const minutes = Math.round(seconds / 60)
             return minutes === 1 ? qsTr("1 minute") : qsTr("%1 minutes").arg(minutes)
@@ -24,11 +32,11 @@ FocusScope {
         return hours === 1 ? qsTr("1 hour") : qsTr("%1 hours").arg(hours)
     }
 
-    function step(seconds, direction) {
-        const values = page.durations
-        let index = values.indexOf(seconds)
+    // The next value in `values` from `current` (which may not be one of them).
+    function stepIn(values, current, direction) {
+        let index = values.indexOf(current)
         if (index < 0) {
-            index = values.findIndex(value => value > seconds)
+            index = values.findIndex(value => value > current)
             if (index < 0)
                 index = values.length
             if (direction > 0)
@@ -37,8 +45,55 @@ FocusScope {
         return values[Math.max(0, Math.min(values.length - 1, index + direction))]
     }
 
-    Keys.onBackPressed: page.closed()
-    Keys.onEscapePressed: page.closed()
+    function transitionName(transition) {
+        return transition === "slide" ? qsTr("Slide") : transition === "fade" ? qsTr("Crossfade") : qsTr("None")
+    }
+
+    function backgroundName(background) {
+        return background === "blur" ? qsTr("Blurred photo") : background === "gradient" ? qsTr("Colour gradient") : qsTr("Black")
+    }
+
+    function albumsText() {
+        const count = screensaver.albums.length
+        return count === 0 ? qsTr("None (clock)") : count === 1 ? qsTr("1 album") : qsTr("%1 albums").arg(count)
+    }
+
+    readonly property var categoryOptions: [
+        // Power
+        [
+            { label: qsTr("Screensaver after"),
+              value: () => formatDuration(idle.screensaverAfter),
+              change: d => idle.screensaverAfter = stepIn(idleDurations, idle.screensaverAfter, d) },
+            { label: qsTr("Turn the screen off after"),
+              value: () => formatDuration(idle.screenOffAfter),
+              change: d => idle.screenOffAfter = stepIn(idleDurations, idle.screenOffAfter, d) },
+            { label: qsTr("Sleep after"),
+              value: () => formatDuration(idle.suspendAfter),
+              change: d => idle.suspendAfter = stepIn(idleDurations, idle.suspendAfter, d) },
+        ],
+        // Screensaver
+        [
+            { label: qsTr("Albums"),
+              value: () => albumsText(),
+              activate: () => albumPicker.open() },
+            { label: qsTr("Show each photo for"),
+              value: () => formatDuration(screensaver.interval),
+              change: d => screensaver.interval = stepIn(photoDurations, screensaver.interval, d) },
+            { label: qsTr("Transition"),
+              value: () => transitionName(screensaver.transition),
+              change: d => screensaver.transition = transitionKinds[(transitionKinds.indexOf(screensaver.transition) + d + transitionKinds.length) % transitionKinds.length] },
+            { label: qsTr("Background"),
+              value: () => backgroundName(screensaver.background),
+              change: d => screensaver.background = backgroundKinds[(backgroundKinds.indexOf(screensaver.background) + d + backgroundKinds.length) % backgroundKinds.length] },
+            { label: qsTr("Show date and place"),
+              value: () => screensaver.showInfo ? qsTr("On") : qsTr("Off"),
+              change: d => screensaver.showInfo = !screensaver.showInfo,
+              activate: () => screensaver.showInfo = !screensaver.showInfo },
+        ],
+    ]
+
+    Keys.onBackPressed: options.activeFocus ? categories.forceActiveFocus() : page.closed()
+    Keys.onEscapePressed: options.activeFocus ? categories.forceActiveFocus() : page.closed()
 
     Rectangle {
         anchors.fill: parent
@@ -55,29 +110,32 @@ FocusScope {
         text: qsTr("Settings")
     }
 
-    Column {
+    ListView {
         id: categories
 
         anchors.left: parent.left
         anchors.top: heading.bottom
+        anchors.bottom: parent.bottom
         anchors.margins: 48
         width: 400
+        spacing: 8
+        focus: true
+        model: [qsTr("Power"), qsTr("Screensaver")]
 
-        Rectangle {
-            width: categories.width
+        delegate: SettingRow {
+            required property string modelData
+            required property int index
+
+            width: ListView.view.width
             height: 72
-            radius: 8
-            color: "#2a343d"
-
-            Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 24
-                anchors.verticalCenter: parent.verticalCenter
-                color: "white"
-                font.pixelSize: 32
-                text: qsTr("Power")
-            }
+            label: modelData
+            current: categories.currentIndex === index
+            focused: current && categories.activeFocus
         }
+
+        Keys.onRightPressed: options.forceActiveFocus()
+        Keys.onReturnPressed: options.forceActiveFocus()
+        Keys.onEnterPressed: options.forceActiveFocus()
     }
 
     ListView {
@@ -89,28 +147,32 @@ FocusScope {
         anchors.bottom: parent.bottom
         anchors.margins: 48
         spacing: 8
-        focus: true
         keyNavigationWraps: false
-
-        model: [
-            { key: "screensaverAfter", label: qsTr("Screensaver after") },
-            { key: "screenOffAfter", label: qsTr("Turn the screen off after") },
-            { key: "suspendAfter", label: qsTr("Sleep after") },
-        ]
+        model: page.categoryOptions[categories.currentIndex]
 
         delegate: SettingRow {
             required property var modelData
 
             width: ListView.view.width
             label: modelData.label
-            value: page.formatDuration(page.idle[modelData.key])
+            value: modelData.value()
             current: ListView.isCurrentItem && options.activeFocus
-
-            onDecreased: page.idle[modelData.key] = page.step(page.idle[modelData.key], -1)
-            onIncreased: page.idle[modelData.key] = page.step(page.idle[modelData.key], 1)
+            focused: current
         }
 
-        Keys.onLeftPressed: currentItem.decreased()
-        Keys.onRightPressed: currentItem.increased()
+        Keys.onLeftPressed: { const o = model[currentIndex]; if (o.change) o.change(-1) }
+        Keys.onRightPressed: { const o = model[currentIndex]; if (o.change) o.change(1) }
+        Keys.onReturnPressed: { const o = model[currentIndex]; if (o.activate) o.activate() }
+        Keys.onEnterPressed: { const o = model[currentIndex]; if (o.activate) o.activate() }
+    }
+
+    AlbumPicker {
+        id: albumPicker
+
+        anchors.fill: parent
+        immich: page.immich
+        screensaver: page.screensaver
+
+        onClosed: options.forceActiveFocus()
     }
 }

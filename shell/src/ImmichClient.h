@@ -6,6 +6,7 @@
 
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QSet>
 #include <QUrl>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -29,6 +30,10 @@ class ImmichClient : public QObject
     Q_PROPERTY(QVariantList memories READ memories NOTIFY memoriesChanged)
     Q_PROPERTY(QVariantList albumAssets READ albumAssets NOTIFY albumAssetsChanged)
     Q_PROPERTY(bool albumLoading READ albumLoading NOTIFY albumAssetsChanged)
+    // Photos (no videos) of the screensaver's albums, shuffled once per loadScreensaver().
+    // Assets here also have { date: "yyyy-MM-dd" (local), place: "City, Country" }.
+    Q_PROPERTY(QVariantList screensaverAssets READ screensaverAssets NOTIFY screensaverChanged)
+    Q_PROPERTY(bool screensaverLoading READ screensaverLoading NOTIFY screensaverChanged)
 
 public:
     explicit ImmichClient(QObject *parent = nullptr);
@@ -39,6 +44,11 @@ public:
     QVariantList memories() const { return m_memories; }
     QVariantList albumAssets() const { return m_albumAssets; }
     bool albumLoading() const { return m_albumLoading; }
+    QVariantList screensaverAssets() const { return m_screensaverAssets; }
+    bool screensaverLoading() const { return m_screensaverPending > 0; }
+
+    // Collects all photos of these albums (all month buckets, in parallel), then shuffles them.
+    Q_INVOKABLE void loadScreensaver(const QStringList &albumIds);
 
     // Albums and today's memories.
     Q_INVOKABLE void refresh();
@@ -52,8 +62,10 @@ signals:
     void albumsChanged();
     void memoriesChanged();
     void albumAssetsChanged();
+    void screensaverChanged();
 
 private:
+    void screensaverRequestDone(int generation);
     using JsonHandler = std::function<void(const QByteArray &)>;
     void get(const QString &path, const QList<std::pair<QString, QString>> &query, JsonHandler handler);
     void setError(const QString &error);
@@ -67,4 +79,10 @@ private:
     QVariantList m_albumAssets;
     QString m_albumId;
     bool m_albumLoading = false;
+
+    QVariantList m_screensaverAssets;
+    QVariantList m_screensaverCollected;
+    QSet<QString> m_screensaverIds;
+    int m_screensaverPending = 0;
+    int m_screensaverGeneration = 0;
 };

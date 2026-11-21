@@ -112,6 +112,17 @@ void IdleController::activity()
     if (m_state == State::ScreenOff && m_sinceScreenOffRequest.isValid()
         && m_sinceScreenOffRequest.elapsed() < IgnoreAfterScreenOffMs)
         return;
+    // The screensaver is left by key presses only (see eventFilter): while it shows, the shell
+    // has the screen and its keys, and some keys browse the screensaver instead of ending it.
+    if (m_state == State::Screensaver) {
+        m_sinceActivity.restart();
+        return;
+    }
+    wake();
+}
+
+void IdleController::wake()
+{
     m_sinceActivity.restart();
     if (m_suspended) {
         m_suspended = false;
@@ -127,7 +138,7 @@ void IdleController::togglePower()
 {
     const bool justWoke = m_sinceWake.isValid() && m_sinceWake.elapsed() < JustWokeMs;
     if (m_state == State::ScreenOff || justWoke)
-        activity();
+        wake();
     else
         screenOff();
 }
@@ -143,9 +154,16 @@ void IdleController::screenOff()
 bool IdleController::eventFilter(QObject *watched, QEvent *event)
 {
     if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) {
+        // Browsing keys go to the screensaver itself: it stays, the idle time restarts.
+        const int key = static_cast<QKeyEvent *>(event)->key();
+        if (m_state == State::Screensaver
+            && (key == Qt::Key_Left || key == Qt::Key_Right || key == Qt::Key_Return || key == Qt::Key_Enter)) {
+            m_sinceActivity.restart();
+            return false;
+        }
         const bool waking = m_state != State::Active;
         if (event->type() == QEvent::KeyPress)
-            activity();
+            wake();
         if (waking || (m_sinceWake.isValid() && m_sinceWake.elapsed() < SwallowAfterWakeMs))
             return true;
     }

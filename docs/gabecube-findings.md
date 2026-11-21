@@ -519,6 +519,10 @@ commands below work with it.
 - Audio: one sink, HDMI to the monitor (`A409U`); the soundbar hangs off the monitor's analog out.
 - Present tools: `xprop`, `xdotool`, `xwininfo`, `gamescopectl`, `cec-ctl`, `ir-keytable`,
   `evtest`, `python3` (with tkinter and GTK3), `podman`, `distrobox`.
+- Steam Controller held without pressing anything (2026-11-21): the shell's screensaver ended
+  with no button event on Steam's virtual pad. Ignoring the left stick outside the awake state
+  fixed it. *Inferred:* a resting thumb on a trackpad (or stick drift) moves the virtual pad's
+  stick; don't treat stick input as a deliberate press.
 
 ## Open / untested
 

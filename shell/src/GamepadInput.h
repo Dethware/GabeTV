@@ -19,6 +19,7 @@ class GamepadInput : public QObject
 
     Q_PROPERTY(QWindow *window READ window WRITE setWindow NOTIFY windowChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool sticks READ sticks WRITE setSticks NOTIFY sticksChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
 public:
@@ -31,6 +32,12 @@ public:
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled);
 
+    // Whether the left stick counts at all (keys and activity). A thumb resting on a trackpad
+    // that Steam maps to the stick moves it, so the screensaver and screen-off turn this off:
+    // only real button presses end them.
+    bool sticks() const { return m_sticks; }
+    void setSticks(bool sticks);
+
     // Connected gamepads.
     int count() const { return m_count; }
 
@@ -41,6 +48,7 @@ signals:
     void shoulderPressed(int direction);
     void windowChanged();
     void enabledChanged();
+    void sticksChanged();
     void countChanged();
 
 private:
@@ -51,6 +59,7 @@ private:
 
     QPointer<QWindow> m_window;
     bool m_enabled = true;
+    bool m_sticks = true;
     bool m_initialized = false;
     int m_count = 0;
     QTimer m_pollTimer;

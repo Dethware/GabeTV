@@ -112,6 +112,19 @@ void GamepadInput::setEnabled(bool enabled)
     emit enabledChanged();
 }
 
+void GamepadInput::setSticks(bool sticks)
+{
+    if (m_sticks == sticks)
+        return;
+    if (!sticks && m_stickKey) {
+        release(m_stickKey);
+        m_stickKey = 0;
+    }
+    m_sticks = sticks;
+    qCDebug(lcGamepad) << "sticks" << (sticks ? "on" : "off");
+    emit sticksChanged();
+}
+
 void GamepadInput::poll()
 {
     SDL_Event event;
@@ -153,6 +166,8 @@ void GamepadInput::poll()
                 m_stickY = event.gaxis.value;
             else
                 break;
+            if (!m_sticks)
+                break;
             // The virtual pad reports some stick noise at rest; ignore that for idle tracking.
             if (std::abs(event.gaxis.value) >= StickActivity)
                 emit activity();
@@ -163,6 +178,7 @@ void GamepadInput::poll()
             else if (std::abs(m_stickY) > std::abs(m_stickX) && std::abs(m_stickY) >= threshold)
                 key = m_stickY < 0 ? Qt::Key_Up : Qt::Key_Down;
             if (key != m_stickKey) {
+                qCDebug(lcGamepad) << "stick key" << key;
                 if (m_stickKey)
                     release(m_stickKey);
                 m_stickKey = key;

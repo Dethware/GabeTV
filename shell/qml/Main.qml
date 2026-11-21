@@ -47,7 +47,7 @@ Window {
         // Not over a running game for now.
         if (baseLayer.gameRunning)
             return
-        idle.activity()
+        idle.wake()
         baseLayer.claim = true
         powerDialog.open()
     }
@@ -59,7 +59,7 @@ Window {
         window: root
         onSteamMenuOpened: claim = false
         onHomePressed: {
-            idle.activity()
+            idle.wake()
             claim = true
             if (powerDialog.visible)
                 powerDialog.close()
@@ -87,7 +87,7 @@ Window {
     // The remote's Assistant button and microphone. Only shown for now.
     RemoteAssistant {
         id: assistant
-        onListeningChanged: if (listening) idle.activity()
+        onListeningChanged: if (listening) idle.wake()
     }
 
     // Quick Access gives no X11 signal; Steam's log is the only trace of it. Stepping aside moves
@@ -110,6 +110,8 @@ Window {
     GamepadInput {
         window: root
         enabled: root.active && (baseLayer.onScreen || !baseLayer.available)
+        // Screensaver and screen off end with a button, never with a brushed stick or trackpad.
+        sticks: idle.state === IdleController.Active
         onActivity: idle.activity()
         // LB/RB: previous/next place, directly (only on the home screen, not over dialogs).
         onShoulderPressed: direction => {
@@ -236,6 +238,8 @@ Window {
         anchors.fill: parent
         visible: root.page === "settings"
         idle: idle
+        screensaver: screensaverSettings
+        immich: immich
 
         onClosed: root.showPage("home")
     }
@@ -249,9 +253,40 @@ Window {
         onClosed: root.showPage(root.page)
     }
 
+    ScreensaverSettings {
+        id: screensaverSettings
+    }
+
     Screensaver {
+        id: saver
+
         anchors.fill: parent
         visible: idle.state === IdleController.Screensaver
+        running: visible
+        immich: immich
+        settings: screensaverSettings
+
+        // The photo opens in the viewer, with the screensaver's order to browse.
+        onPhotoOpened: index => {
+            photoGrid.title = qsTr("Screensaver")
+            photoGrid.assets = saver.assets
+            photoGrid.loading = false
+            photoGrid.currentIndex = index
+            photoViewer.index = index
+            root.page = "viewer"
+            idle.wake()
+        }
+    }
+
+    // The screensaver takes the keys while it runs; afterwards they go back to the page.
+    Connections {
+        target: idle
+        function onStateChanged() {
+            if (idle.state === IdleController.Screensaver)
+                saver.forceActiveFocus()
+            else if (saver.activeFocus)
+                root.showPage(root.page)
+        }
     }
 
     AssistantIndicator {

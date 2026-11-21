@@ -31,8 +31,22 @@ Layouts and looks are placeholders; this is the plumbing.
   input (also during games), gamescope's `GAMESCOPE_INPUT_COUNTER`, Home/Power, resume from
   suspend. The first press after the screensaver or screen-off only wakes.
   Times in `~/.config/tvshell/tvshell.conf`, `[idle]` group, seconds, 0 = never:
-  `screensaverAfter`, `screenOffAfter`, `suspendAfter`. The screensaver is a placeholder
-  (moving clock); Immich photos later.
+  `screensaverAfter`, `screenOffAfter`, `suspendAfter`.
+  The left stick counts only while the shell is fully awake: a thumb resting on a Steam
+  Controller trackpad that Steam maps to the stick moved it and ended the screensaver.
+- **Screensaver** (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `ScreensaverBackdrop.qml`,
+  `src/ScreensaverSettings.*`): photos from the Immich albums chosen in Settings, in an order
+  shuffled once each time it starts (`ImmichClient::loadScreensaver`: all chosen albums,
+  images only, no duplicates), one at a time on a timer. Left/right browse without leaving
+  it, OK opens the photo in the viewer (in the screensaver's order), other keys end it.
+  Transitions: slide (in the direction of travel), crossfade or none; one at a time, presses
+  during a slide only move the target, and the next slide goes straight to it. A photo
+  loads into the hidden layer and is revealed once loaded. Beside the photo: the photo
+  blurred, its colours as a gradient (the thumbnail decoded at 3×2 pixels, then blurred), or
+  black; the background crossfades in place under the sliding photos. Date and place at the
+  bottom left, outlined, moving to a nearby spot every 5 minutes (OLED). No albums: a clock
+  moving every minute. Settings in `tvshell.conf`, `[screensaver]`: `albums`, `interval`
+  (s), `transition`, `background`, `showInfo`.
 - **Power** (the remote's, remapped to the sleep key): a short press turns the screen off,
   again → on; held for 0.8 s it opens the power dialog (Sleep, Power off, Turn off controllers,
   Cancel; starts on Cancel), not yet over a running game. The shell holds a logind
@@ -54,8 +68,10 @@ Layouts and looks are placeholders; this is the plumbing.
   else yet (later: speech recognition / a local model on mikoshi). Protocol notes in
   `docs/gabecube-findings.md`.
 - **Settings** (`qml/SettingsPage.qml`): from the top bar's Settings entry (up from the games)
-  or the controller's Start/≡. A Power category with the three idle times; left/right changes
-  a value, saved and applied at once; Back leaves.
+  or the controller's Start/≡. Categories on the left (Power: the three idle times;
+  Screensaver: albums, time per photo, transition, background, date and place); Right/OK goes
+  into a category, left/right changes a value (saved and applied at once), OK on Albums opens
+  a list of albums with checkmarks. Back goes out a level, then leaves.
 - **Photos** (`src/ImmichClient.*`, `qml/PhotosPlace.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`):
   a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
   (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
@@ -112,6 +128,6 @@ the shell picks it up again.
 ## Next
 
 - Hand the Assistant audio to speech recognition.
-- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos; then Immich photos as the screensaver (needs its own design).
-- Settings screen for the idle times.
+- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos.
+- Screensaver: check whether Immich's place names are accurate (the Android app's were off).
 - More places: media apps, photos, emulators.

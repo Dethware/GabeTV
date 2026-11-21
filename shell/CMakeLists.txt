@@ -52,6 +52,9 @@ set_source_files_properties(qml/PhotoTile.qml PROPERTIES QT_RESOURCE_ALIAS Photo
 set_source_files_properties(qml/PhotosPlace.qml PROPERTIES QT_RESOURCE_ALIAS PhotosPlace.qml)
 set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarButton.qml)
 set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
+set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
+set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
+set_source_files_properties(qml/ScreensaverBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverBackdrop.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -71,6 +74,9 @@ qt_add_qml_module(tvshell
         qml/PhotosPlace.qml
         qml/BarButton.qml
         qml/PhotoLayer.qml
+        qml/ScreensaverLayer.qml
+        qml/AlbumPicker.qml
+        qml/ScreensaverBackdrop.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
@@ -94,6 +100,8 @@ qt_add_qml_module(tvshell
         src/PowerActions.h
         src/RemoteAssistant.cpp
         src/RemoteAssistant.h
+        src/ScreensaverSettings.cpp
+        src/ScreensaverSettings.h
         src/SteamLibrary.cpp
         src/SteamLibrary.h
         src/SteamLog.cpp

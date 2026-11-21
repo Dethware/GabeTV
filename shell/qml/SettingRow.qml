@@ -1,28 +1,27 @@
 import QtQuick
 
-// One option in the settings: label on the left, value with ‹ › on the right.
+// One line in the settings: label on the left, value (with ‹ › when focused) on the right.
+// `current` marks the selected line (e.g. the open category), `focused` the one with focus.
 Rectangle {
     id: row
 
     property string label
     property string value
     property bool current
-
-    signal decreased()
-    signal increased()
+    property bool focused: current
 
     height: 88
     radius: 8
-    color: current ? "white" : "#1d252c"
+    color: focused ? "white" : current ? "#2a343d" : "#1d252c"
 
     Accessible.role: Accessible.ListItem
-    Accessible.name: label + ": " + value
+    Accessible.name: value.length > 0 ? label + ": " + value : label
 
     Text {
         anchors.left: parent.left
         anchors.leftMargin: 32
         anchors.verticalCenter: parent.verticalCenter
-        color: row.current ? "#101418" : "white"
+        color: row.focused ? "#101418" : "white"
         font.pixelSize: 32
         text: row.label
     }
@@ -31,8 +30,9 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 32
         anchors.verticalCenter: parent.verticalCenter
-        color: row.current ? "#101418" : "#b0bec5"
+        visible: row.value.length > 0
+        color: row.focused ? "#101418" : "#b0bec5"
         font.pixelSize: 32
-        text: row.current ? "‹  " + row.value + "  ›" : row.value
+        text: row.focused ? "‹  " + row.value + "  ›" : row.value
     }
 }
