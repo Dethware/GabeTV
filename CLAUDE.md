@@ -31,9 +31,11 @@ Everything below describes the target unless noted.
 
 1. **Base: stock SteamOS for now**, because it gets new features first (HDMI 2.1, drivers). We may revisit a fully custom base in about a year.
    - Constraint: read-only root with A/B updates. Everything we build must live in `/home`, Flatpak, user systemd units, or (if verified to persist) `/etc`.
-2. **Shell architecture: "Option B", our own gamescope session** with our home screen as the main client. Steam runs in the background for games, downloads and Steam Input. Games launch via `steam://rungameid/...`, and control returns to our shell afterwards.
-   - Fallback ("B-lite"): Steam stays the session owner, and our shell auto-starts as the first thing shown.
+2. **Shell architecture: our own window inside the stock Gaming Mode session.** Steam keeps running as usual for games, downloads, Steam Input and its menus. Our shell is an X11 client on gamescope's `:0` that we start ourselves (user systemd unit). It tags its window with `STEAM_GAME=<id>` and takes the screen by putting `<id>` first in `GAMESCOPECTRL_BASELAYER_APPID`. Games launch via `steam://rungameid/...`. Steam rewrites that property on game launch/exit and Steam restarts, so the shell re-claims it whenever no game is in the list. Controller input comes from Steam's virtual Xbox pad. Tested; see `docs/gabecube-findings.md`.
+   - UI toolkit: **Qt/QML, no web stack, using SteamOS's own Qt** (relying on Qt's ABI compatibility). Target version pinned at what SteamOS 3.9.5 ships: **Qt 6.11.1**. SteamOS carries the full KDE Plasma desktop, so most Qt modules are there (incl. declarative, multimedia + ffmpeg, imageformats, svg, quick3d, websockets, connectivity, virtualkeyboard, shadertools). Anything missing gets vendored. The shell is a C++ binary in `/home`, started by a user systemd unit.
+   - Rejected for now: running our shell as a non-Steam shortcut (slow start, Steam's controller prompt, Steam treats it as a running game). Native Wayland would need `--expose-wayland` and has no real app ID.
 3. **The UI concept is "places", not shelves.** It's a spatial library with stable positions that never auto-reorder, and it unifies every source (Steam, emulators, media apps, photos). It must be fully navigable with a d-pad or TV remote, with no mouse or keyboard needed.
+4. **No Steam startup movies or Steam screensaver.** Our shell owns idle behavior: screensaver (Immich photos), dimming, screen off.
 
 ## Apps and the plan for each
 

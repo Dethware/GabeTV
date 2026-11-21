@@ -119,6 +119,8 @@ Our window on the base layer; someone at the TV pressed controller buttons, the 
     triggers on `ABS_Z/RZ`, d-pad on `ABS_HAT0X/Y`. It also streams stick jitter at rest.
   - The controller's own evdev nodes (`Steam Controller Puck`) sent **nothing**: Steam has
     the hardware in its own mode.
+  - The pad is recreated when the session restarts (it got `event19` again by chance), and
+    has no `/dev/input/by-id` link: find it by name.
   - So our shell can read the controller as a standard gamepad (evdev or SDL) from `event19`,
     with Steam Input still active. *Inferred:* the same pad feeds games, so the shell must
     ignore input whenever `GAMESCOPE_FOCUSED_APP` isn't its own app ID.
@@ -127,6 +129,94 @@ Our window on the base layer; someone at the TV pressed controller buttons, the 
 - `cecd` exposes an evdev device (`cecd cros-ec-cec`, event13): TV remote keys over CEC may
   arrive as plain key events.
 
+### Steam restart (tested 2026-11-21)
+
+Our window held the base layer; then `systemctl --user restart steam-launcher.service`.
+
+- Steam was back in ~3 s and **reset the base layer to `413091, 769`**, taking the screen.
+  Our window stayed focusable.
+- `gamescope-session.target` has `Upholds=steam-launcher.service`: stopping Steam is
+  immediately followed by a start. To change Steam's files while it's down, act within ~2 s
+  of the stop, or stop the whole session.
+- Every Steam start (also each Gaming Mode restart) plays Steam's **startup movie**, loud,
+  before Big Picture appears.
+- Steam's own settings for this live in its config: `"CurrentScreensaver" "steam-bouncinglogo"`
+  and a startup-movie list (`GetStartupMovies`).
+- Re-claim rule that covers launch, exit and restart: claim the base layer whenever its list
+  holds only Steam's own entries (`413091`, `769`), never while a game's app ID is in it.
+- `413091` isn't an installed app; it appears only in another app's depot list in Steam's
+  cache. Probably a Steam-internal placeholder (*inferred*).
+
+### Our program as a non-Steam shortcut ("B-lite", tested 2026-11-21)
+
+Added with `steam steam://addnonsteamgame/<url-encoded path>` (after `touch /tmp/addnonsteamgamefile`;
+this is what `steamos-add-to-steam` does). Steam wrote `userdata/<id>/config/shortcuts.vdf` at once;
+shortcut app ID 3564817749, launched with `steam://rungameid/<(appid << 32) | 0x02000000>`.
+
+| Time | `BASELAYER_APPID` | Focused | Event |
+|---|---|---|---|
+| 15:12:22 | | | `steam://rungameid/15310775648188891136` (our shortcut) |
+| 15:12:23 | `413091, 3564817749, 769` | 769 | Steam inserts the shortcut's app ID |
+| 15:12:32 | `413091, 3564817749, 769` | 3564817749 | our window on screen (~9 s after launch) |
+| 15:12:34 | | | `steam://rungameid/1233070` (real game) sent while ours runs |
+| 15:12:39 | `413091, 1233070, 769` | 1233070 | game on top, no prompt |
+| 15:12:49 | | | game's scope stopped |
+| 15:12:52 | `413091, 3564817749, 769` | 3564817749 | **Steam put our window back by itself** |
+
+- Steam started it via `reaper SteamLaunch AppId=3564817749 -- <exe>` in scope
+  `app-steam-app3564817749-<pid>.scope`, on Xwayland `:1`, with `SteamGameId`, `SteamAppId`,
+  `SteamOverlayGameId` set. gamescope derived the app ID itself; no `STEAM_GAME` property needed.
+- **A Steam dialog popped up on screen** during the launch: several controller images and
+  text about an "external controller"; it had to be confirmed with the controller.
+  *Inferred:* a per-game controller prompt Steam shows for a game it has no controller info
+  for (a new non-Steam shortcut has none). It's not in Steam's
+  logs. It likely explains part of the ~9 s start. Unknown whether it comes back on every launch.
+- Steam Input applied the gamepad template `controller_neptune_gamepad_fps.vdf`: no
+  keyboard/mouse events in our window; reading the virtual pad would still work.
+- So in B-lite, Steam handles returning to our shell after games; no property juggling.
+- Things to weigh (*inferred*, not tested): Steam considers a game running all the time
+  (Steam's "downloads during gameplay" setting, idle/suspend behavior, the Steam menu showing
+  our shell as the running game); slow (~9 s) start; our shell lives inside Steam's library.
+- Removing the shortcut: stop Steam and delete `shortcuts.vdf` (it didn't exist before);
+  Steam keeps a playtime entry for the app ID in `localconfig.vdf`.
+
+### Native Wayland clients (tested 2026-11-21)
+
+- gamescope's socket `gamescope-0` advertises `xdg_wm_base` v3 and `zwlr_layer_shell_v1` v4,
+  although the session doesn't pass `--expose-wayland`. Full list: `wayland-info` with
+  `WAYLAND_DISPLAY=gamescope-0`.
+- A GTK3 window with `GDK_BACKEND=wayland` connects and maps without errors, but is
+  **never focusable or shown**, even with `424242` first on the base layer. Tried giving it an
+  app ID three ways, none worked:
+  1. `SteamLaunch AppId=424242` in its own command line;
+  2. the same on a parent process;
+  3. running it in a systemd scope named `app-steam-app424242-tvprobe.scope`
+     (gamescope logs "AppID %u derived from cgroup for pid %d", so it reads cgroups somewhere).
+- An X11 window in a scope named the same way didn't get an app ID either; it has no
+  `_NET_WM_PID`, which may matter. Setting `STEAM_GAME` is the only route that worked.
+- **Consequence:** in the stock session our shell has to be an X11 client (e.g. Qt with
+  `QT_QPA_PLATFORM=xcb`, Chromium/Electron on X11).
+
+#### With `--expose-wayland` (tested 2026-11-21, then rolled back)
+
+Added via a user drop-in, no root and nothing in `/usr` touched:
+`~/.config/systemd/user/gamescope-session.service.d/*.conf` set `Environment=PATH=<dir>:...`,
+where `<dir>/gamescope` is a wrapper running `/usr/bin/gamescope --expose-wayland "$@"`.
+This works because `/usr/lib/steamos/gamescope-session` runs `gamescope` by name.
+Restarting Gaming Mode = `systemctl --user stop gamescope-session.target` (run via
+`systemd-run --user`); SDDM's `Relogin=true` starts it again in ~40 s, with Steam.
+
+- Session came up normally with the flag: Steam UI, mangoapp, all units active.
+- The GTK Wayland window is **still not** in `GAMESCOPE_FOCUSABLE_*` (those list X windows only).
+- Wayland windows get **app ID 0**, also when run in an `app-steam-app424242-*` scope.
+- `GAMESCOPECTRL_BASELAYER_APPID=0` → the Wayland window **is shown** (gamescope's focus
+  window `0x2`, appID 0) and gets keyboard focus. `424242` doesn't select it.
+- GTK draws client-side decorations (title bar) unless the window goes fullscreen.
+- Caveats: app ID 0 isn't unique to us; any other app-ID-less Wayland window would compete.
+  No known way yet to give a Wayland window a real app ID.
+- gamescope also logs that it looks for scripts in `/etc/gamescope/scripts` and
+  `~/.config/gamescope/scripts` (both absent); see "gamescope Lua scripts" below.
+
 Useful commands (with `DISPLAY=:0`, `XDG_RUNTIME_DIR=/run/user/1000`, `GAMESCOPE_WAYLAND_DISPLAY=gamescope-0`):
 
 ```bash
@@ -134,6 +224,31 @@ xprop -root GAMESCOPE_FOCUSED_APP GAMESCOPECTRL_BASELAYER_APPID GAMESCOPE_FOCUSA
 gamescopectl focus_info      # dumps focus state into the gamescope-session journal
 gamescopectl screenshot /tmp/x.png
 ```
+
+## gamescope Lua scripts and convars (checked 2026-11-21)
+
+- gamescope runs `*.lua` from `/usr/share/gamescope/scripts`, `/etc/gamescope`, and
+  `~/.config/gamescope/` (user dir, no root, persistent). README: `/usr/share/gamescope/scripts/README.md`;
+  it calls the system experimental and liable to change between versions.
+- What scripts can do:
+  - Define **known displays** (`gamescope.config.known_displays.<name>`): HDR metadata,
+    colorimetry, refresh-rate lists, mode generation, matched by EDID vendor/product.
+    Valve ships these for handheld panels only; one for the LG G6 could go here if needed.
+  - Set **convars** (`gamescope.convars.<name>.value`).
+  - **One hook only:** `OnPostPaint` (every frame). No window, focus or input hooks, so
+    scripts **can't** replace the base-layer approach.
+- Convars can also be changed at runtime: `gamescopectl <convar> <value>`. Full list: `gamescopectl help`.
+
+### Screen off without CEC (tested 2026-11-21)
+
+`gamescopectl drm_sleep_external_screen 1` → `/sys/class/drm/card0-HDMI-A-1/dpms` went
+`Off` and `enabled` → `disabled` (HDMI signal stops); `... 0` → back `On` within 3 s.
+Steam kept focus throughout.
+
+- This is a candidate for the idle policy (screensaver → dim → **signal off**), with no CEC.
+- Untested: what the LG G6 does on signal loss (standby after a timeout?), and how it
+  wakes when the signal returns. Nothing wakes the output automatically: our shell would
+  set it back to `0` on input.
 
 ## Waydroid prerequisites
 
@@ -148,14 +263,22 @@ gamescopectl screenshot /tmp/x.png
 - HDMI-CEC: `cecd` runs as a user service, `/dev/cec0` exists, state `extended`,
   remote passthrough enabled. `steamosctl` has wake/suspend TV and `hdmi-cec-make-active`.
 - No Flatpaks and no browser installed.
+- Current monitor: the connector lists a 3840x2160 mode, but gamescope's usable list tops
+  out at 2560x1440@60, and our full-screen windows were 2560x1440. *Inferred:* 4K is only
+  available below 60 Hz through the old switch/monitor. Irrelevant once the G6 is in.
+- Audio: one sink, HDMI to the monitor (`A409U`); the soundbar hangs off the monitor's analog out.
 - Present tools: `xprop`, `xdotool`, `xwininfo`, `gamescopectl`, `cec-ctl`, `ir-keytable`,
   `evtest`, `python3` (with tkinter and GTK3), `podman`, `distrobox`.
 
 ## Open / untested
 
-- Does Steam rewrite `GAMESCOPECTRL_BASELAYER_APPID` on notifications, downloads finishing,
-  or Steam restarting?
-- What app ID 413091 is (Steam's default first base-layer entry).
+- Does Steam rewrite `GAMESCOPECTRL_BASELAYER_APPID` on notifications or downloads finishing?
 - Input from the TV remote: CEC passthrough (`cecd` evdev) vs. a USB IR receiver.
-- Whether a Wayland client (on `gamescope-0`) can be put on the base layer the same way
-  as an X11 window.
+- How to give a Wayland window a real app ID with `--expose-wayland`.
+- How gamescope's "derived from cgroup/process hierarchy" app-ID lookup is triggered. It
+  worked for the Steam-launched shortcut, but not for our own X windows on `:0` or `:1` with
+  `SteamLaunch AppId=<id>` in their own or a parent's command line, nor in an
+  `app-steam-app<id>-*` scope, nor for a GTK X11 window with `_NET_WM_PID` set.
+  *Inferred:* Steam assigns it for programs it launches. For programs we start ourselves,
+  `STEAM_GAME` is the only method that works.
+- With our shell as a non-Steam shortcut: Steam menu/QAM behavior, downloads, idle/suspend.
