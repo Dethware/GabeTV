@@ -272,6 +272,15 @@ gamescopectl screenshot /tmp/x.png
 Steam kept focus throughout.
 
 - This is a candidate for the idle policy (screensaver → dim → **signal off**), with no CEC.
+  The shell uses it now (2026-11-21), and for the remote's Power.
+- The shell takes the sleep key from logind with an inhibitor lock
+  (`Inhibit("handle-suspend-key", …, "block")` over D-Bus, no root); logind still logs
+  "Suspend key pressed short" but doesn't suspend.
+- Root `GAMESCOPE_INPUT_COUNTER` increments on keyboard-type input through gamescope (seen
+  for the remote's keys, including Power); a key press handled by a root grab bumps it too.
+- Steam's own idle settings (2026-11-21): dimming off, screensaver after 5 min, sleep after
+  60 min. In its files only `IdleBacklightDim*Seconds` and `CurrentScreensaver` show up.
+  Steam's screensaver seems to close open Steam menus (with sounds) when it starts.
 - Untested: what the LG G6 does on signal loss (standby after a timeout?), and how it
   wakes when the signal returns. Nothing wakes the output automatically: our shell would
   set it back to `0` on input.

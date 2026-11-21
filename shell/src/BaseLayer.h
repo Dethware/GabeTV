@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractNativeEventFilter>
+#include <QElapsedTimer>
 #include <QList>
 #include <QObject>
 #include <QPointer>
@@ -58,6 +59,10 @@ public:
 signals:
     // The remote's Home key, grabbed on the root window: arrives even while Steam has focus.
     void homePressed();
+    // The remote's Power (remapped to the sleep key), grabbed the same way.
+    void powerPressed();
+    // gamescope counted user input (GAMESCOPE_INPUT_COUNTER), wherever it went.
+    void inputActivity();
     // Steam opened its main menu or Quick Access while the shell was on screen. Steam draws those
     // in its own window, which is behind ours: the shell should step aside (claim = false).
     void steamMenuOpened();
@@ -69,7 +74,8 @@ signals:
 
 private:
     void connectToX11();
-    void grabHomeKey();
+    void grabKeys();
+    xcb_keycode_t grabKey(xcb_keysym_t keysym, const char *name);
     xcb_keycode_t keycodeFor(xcb_keysym_t keysym) const;
     void tagWindow();
     void evaluate();
@@ -89,5 +95,10 @@ private:
     xcb_atom_t m_baseLayer = 0;
     xcb_atom_t m_focusedApp = 0;
     xcb_atom_t m_blurMode = 0;
+    xcb_atom_t m_inputCounter = 0;
     xcb_keycode_t m_homeKeycode = 0;
+    xcb_keycode_t m_sleepKeycode = 0;
+    // When the base layer last changed. Steam also writes GAMESCOPE_BLUR_MODE when its UI
+    // (re)starts, right after rewriting the base layer; that isn't its menu opening.
+    QElapsedTimer m_sinceBaseLayerChange;
 };

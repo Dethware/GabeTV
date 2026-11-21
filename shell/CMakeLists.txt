@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pinned to what SteamOS 3.9.5 ships (see toolchains/steamos-3.9).
-find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Quick)
+find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Quick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
@@ -24,6 +24,7 @@ qt_add_executable(tvshell
 set_source_files_properties(qml/Main.qml PROPERTIES QT_RESOURCE_ALIAS Main.qml)
 set_source_files_properties(qml/GamesPlace.qml PROPERTIES QT_RESOURCE_ALIAS GamesPlace.qml)
 set_source_files_properties(qml/GameTile.qml PROPERTIES QT_RESOURCE_ALIAS GameTile.qml)
+set_source_files_properties(qml/Screensaver.qml PROPERTIES QT_RESOURCE_ALIAS Screensaver.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -31,11 +32,14 @@ qt_add_qml_module(tvshell
         qml/Main.qml
         qml/GamesPlace.qml
         qml/GameTile.qml
+        qml/Screensaver.qml
     SOURCES
         src/BaseLayer.cpp
         src/BaseLayer.h
         src/GamepadInput.cpp
         src/GamepadInput.h
+        src/IdleController.cpp
+        src/IdleController.h
         src/SteamLibrary.cpp
         src/SteamLibrary.h
         src/SteamLog.cpp
@@ -47,6 +51,7 @@ target_include_directories(tvshell PRIVATE src)
 
 target_link_libraries(tvshell
     PRIVATE
+        Qt6::DBus
         Qt6::Gui
         Qt6::Quick
         SDL3::SDL3

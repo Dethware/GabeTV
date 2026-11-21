@@ -18,6 +18,7 @@ constexpr int RepeatIntervalMs = 120;
 // Stick deflection (of 32767) that counts as a direction; lower to let go, to avoid chatter.
 constexpr int StickPress = 20000;
 constexpr int StickRelease = 12000;
+constexpr int StickActivity = 8000;
 
 int keyForButton(int button)
 {
@@ -131,6 +132,7 @@ void GamepadInput::poll()
             }
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            emit activity();
             qCDebug(lcGamepad) << "button down" << SDL_GetGamepadStringForButton(SDL_GamepadButton(event.gbutton.button))
                                << (m_enabled ? "" : "(ignored, not on screen)");
             if (const int key = keyForButton(event.gbutton.button))
@@ -147,6 +149,9 @@ void GamepadInput::poll()
                 m_stickY = event.gaxis.value;
             else
                 break;
+            // The virtual pad reports some stick noise at rest; ignore that for idle tracking.
+            if (std::abs(event.gaxis.value) >= StickActivity)
+                emit activity();
             int key = 0;
             const int threshold = m_stickKey ? StickRelease : StickPress;
             if (std::abs(m_stickX) >= std::abs(m_stickY) && std::abs(m_stickX) >= threshold)

@@ -23,6 +23,18 @@ Layouts and looks are placeholders; this is the plumbing.
   The remote's **Home** (grabbed on the root window) brings the shell back. There's no
   controller way back for now: picking up the controller suggests playing, and Steam doesn't
   feed its virtual pad while its UI has focus anyway.
+- **Idle** (`src/IdleController.*`, replaces Steam's dim/screensaver/sleep, which should be
+  off in Steam's settings): screensaver after 5 min, HDMI signal off after 30 min
+  (`gamescopectl drm_sleep_external_screen 1`), suspend after 60 min with the screen off.
+  Counts only while the shell is on screen. Activity: keys reaching the shell, any controller
+  input (also during games), gamescope's `GAMESCOPE_INPUT_COUNTER`, Home/Power, resume from
+  suspend. The first press after the screensaver or screen-off only wakes.
+  Times in `~/.config/tvshell/tvshell.conf`, `[idle]` group, seconds, 0 = never:
+  `screensaverAfter`, `screenOffAfter`, `suspendAfter`. The screensaver is a placeholder
+  (moving clock); Immich photos later.
+- **Power** (the remote's, remapped to the sleep key): screen off, again → on. The shell holds
+  a logind `handle-suspend-key` inhibitor lock so logind doesn't suspend, and grabs the key on
+  the root window like Home, so it works during games and in Steam's screens too.
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
 - **UI** (`qml/`): one place with a grid of games.
@@ -43,7 +55,8 @@ enable it, so it runs until stopped or until Gaming Mode restarts.
 `systemctl --user enable tvshell` would start it with every Gaming Mode session.
 
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.steam`, `tvshell.steamlog`.
+Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.steam`,
+`tvshell.steamlog`.
 
 Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
 in the shell; suspend and resume. Steam recreates its virtual pad after a game and after resume;
@@ -53,6 +66,6 @@ the shell picks it up again.
 
 - Returning after a Steam restart: implemented, not yet seen in use.
 - Assistant button (bluez D-Bus, Android TV Voice control channel).
-- Idle chain: screensaver (Immich), dim, screen off (`drm_sleep_external_screen`); Power
-  button via a logind `handle-suspend-key` inhibitor.
+- Immich photos as the screensaver.
+- Settings screen for the idle times.
 - More places: media apps, photos, emulators.

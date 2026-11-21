@@ -35,6 +35,8 @@ public:
     int count() const { return m_count; }
 
 signals:
+    // Any button or a real stick movement, also while disabled (for idle tracking).
+    void activity();
     void windowChanged();
     void enabledChanged();
     void countChanged();

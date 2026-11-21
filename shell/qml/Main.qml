@@ -10,11 +10,27 @@ Window {
     title: qsTr("tvshell")
 
     // Steam button / Quick Access → Steam gets the screen. Home → back to the shell.
+    // Power → screen off (again → on).
     BaseLayer {
         id: baseLayer
         window: root
         onSteamMenuOpened: claim = false
-        onHomePressed: claim = true
+        onHomePressed: {
+            idle.activity()
+            claim = true
+        }
+        onPowerPressed: {
+            if (idle.state === IdleController.ScreenOff)
+                idle.activity()
+            else
+                idle.screenOff()
+        }
+        onInputActivity: idle.activity()
+    }
+
+    IdleController {
+        id: idle
+        counting: baseLayer.onScreen || !baseLayer.available
     }
 
     // When the shell stepped aside for Quick Access (ms timestamp, 0 = not pending).
@@ -40,6 +56,7 @@ Window {
     GamepadInput {
         window: root
         enabled: root.active && (baseLayer.onScreen || !baseLayer.available)
+        onActivity: idle.activity()
     }
 
     SteamLibrary {
@@ -51,5 +68,10 @@ Window {
         focus: true
         library: steamLibrary
         onScreen: baseLayer.onScreen || !baseLayer.available
+    }
+
+    Screensaver {
+        anchors.fill: parent
+        visible: idle.state === IdleController.Screensaver
     }
 }

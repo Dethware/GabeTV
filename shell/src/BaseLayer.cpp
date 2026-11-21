@@ -12,6 +12,9 @@ Q_LOGGING_CATEGORY(lcBaseLayer, "tvshell.baselayer")
 
 namespace {
 
+// Steam's UI (re)start: base layer rewritten, then GAMESCOPE_BLUR_MODE ~30 ms later.
+constexpr int SteamRestartWindowMs = 1000;
+
 template<typename T>
 using XcbReply = std::unique_ptr<T, decltype(&std::free)>;
 
@@ -88,6 +91,7 @@ void BaseLayer::connectToX11()
     m_focusedApp = atom("GAMESCOPE_FOCUSED_APP");
     // Steam writes this whenever it opens its main menu or Quick Access.
     m_blurMode = atom("GAMESCOPE_BLUR_MODE");
+    m_inputCounter = atom("GAMESCOPE_INPUT_COUNTER");
 
     // Watch the root window's properties. Keep whatever Qt already selected there.
     auto attributes = reply(xcb_get_window_attributes_reply(
@@ -97,7 +101,7 @@ void BaseLayer::connectToX11()
     xcb_flush(m_connection);
 
     qGuiApp->installNativeEventFilter(this);
-    grabHomeKey();
+    grabKeys();
     emit availableChanged();
 }
 
@@ -136,21 +140,31 @@ void BaseLayer::toggleQuickAccess()
     xcb_flush(m_connection);
 }
 
-void BaseLayer::grabHomeKey()
+void BaseLayer::grabKeys()
 {
     constexpr xcb_keysym_t XF86HomePage = 0x1008FF18;
-    m_homeKeycode = keycodeFor(XF86HomePage);
-    if (!m_homeKeycode) {
-        qCWarning(lcBaseLayer) << "no keycode for XF86HomePage; Home won't work while Steam has focus";
-        return;
+    constexpr xcb_keysym_t XF86Sleep = 0x1008FF2F;
+    m_homeKeycode = grabKey(XF86HomePage, "Home");
+    m_sleepKeycode = grabKey(XF86Sleep, "Sleep");
+}
+
+// Passive grab on the root window: the key reaches us whichever window has focus.
+xcb_keycode_t BaseLayer::grabKey(xcb_keysym_t keysym, const char *name)
+{
+    const xcb_keycode_t keycode = keycodeFor(keysym);
+    if (!keycode) {
+        qCWarning(lcBaseLayer) << "no keycode for" << name;
+        return 0;
     }
     auto error = reply(xcb_request_check(
-        m_connection, xcb_grab_key_checked(m_connection, 1, m_root, XCB_MOD_MASK_ANY, m_homeKeycode,
+        m_connection, xcb_grab_key_checked(m_connection, 1, m_root, XCB_MOD_MASK_ANY, keycode,
                                            XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC)));
-    if (error)
-        qCWarning(lcBaseLayer) << "could not grab Home (keycode" << m_homeKeycode << "), X error" << error->error_code;
-    else
-        qCInfo(lcBaseLayer) << "grabbed Home, keycode" << m_homeKeycode;
+    if (error) {
+        qCWarning(lcBaseLayer) << "could not grab" << name << "(keycode" << keycode << "), X error" << error->error_code;
+        return 0;
+    }
+    qCInfo(lcBaseLayer) << "grabbed" << name << "keycode" << keycode;
+    return keycode;
 }
 
 void BaseLayer::tagWindow()
@@ -222,11 +236,22 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
         return false;
     auto *event = static_cast<xcb_generic_event_t *>(message);
     const uint8_t type = event->response_type & ~0x80;
-    if (type == XCB_KEY_PRESS && m_homeKeycode) {
+    if (type == XCB_KEY_PRESS || type == XCB_KEY_RELEASE) {
         auto *key = reinterpret_cast<xcb_key_press_event_t *>(event);
-        if (key->detail == m_homeKeycode && key->event == m_root) {
-            qCInfo(lcBaseLayer) << "Home pressed (global grab)";
-            emit homePressed();
+        if (key->event != m_root || !key->detail)
+            return false;
+        if (key->detail == m_homeKeycode) {
+            if (type == XCB_KEY_PRESS) {
+                qCInfo(lcBaseLayer) << "Home pressed (global grab)";
+                emit homePressed();
+            }
+            return true;
+        }
+        if (key->detail == m_sleepKeycode) {
+            if (type == XCB_KEY_PRESS) {
+                qCInfo(lcBaseLayer) << "Power pressed (global grab)";
+                emit powerPressed();
+            }
             return true;
         }
     }
@@ -236,7 +261,14 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
     if (notify->window != m_root)
         return false;
     if (notify->atom == m_baseLayer || notify->atom == m_focusedApp) {
+        if (notify->atom == m_baseLayer)
+            m_sinceBaseLayerChange.start();
         QMetaObject::invokeMethod(this, &BaseLayer::evaluate, Qt::QueuedConnection);
+    } else if (notify->atom == m_inputCounter) {
+        emit inputActivity();
+    } else if (notify->atom == m_blurMode && m_sinceBaseLayerChange.isValid()
+               && m_sinceBaseLayerChange.elapsed() < SteamRestartWindowMs) {
+        qCInfo(lcBaseLayer) << "ignoring Steam's blur write right after a base layer change (Steam UI restart?)";
     } else if (notify->atom == m_blurMode && m_onScreen && !m_gameRunning) {
         qCInfo(lcBaseLayer) << "Steam opened its menu";
         emit steamMenuOpened();
