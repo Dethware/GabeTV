@@ -23,5 +23,11 @@ case "${1:-}" in
 esac
 
 rsync -a "$HERE/build/tvshell" "$TARGET:.local/share/tvshell/"
+# The place list for photo captions (./make-places.py); without it Immich's names are used.
+if [ -f "$HERE/build/places.tsv" ]; then
+    rsync -a "$HERE/build/places.tsv" "$TARGET:.local/share/tvshell/"
+else
+    echo "no build/places.tsv: run ./make-places.py for finer place names" >&2
+fi
 rsync -a "$HERE/deploy/tvshell.service" "$TARGET:.config/systemd/user/"
 ssh "$TARGET" 'systemctl --user daemon-reload && systemctl --user restart tvshell.service && sleep 2 && systemctl --user --no-pager status tvshell.service | head -5'

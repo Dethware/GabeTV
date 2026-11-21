@@ -486,6 +486,57 @@ commands below work with it.
   other albums had none.) The thumbnail endpoint also defaults to `edited=false`, i.e. without
   rotations/crops made in Immich; the shell asks for `edited=true`.
 
+### Place names (checked 2026-11-21)
+
+Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
+
+- **Cause confirmed.** 1566 assets are labelled "Rinkeby". None is within 3.8 km of Rinkeby
+  (median 5.2 km); about 1240 lie within roughly a kilometre of Blackeberg centre, the rest
+  towards Grimsta, Vällingby and Hässelby. Another 134 labelled "Sundbyberg" are really in Södra
+  Ängby and Blackeberg.
+- Immich's lookup (`server/src/repositories/map.repository.ts` at v3.0.3): the nearest row of
+  `geodata_places` within 25 km, no boundaries involved. The table is GeoNames `cities500.txt`
+  (population ≥ 500 or an administrative seat) **minus feature codes `PPLX` and `PPLH`**
+  (`PPLX`, "section of populated place", is kept only for Australia).
+- Blackeberg is **not in `cities500`**. Of the area's entries there, Bromma, Tensta and
+  Hässelby Villastad are `PPLX` and dropped, so the nearest surviving points are Rinkeby,
+  Sundbyberg, Kista, Solna and Stockholm. (With `PPLX` kept, the same photos would read
+  Bromma / Hässelby Villastad / Tensta.)
+- Recomputing "nearest `cities500` point without `PPLX`" from each asset's GPS reproduces
+  Immich's label for 3355 of 3776 assets, among them all but one of the 2749 Swedish ones.
+  The rest are mostly Czech places (Prague's districts, Vranov) where today's GeoNames dump
+  differs from the snapshot inside the Immich image.
+- Where Blackeberg does exist:
+  - full GeoNames (`SE.zip`, 28 471 populated places): `PPLX`, population 0, like Råcksta,
+    Södra/Norra Ängby and Vällingby;
+  - OSM: a `place=suburb` **node**. No boundary polygon exists for it; the only polygon in the
+    area is the borough, "Bromma stadsdelsområde" (`admin_level=9`).
+- Nearest-point lookup against either finer set fixes the labels: the 1566 "Rinkeby" assets
+  become Blackeberg ×1260, Grimsta ×118–139, Hässelby gård/strand ×110–130, Vällingby ×24–36,
+  Råcksta ×16. For the Swedish assets the median distance to the chosen point is 0.3–0.4 km
+  (Immich's labels, all countries: 2.8 km). Side
+  effect: the inner city splits up too ("Stockholm" → Södermalm, Riddarholmen, Norrmalm… with
+  GeoNames; Zinkensdamm, Skanstull, Klara… with OSM), so a label needs the city next to the
+  district.
+- `GET /timeline/bucket?…&withCoordinates=true` adds `latitude[]` / `longitude[]` columns, so
+  a lookup in the shell costs no extra requests.
+- Immich re-imports its place data on start when `geodata-date.txt` in `/build/geodata`
+  (`IMMICH_BUILD_DATA`) differs from the date stored in the database; existing assets keep
+  their names until metadata extraction runs again.
+- Options weighed: a custom `cities500.txt` mounted into the Immich container (fixes every
+  client, but splits Explore → Places into districts for everyone and is unofficial);
+  Immich ReverseGeo (matches by boundary polygon, so it can't produce Blackeberg, and needs
+  database write access); a lookup in the shell. **Chosen: the shell** (`src/PlaceLookup.*`,
+  `make-places.py`): all GeoNames populated places of Sweden and the Czech Republic, each
+  with its municipality, labelled "District, City".
+- Result over the same albums (the shell's client code run headless on gabecube): no
+  "Rinkeby" left; Blackeberg, Stockholm ×1293, Södermalm, Stockholm ×318, Grimsta,
+  Stockholm ×117…; Prague and Brno show their districts; Austria, Poland and Denmark keep
+  Immich's names. 45 091 places load in 18 ms; a lookup takes about 4 µs.
+- GeoNames models the two countries differently: a Swedish municipality is `admin2` and
+  its record is named "Stockholms Kommun"; a Czech one is `admin3` with a plain name
+  ("Brno"), and Prague is a region of its own (`admin1` 52).
+
 ## Video playback in the shell (2026-11-21)
 
 - SteamOS ships ffmpeg 8.1.2 and Qt Multimedia 6.11.1 with the ffmpeg backend; mpv and

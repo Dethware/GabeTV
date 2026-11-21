@@ -82,8 +82,15 @@ Layouts and looks are placeholders; this is the plumbing.
   `transition`, `background`; the backdrop is `qml/PhotoBackdrop.qml`, shared with the
   screensaver). One transition at a time; presses during one go straight to the latest photo
   next. A held key skips transitions, and the background follows once it stops for 0.2 s.
-  Date and place (Immich's `city`, `country`) at the bottom left, the position at the bottom
+  Date and place at the bottom left, the position at the bottom
   right, both outlined like the screensaver's (`qml/PhotoInfo.qml`, shared).
+  The place is looked up from the photo's GPS in a local list (`src/PlaceLookup.*`): the
+  nearest populated place and its town, "Blackeberg, Stockholm", or "Sundbyberg, Sweden" for
+  a town itself. Immich's own names are too coarse (it called Blackeberg "Rinkeby"; see
+  `docs/gabecube-findings.md`). The list is `places.tsv` next to the program, made by
+  `./make-places.py` from GeoNames (CC BY 4.0) for Sweden and the Czech Republic; other
+  countries need a rule there for which administrative level is the town. Photos elsewhere,
+  or without the list, keep Immich's "City, Country".
   The viewer shows the cached thumbnail at once and loads the preview and
   full-size image after 250 ms on a photo; the last photo stays up until the next one shows
   (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and
@@ -114,6 +121,7 @@ Builds in the SteamOS toolchain image (`../toolchains/steamos-3.9`), which has t
 or loaded first.
 
     ./build.sh            # → build/tvshell
+    ./make-places.py      # → build/places.tsv (downloads GeoNames; once, or to refresh)
     ./deploy.sh           # copy to gabecube, install the user unit, restart it
     ./deploy.sh --log     # follow its log
     ./deploy.sh --stop    # stop it; Steam gets the screen back
@@ -137,5 +145,4 @@ the shell picks it up again.
 
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos.
-- Screensaver: check whether Immich's place names are accurate (the Android app's were off).
 - More places: media apps, photos, emulators.

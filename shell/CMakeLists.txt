@@ -98,6 +98,8 @@ qt_add_qml_module(tvshell
         src/ImmichMediaProxy.h
         src/NetworkAccess.cpp
         src/NetworkAccess.h
+        src/PlaceLookup.cpp
+        src/PlaceLookup.h
         src/PowerActions.cpp
         src/PowerActions.h
         src/RemoteAssistant.cpp

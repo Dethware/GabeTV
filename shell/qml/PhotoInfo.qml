@@ -6,7 +6,7 @@ import QtQuick.Effects
 Column {
     id: info
 
-    // An asset map from ImmichClient (`date` "yyyy-MM-dd", `place` "City, Country").
+    // An asset map from ImmichClient (`date` "yyyy-MM-dd", `place` "District, City" or "City, Country").
     property var asset: null
     readonly property string date: asset && asset.date
                                    ? Qt.formatDate(new Date(asset.date + "T12:00:00"), "d MMMM yyyy") : ""

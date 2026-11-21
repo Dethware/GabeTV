@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ImmichConfig.h"
+#include "PlaceLookup.h"
 
 #include <functional>
 
@@ -18,7 +19,8 @@
 //   albums:      { id, name, count, cover (asset id) }
 //   memories:    { id, title, assets: [asset] }
 //   albumAssets: [asset]
-//   asset:       { id, ratio (width / height), isImage }
+//   asset:       { id, ratio (width / height), isImage, date ("yyyy-MM-dd", local),
+//                  place ("District, City" from PlaceLookup, else Immich's "City, Country") }
 class ImmichClient : public QObject
 {
     Q_OBJECT
@@ -31,7 +33,6 @@ class ImmichClient : public QObject
     Q_PROPERTY(QVariantList albumAssets READ albumAssets NOTIFY albumAssetsChanged)
     Q_PROPERTY(bool albumLoading READ albumLoading NOTIFY albumAssetsChanged)
     // Photos (no videos) of the screensaver's albums, shuffled once per loadScreensaver().
-    // Assets here also have { date: "yyyy-MM-dd" (local), place: "City, Country" }.
     Q_PROPERTY(QVariantList screensaverAssets READ screensaverAssets NOTIFY screensaverChanged)
     Q_PROPERTY(bool screensaverLoading READ screensaverLoading NOTIFY screensaverChanged)
 
@@ -73,6 +74,7 @@ private:
 
     ImmichConfig m_config;
     QNetworkAccessManager *m_network;
+    PlaceLookup m_places;
     QString m_error;
     QVariantList m_albums;
     QVariantList m_memories;

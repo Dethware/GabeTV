@@ -3,6 +3,7 @@
 #include "NetworkAccess.h"
 
 #include <QCollator>
+#include <QCoreApplication>
 #include <QDate>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -24,9 +25,16 @@ QVariantMap asset(const QString &id, double ratio, bool isImage)
     return {{QStringLiteral("id"), id}, {QStringLiteral("ratio"), ratio}, {QStringLiteral("isImage"), isImage}};
 }
 
-// "City, Country", leaving out what's missing.
-QString placeName(const QString &city, const QString &country)
+// Where a photo was taken: from the local place list when it knows the spot ("District,
+// City"), else Immich's "City, Country", leaving out what's missing.
+QString placeName(const PlaceLookup &places, const QJsonValue &latitude, const QJsonValue &longitude,
+                  const QString &city, const QString &country)
 {
+    if (latitude.isDouble() && longitude.isDouble()) {
+        const QString local = places.name(latitude.toDouble(), longitude.toDouble(), country);
+        if (!local.isEmpty())
+            return local;
+    }
     QStringList parts;
     for (const QString &part : {city, country}) {
         if (!part.isEmpty())
@@ -36,8 +44,9 @@ QString placeName(const QString &city, const QString &country)
 }
 
 // The assets of a timeline bucket (columns: id[], ratio[], isImage[], fileCreatedAt[],
-// localOffsetHours[], city[], country[], ...) with their local date ("yyyy-MM-dd") and place.
-QVariantList bucketAssets(const QJsonObject &columns)
+// localOffsetHours[], city[], country[], latitude[], longitude[], ...) with their local date
+// ("yyyy-MM-dd") and place.
+QVariantList bucketAssets(const QJsonObject &columns, const PlaceLookup &places)
 {
     const QJsonArray ids = columns.value(QStringLiteral("id")).toArray();
     const QJsonArray ratios = columns.value(QStringLiteral("ratio")).toArray();
@@ -46,6 +55,8 @@ QVariantList bucketAssets(const QJsonObject &columns)
     const QJsonArray offsets = columns.value(QStringLiteral("localOffsetHours")).toArray();
     const QJsonArray cities = columns.value(QStringLiteral("city")).toArray();
     const QJsonArray countries = columns.value(QStringLiteral("country")).toArray();
+    const QJsonArray latitudes = columns.value(QStringLiteral("latitude")).toArray();
+    const QJsonArray longitudes = columns.value(QStringLiteral("longitude")).toArray();
     QVariantList assets;
     for (qsizetype i = 0; i < ids.size(); ++i) {
         QVariantMap a = asset(ids.at(i).toString(), ratios.at(i).toDouble(1.5), images.at(i).toBool(true));
@@ -53,7 +64,8 @@ QVariantList bucketAssets(const QJsonObject &columns)
         if (when.isValid())
             a.insert(QStringLiteral("date"),
                      when.toUTC().addSecs(qint64(offsets.at(i).toDouble() * 3600)).date().toString(Qt::ISODate));
-        a.insert(QStringLiteral("place"), placeName(cities.at(i).toString(), countries.at(i).toString()));
+        a.insert(QStringLiteral("place"), placeName(places, latitudes.at(i), longitudes.at(i),
+                                                    cities.at(i).toString(), countries.at(i).toString()));
         assets.append(a);
     }
     return assets;
@@ -65,7 +77,12 @@ ImmichClient::ImmichClient(QObject *parent)
     : QObject(parent)
     , m_config(ImmichConfig::load())
     , m_network(new NetworkAccessManager(this))
+    , m_places(PlaceLookup::load(QCoreApplication::applicationDirPath() + QStringLiteral("/places.tsv")))
 {
+    if (m_places.size() > 0)
+        qCInfo(lcImmich) << "naming places from a local list of" << m_places.size();
+    else
+        qCInfo(lcImmich) << "no places.tsv next to the program: using Immich's place names";
     if (!configured())
         qCInfo(lcImmich) << "not configured (~/.config/tvshell/immich.conf)";
 }
@@ -154,8 +171,10 @@ void ImmichClient::refresh()
                 if (local.size() >= 10)
                     a.insert(QStringLiteral("date"), local.left(10));
                 const QJsonObject exif = o.value(QStringLiteral("exifInfo")).toObject();
-                a.insert(QStringLiteral("place"), placeName(exif.value(QStringLiteral("city")).toString(),
-                                                            exif.value(QStringLiteral("country")).toString()));
+                a.insert(QStringLiteral("place"),
+                         placeName(m_places, exif.value(QStringLiteral("latitude")), exif.value(QStringLiteral("longitude")),
+                                   exif.value(QStringLiteral("city")).toString(),
+                                   exif.value(QStringLiteral("country")).toString()));
                 assets.append(a);
             }
             if (assets.isEmpty())
@@ -205,11 +224,12 @@ void ImmichClient::loadAlbumBuckets(const QString &albumId, QStringList buckets)
         return;
     }
     const QString bucket = buckets.takeFirst();
-    get(QStringLiteral("/timeline/bucket"), {{QStringLiteral("albumId"), albumId}, {QStringLiteral("timeBucket"), bucket}},
+    get(QStringLiteral("/timeline/bucket"),
+        {{QStringLiteral("albumId"), albumId}, {QStringLiteral("timeBucket"), bucket}, {QStringLiteral("withCoordinates"), QStringLiteral("true")}},
         [this, albumId, buckets](const QByteArray &json) {
             if (albumId != m_albumId)
                 return;
-            m_albumAssets.append(bucketAssets(QJsonDocument::fromJson(json).object()));
+            m_albumAssets.append(bucketAssets(QJsonDocument::fromJson(json).object(), m_places));
             emit albumAssetsChanged();
             loadAlbumBuckets(albumId, buckets);
         });
@@ -236,11 +256,11 @@ void ImmichClient::loadScreensaver(const QStringList &albumIds)
                     const QString bucket = value.toObject().value(QStringLiteral("timeBucket")).toString();
                     ++m_screensaverPending;
                     get(QStringLiteral("/timeline/bucket"),
-                        {{QStringLiteral("albumId"), albumId}, {QStringLiteral("timeBucket"), bucket}},
+                        {{QStringLiteral("albumId"), albumId}, {QStringLiteral("timeBucket"), bucket}, {QStringLiteral("withCoordinates"), QStringLiteral("true")}},
                         [this, generation](const QByteArray &json) {
                             if (generation != m_screensaverGeneration)
                                 return;
-                            for (const QVariant &v : bucketAssets(QJsonDocument::fromJson(json).object())) {
+                            for (const QVariant &v : bucketAssets(QJsonDocument::fromJson(json).object(), m_places)) {
                                 const QVariantMap a = v.toMap();
                                 const QString id = a.value(QStringLiteral("id")).toString();
                                 if (!a.value(QStringLiteral("isImage")).toBool() || m_screensaverIds.contains(id))
