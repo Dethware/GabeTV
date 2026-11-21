@@ -37,10 +37,13 @@ enable it, so it runs until stopped or until Gaming Mode restarts.
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
 Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.steam`.
 
+Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
+in the shell; suspend and resume. Steam recreates its virtual pad after a game and after resume;
+the shell picks it up again.
+
 ## Next
 
-- Returning to the shell after a game and after Steam restarts: implemented, to be
-  confirmed in use.
+- Returning after a Steam restart: implemented, not yet seen in use.
 - Assistant button (bluez D-Bus, Android TV Voice control channel).
 - Idle chain: screensaver (Immich), dim, screen off (`drm_sleep_external_screen`); Power
   button via a logind `handle-suspend-key` inhibitor.
