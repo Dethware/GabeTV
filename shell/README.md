@@ -60,7 +60,10 @@ Layouts and looks are placeholders; this is the plumbing.
   a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
   (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
   (whole photo, black bars; preview first, then the full-size rendering), left/right move,
-  Back goes back. Grids show whole photos (portraits upright); album covers are cropped.
+  Back goes back. The viewer shows the cached thumbnail at once and loads the preview and
+  full-size image after 250 ms on a photo; the last photo stays up until the next one shows
+  (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and
+  previous two full-size images are preloaded and kept, so stepping to them is instant. Grids show whole photos (portraits upright); album covers are cropped.
   Images are requested with Immich's edits (`edited=true`) and EXIF rotation applied
   (`autoTransform`). Videos show as tiles but don't play yet.
   It runs as a dedicated TV account on the Immich server, which sees the albums shared with

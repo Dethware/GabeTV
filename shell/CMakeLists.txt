@@ -51,6 +51,7 @@ set_source_files_properties(qml/PhotoGrid.qml PROPERTIES QT_RESOURCE_ALIAS Photo
 set_source_files_properties(qml/PhotoTile.qml PROPERTIES QT_RESOURCE_ALIAS PhotoTile.qml)
 set_source_files_properties(qml/PhotosPlace.qml PROPERTIES QT_RESOURCE_ALIAS PhotosPlace.qml)
 set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarButton.qml)
+set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -69,6 +70,7 @@ qt_add_qml_module(tvshell
         qml/PhotoTile.qml
         qml/PhotosPlace.qml
         qml/BarButton.qml
+        qml/PhotoLayer.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
