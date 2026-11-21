@@ -1,10 +1,13 @@
 import QtQuick
-import QtQuick.Effects
 import TvShell
 
 // The photo screensaver: photos from the chosen Immich albums, one at a time on a timer, in an
 // order shuffled once when it starts. Left/right browse (the screensaver stays), OK opens the
 // photo in the viewer, other keys end it (IdleController). Without albums: a moving clock.
+//
+// It starts invisible and fades in once the first photo is up (or after a few seconds), so
+// the screen never goes black first. The next run's order and its first photo are prepared
+// as soon as a run ends (and at startup), so a run usually starts at once.
 FocusScope {
     id: saver
 
@@ -62,7 +65,29 @@ FocusScope {
             incoming.reveal()
     }
 
+    function start() {
+        started = true
+        index = 0
+        advance.restart()
+        sync()
+    }
+
+    function fadeIn() {
+        if (opacity < 1 && !fade.running)
+            fade.start()
+    }
+
+    // The albums the prepared order is for.
+    property string preparedFor
+
+    function prepare() {
+        preparedFor = settings.albums.join(",")
+        if (settings.albums.length > 0)
+            immich.loadScreensaver(settings.albums)
+    }
+
     function photoRevealing(layer) {
+        fadeIn()
         shownIndex = layer.photoIndex
         if (settings.background !== "black")
             (backdropA.z > backdropB.z ? backdropB : backdropA).load(backgroundUrlAt(shownIndex))
@@ -76,17 +101,45 @@ FocusScope {
         layerB.reset()
         backdropA.reset()
         backdropB.reset()
-        if (running && settings.albums.length > 0)
-            immich.loadScreensaver(settings.albums)
+        fade.stop()
+        opacity = 0
+        if (!running)
+            prepare() // the next run's order
+        else if (settings.albums.length === 0)
+            opacity = 1 // the clock
+        else if (assets.length > 0)
+            start() // prepared
+        else
+            prepare()
     }
 
-    onAssetsChanged: {
-        if (running && !started && assets.length > 0) {
-            started = true
-            index = 0
-            advance.restart()
-            sync()
+    onAssetsChanged: if (running && !started && assets.length > 0) start()
+
+    Component.onCompleted: prepare()
+
+    Connections {
+        target: saver.settings
+        function onChanged() {
+            if (!saver.running && saver.settings.albums.join(",") !== saver.preparedFor)
+                saver.prepare()
         }
+    }
+
+    opacity: 0
+
+    NumberAnimation {
+        id: fade
+        target: saver
+        property: "opacity"
+        to: 1
+        duration: 600
+    }
+
+    // A slow network or a failed load: show what there is (black, or the clock) after a while.
+    Timer {
+        interval: 4000
+        running: saver.running && saver.opacity < 1
+        onTriggered: saver.fadeIn()
     }
 
     Keys.onLeftPressed: step(-1)
@@ -143,9 +196,10 @@ FocusScope {
         onRevealed: saver.sync()
     }
 
-    // The neighbours, preloaded at the same size (Qt's image cache hands them over).
+    // The current photo and its neighbours, preloaded at the same size (Qt's image cache hands
+    // them over). Between runs that is the next run's first photo.
     Repeater {
-        model: saver.slideshow ? [-1, 1] : []
+        model: saver.slideshow ? [-1, 0, 1] : []
         delegate: PhotoLayer {
             required property int modelData
             visible: false
@@ -155,7 +209,7 @@ FocusScope {
 
     // And their backgrounds' thumbnails (decoded at a different size, so only fetched here).
     Repeater {
-        model: saver.slideshow && saver.settings.background !== "black" ? [-1, 1] : []
+        model: saver.slideshow && saver.settings.background !== "black" ? [-1, 0, 1] : []
         delegate: Image {
             required property int modelData
             visible: false

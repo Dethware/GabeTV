@@ -36,8 +36,10 @@ Layouts and looks are placeholders; this is the plumbing.
   Controller trackpad that Steam maps to the stick moved it and ended the screensaver.
 - **Screensaver** (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`,
   `src/ScreensaverSettings.*`): photos from the Immich albums chosen in Settings, in an order
-  shuffled once each time it starts (`ImmichClient::loadScreensaver`: all chosen albums,
-  images only, no duplicates), one at a time on a timer. Left/right browse without leaving
+  shuffled once per run (`ImmichClient::loadScreensaver`: all chosen albums, images only, no
+  duplicates), one at a time on a timer. The next run's order and first photo are prepared
+  when a run ends (and at startup); a run fades in over the current screen once its first
+  photo is up (at most 4 s), so it never starts on a black screen. Left/right browse without leaving
   it, OK opens the photo in the viewer (in the screensaver's order), other keys end it.
   Transitions: slide (in the direction of travel), crossfade or none; one at a time, presses
   during a slide only move the target, and the next slide goes straight to it. A photo
