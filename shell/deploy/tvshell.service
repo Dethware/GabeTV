@@ -1,0 +1,18 @@
+[Unit]
+Description=TV shell
+# Part of Steam's Gaming Mode session: starts and stops with it.
+PartOf=graphical-session.target
+After=graphical-session.target steam-launcher.service
+
+[Service]
+Type=exec
+# gamescope's DISPLAY etc., written by /usr/lib/steamos/gamescope-session.
+EnvironmentFile=%t/gamescope-environment
+Environment=QT_QPA_PLATFORM=xcb
+ExecStart=%h/.local/share/tvshell/tvshell
+Restart=on-failure
+RestartSec=2
+Slice=session.slice
+
+[Install]
+WantedBy=gamescope-session.target
