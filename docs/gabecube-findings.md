@@ -464,6 +464,23 @@ commands below work with it.
 - With two D-Bus clients subscribed (StartNotify) to the same characteristic, each client
   received every notification twice.
 
+## Immich (photos.peterix.cz, checked 2026-11-21)
+
+- Server: Immich **3.0.3** (`/api/server/version`, public), with smart search, faces, map,
+  reverse geocoding, OCR enabled. API description per release:
+  `open-api/immich-openapi-specs.json` in the immich repository at tag `v3.0.3`.
+- Auth: header `x-api-key`. Each operation names its permission (`x-immich-permission`):
+  `GET /albums`, `/albums/{id}` → `album.read`; `GET /memories` → `memory.read`;
+  `GET /timeline/buckets`, `/timeline/bucket`, `/assets/{id}` → `asset.read`;
+  `GET /assets/{id}/thumbnail` → `asset.view`; `GET /people…` → `person.read`.
+- `GET /assets/{id}/thumbnail?size=` `thumbnail` | `preview` | `fullsize` | `original`.
+- `GET /albums` gives name, `assetCount`, `albumThumbnailAssetId`, but **no assets**; an
+  album's photos come from `GET /timeline/buckets?albumId=` (month buckets with counts), then
+  `GET /timeline/bucket?albumId=&timeBucket=` per bucket, which answers in **columns**
+  (`id[]`, `ratio[]`, `isImage[]`, `thumbhash[]`, …).
+- `GET /memories?for=YYYY-MM-DD` gives that day's memories with their assets (width, height,
+  type); `data.year` for "on this day".
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pinned to what SteamOS 3.9.5 ships (see toolchains/steamos-3.9).
-find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Quick)
+find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Network Quick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
@@ -46,6 +46,11 @@ set_source_files_properties(qml/SettingRow.qml PROPERTIES QT_RESOURCE_ALIAS Sett
 set_source_files_properties(qml/SettingsPage.qml PROPERTIES QT_RESOURCE_ALIAS SettingsPage.qml)
 set_source_files_properties(qml/TopBar.qml PROPERTIES QT_RESOURCE_ALIAS TopBar.qml)
 set_source_files_properties(qml/AssistantIndicator.qml PROPERTIES QT_RESOURCE_ALIAS AssistantIndicator.qml)
+set_source_files_properties(qml/PhotoViewer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoViewer.qml)
+set_source_files_properties(qml/PhotoGrid.qml PROPERTIES QT_RESOURCE_ALIAS PhotoGrid.qml)
+set_source_files_properties(qml/PhotoTile.qml PROPERTIES QT_RESOURCE_ALIAS PhotoTile.qml)
+set_source_files_properties(qml/PhotosPlace.qml PROPERTIES QT_RESOURCE_ALIAS PhotosPlace.qml)
+set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarButton.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -59,6 +64,11 @@ qt_add_qml_module(tvshell
         qml/SettingsPage.qml
         qml/TopBar.qml
         qml/AssistantIndicator.qml
+        qml/PhotoViewer.qml
+        qml/PhotoGrid.qml
+        qml/PhotoTile.qml
+        qml/PhotosPlace.qml
+        qml/BarButton.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
@@ -70,6 +80,12 @@ qt_add_qml_module(tvshell
         src/ImaAdpcm.h
         src/IdleController.cpp
         src/IdleController.h
+        src/ImmichClient.cpp
+        src/ImmichClient.h
+        src/ImmichConfig.cpp
+        src/ImmichConfig.h
+        src/NetworkAccess.cpp
+        src/NetworkAccess.h
         src/PowerActions.cpp
         src/PowerActions.h
         src/RemoteAssistant.cpp
@@ -87,6 +103,7 @@ target_link_libraries(tvshell
     PRIVATE
         Qt6::DBus
         Qt6::Gui
+        Qt6::Network
         Qt6::Quick
         SDL3::SDL3
         PkgConfig::XCB

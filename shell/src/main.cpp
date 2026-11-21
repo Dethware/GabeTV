@@ -1,3 +1,5 @@
+#include "NetworkAccess.h"
+
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QSocketNotifier>
@@ -46,6 +48,9 @@ int main(int argc, char *argv[])
     quitOnTermination(app);
 
     QQmlApplicationEngine engine;
+    // Adds the Immich API key to requests for the Immich server; disk cache.
+    static NetworkAccessManagerFactory networkFactory;
+    engine.setNetworkAccessManagerFactory(&networkFactory);
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);

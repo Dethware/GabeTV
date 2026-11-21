@@ -55,9 +55,19 @@ Layouts and looks are placeholders; this is the plumbing.
 - **Settings** (`qml/SettingsPage.qml`): from the top bar's Settings entry (up from the games)
   or the controller's Start/≡. A Power category with the three idle times; left/right changes
   a value, saved and applied at once; Back leaves.
+- **Photos** (`src/ImmichClient.*`, `qml/PhotosPlace.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`):
+  a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
+  (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
+  (whole photo, black bars; preview first, then the full-size rendering), left/right move,
+  Back goes back. Videos show as tiles but don't play yet.
+  Server and key in `~/.config/tvshell/immich.conf` (mode 600; `[immich]` `url=`, `apiKey=`).
+  A read-only key needs `album.read`, `memory.read`, `asset.read`, `asset.view` (and
+  `person.read` for people later). `src/NetworkAccess.*` is the shell's network layer (also
+  for QML images): it adds the key to requests for the Immich server only, and caches on disk
+  (`~/.cache/tvshell/network`, up to 2 GiB; asset images are served from the cache when present).
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
-- **UI** (`qml/`): one place with a grid of games.
+- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos) and Settings; placeholder looks.
 
 ## Build and run
 
@@ -77,7 +87,7 @@ shell is the default interface: it comes up with Gaming Mode, before Steam has s
 takes the screen back when Steam finishes starting.
 
 Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.steam`,
+Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`, `tvshell.steam`,
 `tvshell.steamlog`.
 
 Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
@@ -87,6 +97,6 @@ the shell picks it up again.
 ## Next
 
 - Hand the Assistant audio to speech recognition.
-- Immich photos as the screensaver.
+- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, video playback; then Immich photos as the screensaver (needs its own design).
 - Settings screen for the idle times.
 - More places: media apps, photos, emulators.

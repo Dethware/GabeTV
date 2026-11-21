@@ -1,47 +1,53 @@
 import QtQuick
 
-// The bar above the places. For now: a title and a Settings entry.
+// The bar above the places: tabs for the places (moving onto one switches to it) and Settings.
 FocusScope {
     id: bar
 
-    property string title
+    property var tabs: []
+    property int currentTab: 0
 
     signal settingsActivated()
 
     implicitHeight: 120
 
-    Text {
+    Row {
+        id: tabRow
+
         anchors.left: parent.left
-        anchors.leftMargin: 48
+        anchors.leftMargin: 32
         anchors.verticalCenter: parent.verticalCenter
-        color: "white"
-        font.pixelSize: 48
-        text: bar.title
+        spacing: 16
+
+        Repeater {
+            id: tabRepeater
+
+            model: bar.tabs
+
+            delegate: BarButton {
+                required property string modelData
+                required property int index
+
+                text: modelData
+                selected: bar.currentTab === index
+                focus: bar.currentTab === index
+
+                onActiveFocusChanged: if (activeFocus) bar.currentTab = index
+                KeyNavigation.right: index + 1 < tabRepeater.count ? tabRepeater.itemAt(index + 1) : settingsButton
+                KeyNavigation.left: index > 0 ? tabRepeater.itemAt(index - 1) : null
+            }
+        }
     }
 
-    Rectangle {
+    BarButton {
         id: settingsButton
 
         anchors.right: parent.right
         anchors.rightMargin: 48
         anchors.verticalCenter: parent.verticalCenter
-        width: settingsLabel.implicitWidth + 64
-        height: 72
-        radius: 8
-        focus: true
-        color: activeFocus ? "white" : "#1d252c"
+        text: qsTr("Settings")
 
-        Accessible.role: Accessible.Button
-        Accessible.name: settingsLabel.text
-
-        Text {
-            id: settingsLabel
-            anchors.centerIn: parent
-            color: settingsButton.activeFocus ? "#101418" : "white"
-            font.pixelSize: 32
-            text: qsTr("Settings")
-        }
-
+        KeyNavigation.left: tabRepeater.count > 0 ? tabRepeater.itemAt(tabRepeater.count - 1) : null
         Keys.onReturnPressed: bar.settingsActivated()
         Keys.onEnterPressed: bar.settingsActivated()
     }

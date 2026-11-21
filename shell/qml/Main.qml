@@ -9,7 +9,7 @@ Window {
     color: "#101418"
     title: qsTr("tvshell")
 
-    // "home" or "settings".
+    // "home", "settings", "photos" (an album's or memory's grid) or "viewer".
     property string page: "home"
     // When the shell stepped aside for Quick Access (ms timestamp, 0 = not pending).
     property double quickAccessHandoff: 0
@@ -18,8 +18,29 @@ Window {
         page = name
         if (name === "settings")
             settingsPage.forceActiveFocus()
+        else if (name === "photos")
+            photoGrid.forceActiveFocus()
+        else if (name === "viewer")
+            photoViewer.forceActiveFocus()
         else
             home.forceActiveFocus()
+    }
+
+    function openAlbum(albumId, name) {
+        immich.loadAlbum(albumId)
+        photoGrid.title = name
+        photoGrid.assets = Qt.binding(() => immich.albumAssets)
+        photoGrid.loading = Qt.binding(() => immich.albumLoading)
+        photoGrid.currentIndex = 0
+        showPage("photos")
+    }
+
+    function openMemory(memory) {
+        photoGrid.title = memory.title
+        photoGrid.assets = memory.assets
+        photoGrid.loading = false
+        photoGrid.currentIndex = 0
+        showPage("photos")
     }
 
     function openPowerDialog() {
@@ -96,8 +117,14 @@ Window {
         id: steamLibrary
     }
 
+    ImmichClient {
+        id: immich
+    }
+
     FocusScope {
         id: home
+
+        readonly property Item currentPlace: topBar.currentTab === 1 ? photos : games
 
         anchors.fill: parent
         focus: true
@@ -112,10 +139,11 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            title: qsTr("Games")
+            tabs: [qsTr("Games"), qsTr("Photos")]
 
-            KeyNavigation.down: games
+            KeyNavigation.down: home.currentPlace
             onSettingsActivated: root.showPage("settings")
+            onCurrentTabChanged: if (currentTab === 1) immich.refresh()
         }
 
         GamesPlace {
@@ -125,12 +153,58 @@ Window {
             anchors.right: parent.right
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
-            focus: true
+            visible: home.currentPlace === games
+            focus: home.currentPlace === games
             library: steamLibrary
             onScreen: baseLayer.onScreen || !baseLayer.available
 
             KeyNavigation.up: topBar
             KeyNavigation.priority: KeyNavigation.AfterItem
+        }
+
+        PhotosPlace {
+            id: photos
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: topBar.bottom
+            anchors.bottom: parent.bottom
+            visible: home.currentPlace === photos
+            focus: home.currentPlace === photos
+            immich: immich
+
+            KeyNavigation.up: topBar
+            KeyNavigation.priority: KeyNavigation.AfterItem
+            onAlbumOpened: (albumId, name) => root.openAlbum(albumId, name)
+            onMemoryOpened: memory => root.openMemory(memory)
+        }
+    }
+
+    PhotoGrid {
+        id: photoGrid
+
+        anchors.fill: parent
+        visible: root.page === "photos"
+        immich: immich
+
+        onClosed: root.showPage("home")
+        onPhotoOpened: index => {
+            photoViewer.index = index
+            root.showPage("viewer")
+        }
+    }
+
+    PhotoViewer {
+        id: photoViewer
+
+        anchors.fill: parent
+        visible: root.page === "viewer"
+        immich: immich
+        assets: photoGrid.assets
+
+        onClosed: {
+            photoGrid.currentIndex = index
+            root.showPage("photos")
         }
     }
 

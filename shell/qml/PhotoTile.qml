@@ -1,0 +1,54 @@
+import QtQuick
+
+// A picture with an optional caption, highlighted when current.
+Rectangle {
+    id: tile
+
+    property url source
+    property string title
+    property string subtitle
+    property bool current
+
+    radius: 8
+    color: "#1d252c"
+    border.color: "white"
+    border.width: current ? 6 : 0
+
+    Accessible.role: Accessible.ListItem
+    Accessible.name: title
+
+    Image {
+        id: picture
+
+        anchors.fill: parent
+        anchors.margins: tile.border.width
+        source: tile.source
+        sourceSize.width: 480
+        sourceSize.height: 480
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+    }
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: tile.border.width
+        height: caption.implicitHeight + 24
+        visible: tile.title.length > 0
+        color: "#b0000000"
+
+        Text {
+            id: caption
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: 16
+            color: "white"
+            font.pixelSize: 26
+            elide: Text.ElideRight
+            text: tile.subtitle.length > 0 ? tile.title + "  ·  " + tile.subtitle : tile.title
+        }
+    }
+}
