@@ -9,7 +9,7 @@ Window {
     color: "#101418"
     title: qsTr("tvshell")
 
-    // "home", "settings", "photos" (an album's or memory's grid) or "viewer".
+    // "home", "settings", "photos" (an album's or memory's grid), "viewer" or "youtube".
     property string page: "home"
     // When the shell stepped aside for Quick Access (ms timestamp, 0 = not pending).
     property double quickAccessHandoff: 0
@@ -22,6 +22,8 @@ Window {
             photoGrid.forceActiveFocus()
         else if (name === "viewer")
             photoViewer.forceActiveFocus()
+        else if (name === "youtube")
+            youtube.open()
         else
             home.forceActiveFocus()
     }
@@ -63,6 +65,8 @@ Window {
             claim = true
             if (powerDialog.visible)
                 powerDialog.close()
+            if (root.page === "youtube")
+                youtube.suspend()
             root.showPage("home")
         }
         onPowerPressed: {
@@ -134,18 +138,18 @@ Window {
         id: mediaProxy
     }
 
-    // Videos keep the screen awake while they play.
+    // Videos keep the screen awake while they play (YouTube: while it plays sound).
     Timer {
         interval: 30000
         repeat: true
-        running: photoViewer.playing
+        running: photoViewer.playing || (root.page === "youtube" && youtube.audible)
         onTriggered: idle.activity()
     }
 
     FocusScope {
         id: home
 
-        readonly property Item currentPlace: topBar.currentTab === 1 ? photos : games
+        readonly property Item currentPlace: [games, photos, watch][topBar.currentTab]
 
         anchors.fill: parent
         focus: true
@@ -163,7 +167,7 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            tabs: [qsTr("Games"), qsTr("Photos")]
+            tabs: [qsTr("Games"), qsTr("Photos"), qsTr("Watch")]
 
             KeyNavigation.down: home.currentPlace
             onSettingsActivated: root.showPage("settings")
@@ -201,6 +205,36 @@ Window {
             onAlbumOpened: (albumId, name) => root.openAlbum(albumId, name)
             onMemoryOpened: memory => root.openMemory(memory)
         }
+
+        WatchPlace {
+            id: watch
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: topBar.bottom
+            anchors.bottom: parent.bottom
+            visible: home.currentPlace === watch
+            focus: home.currentPlace === watch
+
+            KeyNavigation.up: topBar
+            KeyNavigation.priority: KeyNavigation.AfterItem
+            onAppOpened: appId => root.showPage(appId)
+        }
+    }
+
+    YouTubePage {
+        id: youtube
+
+        anchors.fill: parent
+        visible: root.page === "youtube"
+
+        onClosed: root.showPage("home")
+    }
+
+    // In YouTube, Back reaches the page as Escape (its "back").
+    WebKeys {
+        window: root
+        enabled: root.page === "youtube" && idle.state === IdleController.Active && !powerDialog.visible
     }
 
     PhotoGrid {

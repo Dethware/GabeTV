@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pinned to what SteamOS 3.9.5 ships (see toolchains/steamos-3.9).
-find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Multimedia Network Quick)
+find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Multimedia Network Quick WebEngineQuick)
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
@@ -56,6 +56,8 @@ set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIA
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
+set_source_files_properties(qml/WatchPlace.qml PROPERTIES QT_RESOURCE_ALIAS WatchPlace.qml)
+set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
 
 qt_add_qml_module(tvshell
     URI TvShell
@@ -79,6 +81,8 @@ qt_add_qml_module(tvshell
         qml/AlbumPicker.qml
         qml/PhotoBackdrop.qml
         qml/PhotoInfo.qml
+        qml/WatchPlace.qml
+        qml/YouTubePage.qml
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
@@ -112,6 +116,8 @@ qt_add_qml_module(tvshell
         src/SteamLog.h
         src/ViewerSettings.cpp
         src/ViewerSettings.h
+        src/WebKeys.cpp
+        src/WebKeys.h
 )
 
 # The generated QML type registration includes the headers by name.
@@ -124,6 +130,7 @@ target_link_libraries(tvshell
         Qt6::Multimedia
         Qt6::Network
         Qt6::Quick
+        Qt6::WebEngineQuick
         SDL3::SDL3
         PkgConfig::XCB
         miniaudio

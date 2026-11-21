@@ -3,6 +3,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QSocketNotifier>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 
 #include <csignal>
 #include <sys/eventfd.h>
@@ -42,6 +43,9 @@ int main(int argc, char *argv[])
     // Inside Gaming Mode only X11 windows can be put on screen (see docs/gabecube-findings.md).
     if (qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY") && !qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "xcb");
+
+    // YouTube (qml/YouTubePage.qml). Must come before the application object.
+    QtWebEngineQuick::initialize();
 
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("tvshell"));

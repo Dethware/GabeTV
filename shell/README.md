@@ -110,7 +110,13 @@ Layouts and looks are placeholders; this is the plumbing.
   (`~/.cache/tvshell/network`, up to 2 GiB; asset images are served from the cache when present).
 - **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
   cached cover art; launching with `steam://rungameid/<id>`.
-- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos) and Settings. Left/right
+- **YouTube** (`qml/WatchPlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`): a Watch place
+  with a YouTube tile, which opens `youtube.com/tv` (the smart-TV UI) in Qt WebEngine under a
+  TV user agent. Created on first open and kept: Home pauses the video and freezes the page,
+  opening it again carries on; YouTube's own Exit goes back to the shell. Back reaches the
+  page as Escape (YouTube's back). The screen stays awake while it plays sound. Sign-in with
+  a code at youtube.com/activate; cookies in `~/.local/share/tvshell/QtWebEngine/youtube`.
+- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos, Watch) and Settings. Left/right
   only move the highlight (white); OK switches to the highlighted place (blue underline = the
   place showing); the highlight stays on the tab, Down goes into the place. The controller's LB/RB switch places directly (a GamepadInput
   signal, not a key event). Back inside a place returns to the top bar. Placeholder looks.
@@ -145,4 +151,5 @@ the shell picks it up again.
 
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos.
-- More places: media apps, photos, emulators.
+- More places: media apps (Jellyfin in Watch), emulators.
+- YouTube: check video decoding (GPU or CPU, 4K), the remote's media keys, memory use.
