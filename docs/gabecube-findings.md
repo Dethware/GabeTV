@@ -308,6 +308,14 @@ until the light pulses.
 
 - Paired from SSH with `bluetoothctl --agent NoInputNoOutput` (`pair`, `trust`, `connect`).
   The first `pair` timed out after 20 s, the second succeeded. No root needed.
+- Re-pairing after using the remote with the Chromecast again (2026-11-21, after a reboot):
+  bluetoothd logged `Failed to add device FC:A8:9B:28:99:BE (1): Failed (0x03)` four times,
+  and in pairing mode the remote's light only came on for a few seconds and went out.
+  Pairing with the Chromecast itself was just as flaky. **Pulling the batteries and putting
+  them back fixed it**: the remote paired right away and the shell found its voice service.
+  So the remote's own state is the likely culprit, not gabecube (inferred).
+  `system/pair-remote.sh` forgets the old pairing, waits for the advert and retries
+  pair/trust/connect; written for this but not needed in the end (untested).
 - Shows up as BLE HID "Chromecast Remote" (`18D1:9450`, hid-generic via uhid), one evdev
   device, plus Battery Service (battery level readable via `bluetoothctl info`).
 - Stayed connected to gabecube for 5+ minutes after pairing; the dongle didn't take it back.
