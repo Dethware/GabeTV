@@ -6,6 +6,7 @@ A custom TV experience on a Valve Steam Machine, replacing a Google TV dongle, a
 
 - The system's constraints are still being discovered. **Ask questions and discuss design decisions before writing larger amounts of code.** Don't fill gaps with assumptions.
 - Prefer reasoning the design upfront, then a **scaffold** (a file layout resembling the end result) or one clear example to follow, then the implementation.
+- Documentation (the split is in the global `~/.claude/CLAUDE.md`): users read `shell/README.md`, developers `shell/DEVELOPMENT.md`; dated findings and decisions go in the log, `docs/gabecube-findings.md`.
 
 ## Hardware and setup
 

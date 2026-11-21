@@ -1,7 +1,10 @@
 # gabecube: findings
 
-What we've learned about the Steam Machine by probing it. Updated as tests run.
-Everything here was observed on the machine unless marked *inferred*.
+The project's log: what we've learned about the Steam Machine and the shell by probing and
+using them, with dates. Entries are added, not rewritten; a later entry corrects an earlier
+one. Everything here was observed on the machine unless marked *inferred*. How things work
+now is in [shell/DEVELOPMENT.md](../shell/DEVELOPMENT.md); how to use them in
+[shell/README.md](../shell/README.md).
 
 ## System (2026-11-21)
 
@@ -558,6 +561,37 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   `radeonsi_drv_video.so` wasn't mapped when checked after playback. Check during playback if
   4K ever stutters. Harmless log noise: VDPAU probing for `libvdpau_nvidia.so`, and a
   `spaVisitChoice: parse error` from Qt's PipeWire audio about the HDMI sink's IEC958 formats.
+
+## The shell in use
+
+- 2026-11-21: enabled as the default interface (`./deploy.sh --enable`). Confirmed: launching
+  a game from the shell, quitting it and landing back in the shell; suspend and resume; a full
+  Gaming Mode restart (Steam restarting included). Steam recreates its virtual pad after a
+  game and after resume; the shell picks it up again.
+- 2026-11-21, 23:30: after waking from 1.5 h of sleep (no network yet), Steam's menu opened
+  and its UI stopped responding: a frozen, partly blurred screen. Steam's watchdog killed the
+  webhelper at 23:32:25 ("killing unresponsive browser", core dump) and reloaded its UI at
+  23:32:33. The shell had stepped aside normally. *Inferred:* a Steam bug, possibly tied to
+  waking without network.
+- 2026-11-22: the screensaver sometimes started with a black screen, seen when it started
+  over YouTube. Cause: it covered the screen with black at once, then fetched its order and
+  the first full-size photo (never cached: each run starts on a new random photo). Fixed by
+  preparing the next run when one ends and fading in once the first photo is up.
+
+## YouTube (2026-11-22)
+
+- SteamOS ships Qt WebEngine 6.11.1 (`qt6-webengine`, `/usr/lib/qt6/QtWebEngineProcess`);
+  added to the toolchain image.
+- `youtube.com/tv` with a Tizen smart-TV user agent gives the TV interface in a
+  `WebEngineView`; sign-in with a code at youtube.com/activate worked, and the "Who's
+  watching?" account picker comes up at start.
+- The account picker's address is the same as the home screen's (`https://www.youtube.com/tv#/`;
+  only `/tv` and `/tv#/` were logged on the way there). Inspected with Chromium's DevTools
+  (`QTWEBENGINE_REMOTE_DEBUGGING=127.0.0.1:9222` through an SSH tunnel): the picker is a
+  visible `ytlr-account-selector` element (custom elements are `ytlr-*`/`yt-*`), absent
+  once an account is chosen.
+- The remote's YouTube key reaches X11 as `XF86Launch1`, keycode 156 (after the hwdb remap
+  to `prog1`); a root grab on it works like Home.
 
 ## Waydroid prerequisites
 

@@ -1,160 +1,106 @@
 # tvshell
 
-The TV's home screen. A Qt 6 / QML program that runs inside Steam's Gaming Mode session
-as an X11 client on gamescope's `:0`, next to Steam (see `docs/gabecube-findings.md` for why).
-Layouts and looks are placeholders; this is the plumbing.
+The TV's home screen on the Steam Machine. It runs inside Steam's Gaming Mode, next to
+Steam: games still start and run through Steam, and the shell is what you see when no game
+is running. Everything works with a TV remote or a controller; no mouse or keyboard needed.
+Layouts and looks are placeholders for now.
 
-## What it does now
+How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 
-- **Takes the screen** (`src/BaseLayer.*`): tags its window `STEAM_GAME=2113929217`
-  (`0x7E000001`) and puts that ID first in gamescope's `GAMESCOPECTRL_BASELAYER_APPID`.
-  Steam rewrites that list when a game starts or exits and when Steam restarts; the shell
-  re-claims it whenever only Steam's own entries (769, 413091) are left, never while a game's
-  ID is in it. On exit it removes its ID again. Does nothing outside gamescope.
-- **Input** (`src/GamepadInput.*`): the remote and keyboards arrive as normal key events.
-  The controller is read through SDL3 from Steam's virtual Xbox pad and turned into key
-  events (A = Return, B/Back = Back, Start = Menu, d-pad/left stick = arrows with repeat; LB/RB as
-  their own signal),
-  only while the shell is on screen and active, since the same pad feeds games.
-- **Steam's own screens**: Steam keeps the Steam and … buttons and draws its menu and Quick
-  Access in its own window, behind the shell. The shell steps aside (`claim = false`) when
-  Steam opens its menu (Steam writes root `GAMESCOPE_BLUR_MODE`) or Quick Access (only visible
-  in Steam's `logs/webhelper.txt`, followed by `src/SteamLog.*`). If Steam closes Quick Access
-  right after the handoff, the shell re-opens it with Steam's Ctrl+2 shortcut (XTest).
-  The remote's **Home** (grabbed on the root window) brings the shell back. There's no
-  controller way back for now: picking up the controller suggests playing, and Steam doesn't
-  feed its virtual pad while its UI has focus anyway.
-- **Idle** (`src/IdleController.*`, replaces Steam's dim/screensaver/sleep, which should be
-  off in Steam's settings): screensaver after 5 min, HDMI signal off after 30 min
-  (`gamescopectl drm_sleep_external_screen 1`), suspend after 60 min with the screen off.
-  Counts only while the shell is on screen. Activity: keys reaching the shell, any controller
-  input (also during games), gamescope's `GAMESCOPE_INPUT_COUNTER`, Home/Power, resume from
-  suspend. The first press after the screensaver or screen-off only wakes.
-  Times in `~/.config/tvshell/tvshell.conf`, `[idle]` group, seconds, 0 = never:
-  `screensaverAfter`, `screenOffAfter`, `suspendAfter`.
-  The left stick counts only while the shell is fully awake: a thumb resting on a Steam
-  Controller trackpad that Steam maps to the stick moved it and ended the screensaver.
-- **Screensaver** (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`,
-  `src/ScreensaverSettings.*`): photos from the Immich albums chosen in Settings, in an order
-  shuffled once per run (`ImmichClient::loadScreensaver`: all chosen albums, images only, no
-  duplicates), one at a time on a timer. The next run's order and first photo are prepared
-  when a run ends (and at startup); a run fades in over the current screen once its first
-  photo is up (at most 4 s), so it never starts on a black screen. Left/right browse without leaving
-  it, OK opens the photo in the viewer (in the screensaver's order), other keys end it.
-  Transitions: slide (in the direction of travel), crossfade or none; one at a time, presses
-  during a slide only move the target, and the next slide goes straight to it. A photo
-  loads into the hidden layer and is revealed once loaded. Beside the photo: the photo
-  blurred, its colours as a gradient (the thumbnail decoded at 3×2 pixels, then blurred), or
-  black; the background crossfades in place under the sliding photos. Date and place at the
-  bottom left, outlined, moving to a nearby spot every 5 minutes (OLED). No albums: a clock
-  moving every minute. Settings in `tvshell.conf`, `[screensaver]`: `albums`, `interval`
-  (s), `transition`, `background`, `showInfo`.
-- **Power** (the remote's, remapped to the sleep key): a short press turns the screen off,
-  again → on; held for 0.8 s it opens the power dialog (Sleep, Power off, Turn off controllers,
-  Cancel; starts on Cancel), not yet over a running game. The shell holds a logind
-  `handle-suspend-key` inhibitor lock so logind doesn't suspend, and grabs the key on the root
-  window like Home, so it works in Steam's screens and games too. The grabs use
-  `owner_events = false`: with `true`, X delivered the release to the shell's own window and
-  Power looked stuck down. A held key auto-repeats as release/press pairs every 40 ms; a
-  release only counts after 80 ms without a new press. Both grabs are redone after a resume.
-  "Turn off controllers" (`src/PowerActions.*`) sends the Steam Controller "turn off" feature
-  report (`01 9F 04 "off!"`, 64 bytes) to each HID interface of a Steam Controller puck
-  (`28de:1304`/`1305`) through hidraw, which `deck` may open alongside Steam; and disconnects
-  Bluetooth gamepads through bluez (not the remote).
-- **Assistant** (`src/RemoteAssistant.*`, `qml/AssistantIndicator.qml`): the remote's
-  Assistant button and microphone through its Android TV Voice service over bluez D-Bus (no
-  root). On (re)subscribing it asks the remote for the hold-to-talk model. While Assistant is
-  held, the audio is decoded (`src/ImaAdpcm.*`, IMA ADPCM 16 kHz) and a ring at the bottom
-  follows its level; on release the recording is normalized and played back
-  (`src/AudioPlayer.*`, vendored miniaudio in `3rdparty/miniaudio/`). Not connected to anything
-  else yet (later: speech recognition / a local model on mikoshi). Protocol notes in
-  `docs/gabecube-findings.md`.
-- **Settings** (`qml/SettingsPage.qml`): from the top bar's Settings entry (up from the games)
-  or the controller's Start/≡. Categories on the left (Power: the three idle times;
-  Screensaver: albums, time per photo, transition, background, date and place; Photos: the
-  viewer's transition and background); Right/OK goes
-  into a category, left/right changes a value (saved and applied at once), OK on Albums opens
-  a list of albums with checkmarks. Back goes out a level, then leaves.
-- **Photos** (`src/ImmichClient.*`, `qml/PhotosPlace.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`):
-  a place next to Games (top bar tabs). Today's memories ("On this day") and the albums
-  (by name) from Immich; an album or memory opens a photo grid, OK opens a full-screen viewer
-  (whole photo, black bars; preview first, then the full-size rendering), left/right move,
-  Back goes back. Moving between photos: slide (250 ms), crossfade or none, over the photo
-  blurred, its colours as a gradient, or black (Settings → Photos; `tvshell.conf`, `[viewer]`
-  `transition`, `background`; the backdrop is `qml/PhotoBackdrop.qml`, shared with the
-  screensaver). One transition at a time; presses during one go straight to the latest photo
-  next. A held key skips transitions, and the background follows once it stops for 0.2 s.
-  Date and place at the bottom left, the position at the bottom
-  right, both outlined like the screensaver's (`qml/PhotoInfo.qml`, shared).
-  The place is looked up from the photo's GPS in a local list (`src/PlaceLookup.*`): the
-  nearest populated place and its town, "Blackeberg, Stockholm", or "Sundbyberg, Sweden" for
-  a town itself. Immich's own names are too coarse (it called Blackeberg "Rinkeby"; see
-  `docs/gabecube-findings.md`). The list is `places.tsv` next to the program, made by
-  `./make-places.py` from GeoNames (CC BY 4.0) for Sweden and the Czech Republic; other
-  countries need a rule there for which administrative level is the town. Photos elsewhere,
-  or without the list, keep Immich's "City, Country".
-  The viewer shows the cached thumbnail at once and loads the preview and
-  full-size image after 250 ms on a photo; the last photo stays up until the next one shows
-  (no black flashes); a held key steps at most ~8 photos/s. Once settled, the next three and
-  previous two full-size images are preloaded and kept, so stepping to them is instant. Grids show whole photos (portraits upright); album covers are cropped.
-  Images are requested with Immich's edits (`edited=true`) and EXIF rotation applied
-  (`autoTransform`). Videos: OK plays/pauses, Back stops, left/right step on; the screen stays
-  awake while one plays. Qt Multimedia (ffmpeg backend) plays them through
-  `src/ImmichMediaProxy.*`, a loopback HTTP proxy that adds the API key (Qt's player can't
-  send headers) and passes Range requests through; a random token in its URLs keeps other
-  local programs out.
-  It runs as a dedicated TV account on the Immich server, which sees the albums shared with
-  it; that account owns no photos, so memories stay empty for now (the row hides itself).
-  Server and key in `~/.config/tvshell/immich.conf` (mode 600; `[immich]` `url=`, `apiKey=`).
-  A read-only key needs `album.read`, `memory.read`, `asset.read`, `asset.view` (and
-  `person.read` for people later). `src/NetworkAccess.*` is the shell's network layer (also
-  for QML images): it adds the key to requests for the Immich server only, and caches on disk
-  (`~/.cache/tvshell/network`, up to 2 GiB; asset images are served from the cache when present).
-- **Steam games** (`src/SteamLibrary.*`): installed games from Steam's manifests and its
-  cached cover art; launching with `steam://rungameid/<id>`.
-- **YouTube** (`qml/WatchPlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`): a Watch place
-  with a YouTube tile, which opens `youtube.com/tv` (the smart-TV UI) in Qt WebEngine under a
-  TV user agent. Created on first open and kept: Home pauses the video and freezes the page,
-  opening it again carries on; YouTube's own Exit goes back to the shell. The remote's
-  YouTube key opens it from anywhere (a root grab like Home; not over a running game).
-  Back reaches the page as Escape (YouTube's back), except on the "Who's watching?" account
-  picker (a visible `ytlr-account-selector`; same address as YouTube's home), where it leaves
-  YouTube for whatever was open before: the shell page, or Steam if Steam had the screen. The screen stays awake while it plays sound. Sign-in with
-  a code at youtube.com/activate; cookies in `~/.local/share/tvshell/QtWebEngine/youtube`.
-- **UI** (`qml/`): a top bar with the places as tabs (Games, Photos, Watch) and Settings. Left/right
-  only move the highlight (white); OK switches to the highlighted place (blue underline = the
-  place showing); the highlight stays on the tab, Down goes into the place. The controller's LB/RB switch places directly (a GamepadInput
-  signal, not a key event). Back inside a place returns to the top bar. Placeholder looks.
+## What it does
 
-## Build and run
+- **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
+- **Photos**: photos from an Immich server. "On this day" memories and your albums; an
+  album opens a grid, OK opens a photo full screen. Left/right move between photos, with a
+  slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
+  its date and place. Videos play with OK.
+- **Watch**: YouTube, in the same TV interface smart TVs use, with all its accounts.
+- **Screensaver**: after a while without input, photos from the albums you choose, one at a
+  time, with their date and place. Left/right browse without leaving it, OK opens the photo,
+  any other key ends it. Without albums: a clock.
+- **Screen off and sleep**: later still, the screen turns off, and later the machine
+  sleeps. Defaults: screensaver after 5 minutes, screen off after 30, sleep after 60.
+- **Assistant button**: holding it shows a ring that follows your voice and plays the
+  recording back when you let go. It doesn't do anything else yet.
 
-Builds in the SteamOS toolchain image (`../toolchains/steamos-3.9`), which has to be built
-or loaded first.
+## Controls
 
-    ./build.sh            # → build/tvshell
-    ./make-places.py      # → build/places.tsv (downloads GeoNames; once, or to refresh)
-    ./deploy.sh           # copy to gabecube, install the user unit, restart it
-    ./deploy.sh --log     # follow its log
+| | Remote | Controller |
+|---|---|---|
+| Move | ring | d-pad, left stick |
+| Select | OK | A |
+| Back | Back | B |
+| Switch place | top bar | LB / RB |
+| Settings | top bar | Start (≡) |
+| Back to the shell | Home, from anywhere | |
+| YouTube | YouTube, from anywhere | Watch → YouTube |
+| Screen off / on | Power (short press) | |
+| Sleep, power off, controllers off | Power (hold) | |
+| Steam's menu, Quick Access | | Steam, … buttons |
+
+The top bar holds the places (Games, Photos, Watch) and Settings: left/right move along it,
+OK switches place, Down goes in. Back inside a place returns to the top bar.
+
+In YouTube, Back is YouTube's own back. On its "Who's watching?" screen, Back leaves YouTube
+for whatever was open before. Home pauses YouTube; opening it again carries on.
+
+## Setup
+
+**Steam:** turn off Steam's own dimming, screensaver and sleep; the shell handles those.
+
+**Photos:** the shell signs in to Immich with an API key of a dedicated TV account and shows
+the albums shared with that account. Put the server and key in `~/.config/tvshell/immich.conf`
+(readable only by you, `chmod 600`):
+
+    [immich]
+    url=https://photos.example.com
+    apiKey=...
+
+The key needs the permissions `album.read`, `memory.read`, `asset.read` and `asset.view`.
+
+**YouTube:** open it and choose "Sign in": it shows a code to enter at youtube.com/activate
+on your phone. Add more accounts the same way. Sign-ins are kept.
+
+**Remote:** the Chromecast with Google TV remote, paired over Bluetooth. Pair it with
+`system/pair-remote.sh` (hold Back + Home on the remote until its light pulses). If pairing
+keeps failing, take its batteries out for a few seconds.
+
+## Settings
+
+In the shell: Settings in the top bar, or Start on the controller. Power (when the
+screensaver, screen off and sleep start), Screensaver (albums, time per photo, transition,
+background, date and place) and Photos (transition and background in the viewer). Changes
+apply at once.
+
+They are saved in `~/.config/tvshell/tvshell.conf`:
+
+| Group | Key | Meaning |
+|---|---|---|
+| `[idle]` | `screensaverAfter`, `screenOffAfter`, `suspendAfter` | seconds, 0 = never |
+| `[screensaver]` | `albums` | album IDs |
+| | `interval` | seconds per photo |
+| | `transition` | `slide`, `fade` or `none` |
+| | `background` | `blur`, `gradient` or `black` |
+| | `showInfo` | date and place on or off |
+| `[viewer]` | `transition`, `background` | as above, for the photo viewer |
+
+## Install
+
+Needs Docker on your computer and SSH access to the Steam Machine as `deck@gabecube`.
+
+    docker build -t tv/toolchains/steamos-3.9:dev ../toolchains/steamos-3.9   # once
+    ./build.sh            # build
+    ./make-places.py      # the place list for photo captions (once, or to refresh)
+    ./deploy.sh           # copy to the Steam Machine and (re)start it
+    ./deploy.sh --enable  # start it with Gaming Mode from now on (--disable to undo)
     ./deploy.sh --stop    # stop it; Steam gets the screen back
-    ./deploy.sh --enable  # start it with every Gaming Mode session (--disable to undo)
+    ./deploy.sh --log     # follow its log
 
-`deploy/tvshell.service` is a user unit that belongs to the Gaming Mode session
-(`PartOf=graphical-session.target`, reads `%t/gamescope-environment`). Enabled on gabecube
-since 2026-11-21 (link in `~/.config/systemd/user/gamescope-session.target.wants/`), so the
-shell is the default interface: it comes up with Gaming Mode, before Steam has started, and
-takes the screen back when Steam finishes starting.
+## Limitations
 
-Environment: `TVSHELL_NO_CLAIM=1` runs it without taking the screen.
-Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`, `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`, `tvshell.mediaproxy`, `tvshell.steam`,
-`tvshell.steamlog`.
-
-Confirmed in use (2026-11-21): launching a game from the shell, quitting it and landing back
-in the shell; suspend and resume; a full Gaming Mode restart (Steam restarting included). Steam recreates its virtual pad after a game and after resume;
-the shell picks it up again.
-
-## Next
-
-- Hand the Assistant audio to speech recognition.
-- Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people, seeking/progress for videos.
-- More places: media apps (Jellyfin in Watch), emulators.
-- YouTube: check video decoding (GPU or CPU, 4K), the remote's media keys, memory use.
+- While a game is running, Home, the YouTube button and the power dialog don't bring up the
+  shell. Use the controller's Steam button, or quit the game.
+- "On this day" stays empty: the TV account owns no photos.
+- Finer place names ("Blackeberg, Stockholm") only for Sweden and the Czech Republic so far;
+  elsewhere the names come from Immich ("Stockholm, Sweden").
+- The Assistant button doesn't do anything with your voice yet.

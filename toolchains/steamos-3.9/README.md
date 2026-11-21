@@ -1,7 +1,8 @@
 # steamos-3.9
 
 Toolchain matching gabecube's SteamOS 3.9.5 (build 20261023.100): glibc 2.43, GCC 16.1.1,
-Qt 6.11.1 (base, declarative, multimedia with the ffmpeg backend, shadertools, tools), SDL3 3.4.12, CMake 4.4, Ninja.
+Qt 6.11.1 (base, declarative, multimedia with the ffmpeg backend, shadertools, tools,
+webengine), SDL3 3.4.12, CMake 4.4, Ninja.
 
 SteamOS itself can't build anything: no compiler, no CMake, and `/usr/include` is stripped.
 
