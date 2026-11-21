@@ -5,8 +5,9 @@
 #include <QQmlEngine>
 #include <QWindow>
 
-// While enabled, the shell's Back key (controller B, the remote's Back) reaches the window as
-// Escape, which web TV apps such as youtube.com/tv take as "back".
+// While enabled, the shell's Back key (controller B, the remote's Back) is taken from the
+// window and reported as backPressed(); sendBack() then hands it to the page as Escape, which
+// web TV apps such as youtube.com/tv take as "back". So QML can look at the page first.
 class WebKeys : public QObject
 {
     Q_OBJECT
@@ -22,9 +23,13 @@ public:
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled);
 
+    // Escape (press and release) to the window's focused item.
+    Q_INVOKABLE void sendBack();
+
 signals:
     void windowChanged();
     void enabledChanged();
+    void backPressed();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

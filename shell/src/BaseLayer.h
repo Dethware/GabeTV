@@ -60,6 +60,8 @@ public:
 signals:
     // The remote's Home key, grabbed on the root window: arrives even while Steam has focus.
     void homePressed();
+    // The remote's YouTube key (remapped to XF86Launch1), grabbed the same way.
+    void youtubePressed();
     // The remote's Power (remapped to the sleep key), grabbed the same way: a short press...
     void powerPressed();
     // ...or held for a moment (fires while still held).
@@ -106,6 +108,7 @@ private:
     xcb_atom_t m_inputCounter = 0;
     xcb_keycode_t m_homeKeycode = 0;
     xcb_keycode_t m_sleepKeycode = 0;
+    xcb_keycode_t m_youtubeKeycode = 0;
     // Power short/long press. A held key may auto-repeat as release+press pairs, so a release
     // only counts when no press follows quickly.
     bool m_powerDown = false;

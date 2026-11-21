@@ -170,14 +170,16 @@ void BaseLayer::grabKeys()
     constexpr xcb_keysym_t XF86Sleep = 0x1008FF2F;
     m_homeKeycode = grabKey(XF86HomePage, "Home");
     m_sleepKeycode = grabKey(XF86Sleep, "Sleep");
+    constexpr xcb_keysym_t XF86Launch1 = 0x1008FF41;
+    m_youtubeKeycode = grabKey(XF86Launch1, "YouTube");
 }
 
 void BaseLayer::prepareForSleep(bool start)
 {
     if (start || !m_root)
         return;
-    qCInfo(lcBaseLayer) << "resumed: grabbing Home and Power again";
-    for (xcb_keycode_t keycode : {m_homeKeycode, m_sleepKeycode}) {
+    qCInfo(lcBaseLayer) << "resumed: grabbing Home, Power and YouTube again";
+    for (xcb_keycode_t keycode : {m_homeKeycode, m_sleepKeycode, m_youtubeKeycode}) {
         if (keycode)
             xcb_ungrab_key(m_connection, keycode, m_root, XCB_MOD_MASK_ANY);
     }
@@ -295,6 +297,13 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
             if (type == XCB_KEY_PRESS) {
                 qCInfo(lcBaseLayer) << "Home pressed (global grab)";
                 emit homePressed();
+            }
+            return true;
+        }
+        if (key->detail == m_youtubeKeycode) {
+            if (type == XCB_KEY_PRESS) {
+                qCInfo(lcBaseLayer) << "YouTube pressed (global grab)";
+                emit youtubePressed();
             }
             return true;
         }

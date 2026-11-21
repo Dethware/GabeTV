@@ -28,14 +28,24 @@ void WebKeys::setEnabled(bool enabled)
     emit enabledChanged();
 }
 
-bool WebKeys::eventFilter(QObject *watched, QEvent *event)
+void WebKeys::sendBack()
+{
+    if (!m_window)
+        return;
+    for (QEvent::Type type : {QEvent::KeyPress, QEvent::KeyRelease}) {
+        QKeyEvent escape(type, Qt::Key_Escape, Qt::NoModifier, QStringLiteral("\x1b"));
+        QCoreApplication::sendEvent(m_window, &escape);
+    }
+}
+
+bool WebKeys::eventFilter(QObject *, QEvent *event)
 {
     if (!m_enabled || (event->type() != QEvent::KeyPress && event->type() != QEvent::KeyRelease))
         return false;
     const auto *key = static_cast<QKeyEvent *>(event);
     if (key->key() != Qt::Key_Back)
         return false;
-    QKeyEvent escape(event->type(), Qt::Key_Escape, key->modifiers(), QStringLiteral("\x1b"), key->isAutoRepeat());
-    QCoreApplication::sendEvent(watched, &escape);
+    if (event->type() == QEvent::KeyPress && !key->isAutoRepeat())
+        emit backPressed();
     return true;
 }

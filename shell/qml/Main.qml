@@ -13,6 +13,25 @@ Window {
     property string page: "home"
     // When the shell stepped aside for Quick Access (ms timestamp, 0 = not pending).
     property double quickAccessHandoff: 0
+    // Where leaving YouTube goes back to: the page it was opened from, or Steam if Steam had
+    // the screen when the remote's YouTube key opened it.
+    property string youtubeReturnPage: "home"
+    property bool youtubeReturnToSteam: false
+
+    function openYouTube() {
+        if (page !== "youtube") {
+            youtubeReturnPage = page
+            youtubeReturnToSteam = baseLayer.available && !baseLayer.onScreen
+        }
+        showPage("youtube")
+    }
+
+    function leaveYouTube() {
+        youtube.suspend()
+        showPage(youtubeReturnPage)
+        if (youtubeReturnToSteam)
+            baseLayer.claim = false
+    }
 
     function showPage(name) {
         page = name
@@ -68,6 +87,16 @@ Window {
             if (root.page === "youtube")
                 youtube.suspend()
             root.showPage("home")
+        }
+        // The remote's YouTube key: YouTube, from anywhere (not over a running game for now).
+        onYoutubePressed: {
+            if (gameRunning)
+                return
+            idle.wake()
+            if (powerDialog.visible)
+                powerDialog.close()
+            root.openYouTube()
+            claim = true
         }
         onPowerPressed: {
             if (powerDialog.visible)
@@ -218,7 +247,10 @@ Window {
 
             KeyNavigation.up: topBar
             KeyNavigation.priority: KeyNavigation.AfterItem
-            onAppOpened: appId => root.showPage(appId)
+            onAppOpened: appId => {
+                if (appId === "youtube")
+                    root.openYouTube()
+            }
         }
     }
 
@@ -228,13 +260,22 @@ Window {
         anchors.fill: parent
         visible: root.page === "youtube"
 
-        onClosed: root.showPage("home")
+        onClosed: root.leaveYouTube()
     }
 
-    // In YouTube, Back reaches the page as Escape (its "back").
+    // In YouTube, Back reaches the page as Escape (its "back"); on its account picker, Back
+    // leaves YouTube instead.
     WebKeys {
+        id: webKeys
+
         window: root
         enabled: root.page === "youtube" && idle.state === IdleController.Active && !powerDialog.visible
+        onBackPressed: youtube.checkAccountPicker(atPicker => {
+            if (atPicker)
+                root.leaveYouTube()
+            else
+                webKeys.sendBack()
+        })
     }
 
     PhotoGrid {

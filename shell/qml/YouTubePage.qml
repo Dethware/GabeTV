@@ -23,6 +23,18 @@ FocusScope {
         loader.forceActiveFocus()
     }
 
+    // Calls back with whether YouTube shows its "Who's watching?" account picker (its address
+    // is the same as the home screen's, so this looks at the page).
+    function checkAccountPicker(callback) {
+        if (!view) {
+            callback(false)
+            return
+        }
+        view.runJavaScript("(() => { const e = document.querySelector('ytlr-account-selector');"
+                           + " if (!e) return false; const r = e.getBoundingClientRect();"
+                           + " return r.width > 0 && r.height > 0; })()", result => callback(result === true))
+    }
+
     // Pause, then freeze once the page is hidden (a visible page can't be frozen).
     function suspend() {
         const view = page.view

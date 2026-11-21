@@ -113,8 +113,11 @@ Layouts and looks are placeholders; this is the plumbing.
 - **YouTube** (`qml/WatchPlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`): a Watch place
   with a YouTube tile, which opens `youtube.com/tv` (the smart-TV UI) in Qt WebEngine under a
   TV user agent. Created on first open and kept: Home pauses the video and freezes the page,
-  opening it again carries on; YouTube's own Exit goes back to the shell. Back reaches the
-  page as Escape (YouTube's back). The screen stays awake while it plays sound. Sign-in with
+  opening it again carries on; YouTube's own Exit goes back to the shell. The remote's
+  YouTube key opens it from anywhere (a root grab like Home; not over a running game).
+  Back reaches the page as Escape (YouTube's back), except on the "Who's watching?" account
+  picker (a visible `ytlr-account-selector`; same address as YouTube's home), where it leaves
+  YouTube for whatever was open before: the shell page, or Steam if Steam had the screen. The screen stays awake while it plays sound. Sign-in with
   a code at youtube.com/activate; cookies in `~/.local/share/tvshell/QtWebEngine/youtube`.
 - **UI** (`qml/`): a top bar with the places as tabs (Games, Photos, Watch) and Settings. Left/right
   only move the highlight (white); OK switches to the highlighted place (blue underline = the
