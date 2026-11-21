@@ -57,6 +57,8 @@ Everything below describes the target unless noted.
 
 ## First task: reconnaissance on `gabecube`
 
+Findings so far are in `docs/gabecube-findings.md`. Keep that file updated as tests run.
+
 Map how the Gaming Mode session starts and what we can change without touching read-only parts:
 
 ```bash
