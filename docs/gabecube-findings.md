@@ -813,6 +813,26 @@ machine resumed by itself and the shell came back on screen.
 - The timer of `systemd-run --on-active=3` fired 48 s late (timer accuracy); a plain
   `systemd-run --user sh -c "sleep 3; systemctl suspend"` is on time.
 
+## Screen stayed dark after a wake-up (2026-11-22)
+
+- 17:00:31 the shell suspended the machine from its screen-off state (signal off through
+  `gamescopectl drm_sleep_external_screen 1`). 17:42:04 it was woken; the shell went to
+  Active and sent `drm_sleep_external_screen 0` within 10 ms of the kernel's "suspend exit".
+  **The screen stayed dark.**
+- For the next five minutes `DP-1` showed `connected` but `enabled=disabled`, `dpms=Off`:
+  gamescope picked the connector and a mode again and again (the monitor dropping off and
+  coming back: 17:42:04, 17:42:48, 17:42:50 to 17:43:14, 17:46:59, 17:47:02) without ever
+  driving it. A power-button sleep in between (17:44:21 to 17:44:27) changed nothing; the
+  shell was Active by then and sent nothing on that resume.
+- 17:47:15, `gamescopectl drm_sleep_external_screen 0` sent by hand: the connector was
+  enabled as soon as the monitor came back (17:47:27) and the picture returned (reported).
+- *Inferred:* the first "screen on" went unheeded because it arrived while gamescope was
+  still coming out of suspend. The command's exit code was not checked, so whether it failed
+  outright is unknown. The other wake-ups from screen-off today (all after sleeps of
+  seconds to minutes, same monitor on DisplayPort) brought the picture back.
+- Change: the shell sends "screen on" on waking and after every resume, repeats it three
+  times two seconds apart, and logs a failing `gamescopectl`.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

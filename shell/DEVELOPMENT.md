@@ -73,8 +73,10 @@ States Active → Screensaver → ScreenOff, then suspend. Counts only while the
 screen. Activity: keys reaching the shell, controller input (also during games), gamescope's
 `GAMESCOPE_INPUT_COUNTER`, the global keys, resume. Its event filter lets Left, Right and
 Return through to the screensaver; other keys only wake. Screen off is
-`gamescopectl drm_sleep_external_screen 1`. Videos and YouTube keep it awake while playing
-(a timer in `Main.qml` reporting activity).
+`gamescopectl drm_sleep_external_screen 1`. Screen on (`0`) is sent on waking and after every
+resume, then three more times two seconds apart: sent once right after a resume it can go
+unheeded, and the screen then stays dark (see the log, 2026-11-22). Videos and YouTube keep
+it awake while playing (a timer in `Main.qml` reporting activity).
 
 ### Screensaver (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`, `PhotoInfo.qml`, `src/ScreensaverSettings.*`)
 

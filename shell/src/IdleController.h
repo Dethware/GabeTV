@@ -92,6 +92,8 @@ private:
     void tick();
     void setState(State state);
     void setScreenSleeping(bool sleeping);
+    void sendScreenSleeping();
+    void repeatScreenWake();
     void applyAudioPlaying(bool playing);
     void takeSuspendKey();
     void suspend();
@@ -107,6 +109,10 @@ private:
     QTimer m_tick;
     // Runs out when the music has really stopped (not just between two tracks).
     QTimer m_audioStopped;
+    // Repeats "screen on" a few times after waking: gamescope can miss the first one when
+    // it arrives right after a resume, and the screen then stays dark.
+    QTimer m_screenWake;
+    int m_screenWakeRepeats = 0;
     bool m_suspended = false;
 
     int m_screensaverAfter = 300;

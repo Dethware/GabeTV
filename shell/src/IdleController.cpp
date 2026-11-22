@@ -29,6 +29,9 @@ constexpr int IgnoreAfterScreenOffMs = 1000;
 constexpr int JustWokeMs = 1500;
 // Music that pauses for less than this hasn't stopped (the gap between two tracks).
 constexpr int AudioStoppedMs = 20000;
+// "Screen on" is sent again this often, this many times, after waking.
+constexpr int ScreenWakeRepeatMs = 2000;
+constexpr int ScreenWakeRepeats = 3;
 
 } // namespace
 
@@ -46,6 +49,15 @@ IdleController::IdleController(QObject *parent)
     m_audioStopped.setSingleShot(true);
     m_audioStopped.setInterval(AudioStoppedMs);
     connect(&m_audioStopped, &QTimer::timeout, this, [this] { applyAudioPlaying(false); });
+
+    m_screenWake.setInterval(ScreenWakeRepeatMs);
+    connect(&m_screenWake, &QTimer::timeout, this, [this] {
+        if (m_screenSleeping || m_screenWakeRepeats-- <= 0) {
+            m_screenWake.stop();
+            return;
+        }
+        sendScreenSleeping();
+    });
 
     m_sinceActivity.start();
     m_tick.setInterval(TickMs);
@@ -68,6 +80,12 @@ void IdleController::prepareForSleep(bool start)
     } else {
         qCInfo(lcIdle) << "resumed";
         activity();
+        // Also when we were awake already (a sleep started by Steam): the screen has to come
+        // back either way.
+        if (!m_screenSleeping) {
+            sendScreenSleeping();
+            repeatScreenWake();
+        }
     }
 }
 
@@ -241,12 +259,30 @@ void IdleController::setScreenSleeping(bool sleeping)
     if (m_screenSleeping == sleeping)
         return;
     m_screenSleeping = sleeping;
+    sendScreenSleeping();
+    if (sleeping)
+        m_screenWake.stop();
+    else
+        repeatScreenWake();
+}
+
+void IdleController::sendScreenSleeping()
+{
     // gamescopectl finds gamescope through GAMESCOPE_WAYLAND_DISPLAY / XDG_RUNTIME_DIR,
     // both set in the session environment the unit reads.
     if (qEnvironmentVariableIsEmpty("GAMESCOPE_WAYLAND_DISPLAY"))
         return;
-    QProcess::execute(QStringLiteral("gamescopectl"),
-                      {QStringLiteral("drm_sleep_external_screen"), sleeping ? QStringLiteral("1") : QStringLiteral("0")});
+    const int result = QProcess::execute(QStringLiteral("gamescopectl"),
+                                         {QStringLiteral("drm_sleep_external_screen"),
+                                          m_screenSleeping ? QStringLiteral("1") : QStringLiteral("0")});
+    if (result != 0)
+        qCWarning(lcIdle) << "gamescopectl drm_sleep_external_screen" << (m_screenSleeping ? 1 : 0) << "failed:" << result;
+}
+
+void IdleController::repeatScreenWake()
+{
+    m_screenWakeRepeats = ScreenWakeRepeats;
+    m_screenWake.start();
 }
 
 void IdleController::takeSuspendKey()
