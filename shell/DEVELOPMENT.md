@@ -141,6 +141,14 @@ visible; if so the shell leaves YouTube, otherwise `WebKeys.sendBack()` hands th
 Escape, YouTube's back. Leaving returns to the page YouTube was opened from, or gives the
 screen back to Steam if Steam had it when the YouTube key was pressed.
 
+Resolution (`qml/mediacaps.js`): YouTube's TV player asks `MediaSource.isTypeSupported()`
+about width, height, frame rate, bitrate and more, including trick questions (`width=99999`,
+`eotf=catavision`) that a TV's browser answers with no. Chromium ignores those parameters
+and says yes to all of it, so the player distrusts every answer and stays at 720p. The
+script, injected into the page's own world before its scripts, answers them: up to the
+screen's real resolution, 60 frames a second, standard dynamic range only. With it the
+player offers up to 2160p.
+
 SponsorBlock (`src/SponsorBlock.*`, `src/YouTubeSettings.*`, `qml/sponsorskip.js`): the page's
 address carries the video (`#/watch?v=<id>`), which `YouTubePage.videoId` reads. `SponsorBlock`
 asks sponsor.ajay.app for the segments by the first four hex characters of the ID's SHA-256

@@ -10,7 +10,8 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 ## What it does
 
 - **Home**: the first place, with your apps. For now YouTube, in the same TV interface smart
-  TVs use, with all its accounts. Sponsor segments in videos are skipped (SponsorBlock), with
+  TVs use, with all its accounts, playing at up to the screen's resolution (4K on a 4K
+  screen). Sponsor segments in videos are skipped (SponsorBlock), with
   a short note on screen; Settings chooses what else to skip.
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
 - **Photos**: photos from an Immich server. "On this day" memories and your albums; an

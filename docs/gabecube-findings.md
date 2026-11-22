@@ -666,6 +666,19 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   to the monitor over DisplayPort (one sink, "HDMI / DisplayPort Digital Stereo (HDMI 4)").
   The soundbar on `HDMI-A-1` isn't detected at all ("disconnected", no EDID). *Inferred:* its
   HDMI port is an output for a TV's ARC, not an input.
+- The 720p cap, found and fixed (2026-11-22, on the 4K screen). Not the identity: the old
+  Tizen one and a PlayStation 5 one were capped the same. Wrapping the page's capability calls
+  showed the player's questions (about 80 while starting a video): besides real ones it asks
+  `MediaSource.isTypeSupported` things no device can do, `…; width=99999`, `…; height=99999`,
+  `…; eotf=catavision`, `…; cryptoblockformat=invalidformat`, `…; decode-to-texture=nope`,
+  and Chromium said true to all of them (it ignores parameters it doesn't know). With a
+  wrapper that answers those parameters (false beyond the screen's pixels, 60 fps, bt709) the
+  quality levels went from `hd720` to `hd2160`. Deployed as `qml/mediacaps.js`: a video
+  reached 3840x2160 (format 401, AV1) within 45 s, 0 dropped of 1500 frames, the shell at
+  8 % CPU and the page's process at 5 %, libva loaded in the shell. *Inferred:* decoding runs on
+  the GPU. Widevine isn't available (`requestMediaKeySystemAccess` rejected), which only
+  matters for bought or rented films. Shell memory while playing 4K: 574 MB plus 358 MB for
+  the page's process.
 - Shell at other resolutions (decided 2026-11-22): scale the whole UI with Qt's scale factor
   from the X screen height (design height 1440) rather than a scale transform in QML, which
   would blur the web view and text. Not yet seen at 4K: whether gamescope's X screen follows

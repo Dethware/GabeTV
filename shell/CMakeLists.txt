@@ -62,6 +62,7 @@ set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile
 set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
 set_source_files_properties(qml/VolumeIndicator.qml PROPERTIES QT_RESOURCE_ALIAS VolumeIndicator.qml)
 set_source_files_properties(qml/sponsorskip.js PROPERTIES QT_RESOURCE_ALIAS sponsorskip.js)
+set_source_files_properties(qml/mediacaps.js PROPERTIES QT_RESOURCE_ALIAS mediacaps.js)
 set_source_files_properties(qml/HomePlace.qml PROPERTIES QT_RESOURCE_ALIAS HomePlace.qml)
 set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
 
@@ -95,6 +96,7 @@ qt_add_qml_module(tvshell
         qml/YouTubePage.qml
     RESOURCES
         qml/sponsorskip.js
+        qml/mediacaps.js
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h

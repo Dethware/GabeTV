@@ -9,6 +9,9 @@ import TvShell
 // Sign-in and accounts: YouTube shows a code to enter at youtube.com/activate on a phone.
 // Cookies and storage live in the "youtube" profile (~/.local/share/tvshell/QtWebEngine/youtube).
 //
+// Resolution: mediacaps.js makes the browser answer the player's questions about what it can
+// play honestly; without it the player stays at 720p.
+//
 // SponsorBlock: the video's ID is read from the address (#/watch?v=…), SponsorBlock (C++) asks
 // for its segments, and sponsorskip.js, injected into the page, skips them.
 FocusScope {
@@ -118,6 +121,12 @@ FocusScope {
                     sourceUrl: Qt.resolvedUrl("sponsorskip.js"),
                     injectionPoint: WebEngineScript.DocumentReady,
                     worldId: WebEngineScript.ApplicationWorld
+                }, {
+                    // Before the page's own scripts, in their world: they call what it replaces.
+                    name: "mediacaps",
+                    sourceUrl: Qt.resolvedUrl("mediacaps.js"),
+                    injectionPoint: WebEngineScript.DocumentCreation,
+                    worldId: WebEngineScript.MainWorld
                 }]
                 // Without a TV user agent, youtube.com/tv sends the browser to the desktop site,
                 // and the user agent decides the look: YouTube reads brand and model from the
