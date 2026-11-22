@@ -625,6 +625,47 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   process): Qt WebEngine runs the GPU thread inside the shell. YouTube's interface looks as
   if some effects were missing (reported); cause not looked into yet (the TV user agent we
   send, or how the web view renders).
+- YouTube's interface looked as if effects were missing because of the user agent. Seen with
+  Chromium's DevTools on the page: `ytcfg.data_.LIVING_ROOM_APP_QUALITY` was
+  `TV_APP_QUALITY_LIMITED_ANIMATION` and `environment.feature_switches.enable_animation` false
+  (brand Samsung, model SmartTV, from our Tizen 7.0 user agent). Drawing was fine: WebGL
+  reports ANGLE on radeonsi (hardware), 2560x1440 at device pixel ratio 1, `backdrop-filter`
+  supported. Loading `/tv` under other user agents (DevTools override), all got
+  `TV_APP_QUALITY_FULL_ANIMATION`: PlayStation 5 (Sony), Xbox Series X (read as "Xbox 360"),
+  LG webOS 23 (adds LG styles and a pointer remote), a Cobalt-format one naming Valve /
+  SteamMachine (generic TV, plus Lottie animations), and a Chromecast one, which switched the
+  client to `TVHTML5_CAST` and came up signed out with a Cast prompt. Chosen: the Cobalt-format
+  Valve one. Sign-in survived the change.
+- What the page knows about the video playing: `document.querySelector(".html5-video-player")`
+  has `getPlayerResponse()`, whose `videoDetails.musicVideoType` was `MUSIC_VIDEO_TYPE_UGC` for
+  a music video from a mix (`#/watch?v=…&list=RD…`), and `navigator.mediaSession.metadata`
+  has title and artist. An ordinary video (a 17-minute science video) has no
+  `musicVideoType` at all, and its `mediaSession` metadata has the title and the channel.
+- Playback is capped at 720p under the Valve identity: `getAvailableQualityLevels()` ends at
+  `hd720` and the debug text says `optimal_format: 720p`, although the stream list offers up
+  to 2160p60 (VP9 and AV1), the player knows the viewport is 2560x1440,
+  `MediaSource.isTypeSupported` accepts everything up to 2160p60 and
+  `mediaCapabilities.decodingInfo` says smooth and power-efficient for all of it. No dropped
+  frames at 720p. *Inferred:* YouTube caps by the device it thinks this is. Not known whether
+  the Tizen identity had the same cap.
+- 4K on the current monitor (2026-11-22): the EDID that reaches the Steam Machine (EDID 1.3,
+  "A409U", made 2015) offers 3840x2160 only at 30 Hz (297 MHz) and 2560x1440 at 60 Hz
+  (241.5 MHz); the CTA block stops at 1080p60 and has an HDMI 1.x vendor block only (no HDMI
+  Forum block, no 4K60 modes). The kernel lists a 3840x2160 mode; gamescope's list tops out at
+  2560x1440@60. So over this path 4K60 isn't on offer: either the monitor input (or its mode
+  setting) or the HDMI switch is limited to HDMI 1.4.
+  Later the same day, with the HDMI switch taken out (reported): the same EDID, so the limit
+  is the monitor's input, not the switch. While re-plugging, the connector was detected and
+  dropped twice within a second (12:12), then stayed "disconnected" until the cable or input
+  was sorted out (12:20); gamescope picked 2560x1440@60 again by itself.
+  13:18, monitor moved to DisplayPort (`DP-1`), soundbar plugged into the HDMI port: over
+  DisplayPort the monitor offers 3840x2160 at 60 Hz (533 MHz), and gamescope's mode list now
+  starts with `3840x2160@60`, but it selected 2560x1440@60 (as before). gamescope composes a
+  full 2560x1440 frame (screenshot), while the monitor shows it as a smaller rectangle in the
+  middle (reported): the monitor isn't scaling the 1440p signal up on this input. Sound goes
+  to the monitor over DisplayPort (one sink, "HDMI / DisplayPort Digital Stereo (HDMI 4)").
+  The soundbar on `HDMI-A-1` isn't detected at all ("disconnected", no EDID). *Inferred:* its
+  HDMI port is an output for a TV's ARC, not an input.
 - Steam's menu opened at 11:17 and 11:43 without a hang (the shell had been on screen for 7
   and 19 minutes); `~/steam-hang-watch.log` has those as a healthy baseline.
 

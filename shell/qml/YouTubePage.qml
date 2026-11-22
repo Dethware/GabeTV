@@ -119,9 +119,12 @@ FocusScope {
                     injectionPoint: WebEngineScript.DocumentReady,
                     worldId: WebEngineScript.ApplicationWorld
                 }]
-                // Without a TV user agent, youtube.com/tv sends the browser to the desktop site.
-                profile.httpUserAgent = "Mozilla/5.0 (SMART-TV; Linux; Tizen 7.0) AppleWebKit/537.36 "
-                        + "(KHTML, like Gecko) Chrome/134.0.0.0 TV Safari/537.36"
+                // Without a TV user agent, youtube.com/tv sends the browser to the desktop site,
+                // and the user agent decides the look: YouTube reads brand and model from the
+                // format its TV app platform (Cobalt) uses and gives this one its full-animation
+                // version. A plain Samsung Tizen one got the limited-animation version.
+                profile.httpUserAgent = "Mozilla/5.0 (Linux x86_64) Cobalt/25.lts.30.1034943-gold (unlike Gecko) "
+                        + "v8/12.4 gles Starboard/16, Valve_OTT_SteamMachine_2026/3.9.5 (Valve, SteamMachine, Wired)"
                 url = "https://www.youtube.com/tv"
             }
         }

@@ -95,3 +95,4 @@ Questions to answer:
 ## Ideas drawer (not now)
 
 - Spotify-Connect-like "move playback between devices" on an open stack, with desktop, Android and TV clients. Prior art to study: Music Assistant (Home Assistant ecosystem).
+- Receiving from phones with an open protocol (stretch goal). Google Cast itself needs device keys, so it's out. Candidates: YouTube's own "link with TV code" and DIAL for YouTube, AirPlay (UxPlay), DLNA/UPnP rendering, Spotify Connect (librespot).

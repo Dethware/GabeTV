@@ -117,8 +117,10 @@ Immich's own names are too coarse; see the log, "Place names".
 
 `youtube.com/tv` in a Qt WebEngine `WebEngineView`, created on first open and kept. Its
 profile (`storageName` "youtube", forced persistent cookies) lives in
-`~/.local/share/tvshell/QtWebEngine/youtube`. The page sends a Tizen smart-TV user agent:
-without one, `/tv` redirects to the desktop site. Leaving pauses every `<video>` and then
+`~/.local/share/tvshell/QtWebEngine/youtube`. The page sends a user agent in the format of YouTube's TV app platform (Cobalt), naming
+the device as it is (Valve, SteamMachine): without a TV user agent `/tv` redirects to the
+desktop site, and YouTube picks the app's quality tier from it (this one gets
+`TV_APP_QUALITY_FULL_ANIMATION`; see the log, "YouTube"). Leaving pauses every `<video>` and then
 freezes the page (`lifecycleState` Frozen; a visible page can't be frozen); opening sets it
 Active again. `recentlyAudible` keeps the screen awake. YouTube's own Exit calls
 `window.close()` (`windowCloseRequested`).
