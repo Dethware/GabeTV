@@ -47,6 +47,16 @@ cache in `~/.cache/jellyfin-desktop/`; an `mpv.conf` next to a profile's
 
 To remove it, delete the folder (and those two for its data).
 
+## Changes to the player
+
+`patches/` holds our changes to its source; `./build.sh` applies them. One so far:
+
+- `back-leaves-to-shell.patch`: Back on the start screen, and "Exit" in its menu, hand the
+  screen back to the TV shell and leave the player loaded, where the original quits (from
+  the menu) or does nothing (Back). The player runs `scripts/leave-to-shell` from its
+  profile for that, which `./deploy.sh` installs. Without the TV shell running, neither does
+  anything; stop the service to quit it.
+
 ## What is in the folder
 
 | | |

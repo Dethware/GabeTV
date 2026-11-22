@@ -1,0 +1,26 @@
+#pragma once
+
+#include <QObject>
+#include <QtQml/qqmlregistration.h>
+
+// What other programs can ask of the shell, on the session bus:
+//
+//   busctl --user call local.tvshell /local/tvshell local.tvshell LeaveApp
+//
+// LeaveApp: the managed app on screen wants the shell back (Back at Jellyfin's top level).
+// It stays loaded, as after Home.
+class ShellService : public QObject
+{
+    Q_OBJECT
+    QML_ELEMENT
+    Q_CLASSINFO("D-Bus Interface", "local.tvshell")
+
+public:
+    explicit ShellService(QObject *parent = nullptr);
+
+public slots:
+    Q_SCRIPTABLE void LeaveApp();
+
+signals:
+    void leaveAppRequested();
+};

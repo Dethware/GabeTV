@@ -24,6 +24,17 @@ elif [ "$(git -C "$SRC" describe --tags --exact-match 2>/dev/null)" != "$VERSION
     exit 1
 fi
 
+# Our changes to the player (patches/): applied once, on top of the fetched version.
+for patch in "$HERE"/patches/*.patch; do
+    if git -C "$SRC" apply --check "$patch" 2>/dev/null; then
+        git -C "$SRC" apply "$patch"
+        echo "applied $(basename "$patch")"
+    elif ! git -C "$SRC" apply --reverse --check "$patch" 2>/dev/null; then
+        echo "$(basename "$patch") doesn't apply to $VERSION" >&2
+        exit 1
+    fi
+done
+
 mkdir -p "$HERE/build/out"
 rm -rf "$HERE/build/jellyfin-desktop"
 mkdir -p "$HERE/build/jellyfin-desktop"

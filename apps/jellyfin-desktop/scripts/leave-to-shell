@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run by the player when Back is pressed at its top level (patches/back-leaves-to-shell.patch):
+# asks the TV shell to take the screen back. The player stays loaded.
+exec busctl --user call local.tvshell /local/tvshell local.tvshell LeaveApp

@@ -27,9 +27,11 @@ rsync -a "$HERE/jellyfin-desktop.service" "$TARGET:.config/systemd/user/"
 ssh "$TARGET" 'systemctl --user daemon-reload'
 echo "service installed"
 
-# The key map for Steam's virtual gamepad goes into every profile the player has made so far
-# (it creates the first one when it first starts).
+# The key map for Steam's virtual gamepad and the script that hands the screen back to the
+# shell go into every profile the player has made so far (it creates the first one when it
+# first starts).
 for profile in $(ssh "$TARGET" 'ls -d .local/share/jellyfin-desktop/profiles/*/ 2>/dev/null'); do
     rsync -a "$HERE/inputmaps/" "$TARGET:${profile}inputmaps/"
-    echo "key map installed in ~/$profile"
+    rsync -a "$HERE/scripts/" "$TARGET:${profile}scripts/"
+    echo "key map and script installed in ~/$profile"
 done

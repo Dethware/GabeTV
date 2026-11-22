@@ -215,6 +215,11 @@ Window {
         }
     }
 
+    // Back at the top level of a managed app: it asks for the shell, like Home.
+    ShellService {
+        onLeaveAppRequested: root.leaveApp()
+    }
+
     // A managed app left with Home stays loaded this long, then it is quit.
     Timer {
         id: appQuitTimer

@@ -1,0 +1,23 @@
+diff --git a/native/nativeshell.js b/native/nativeshell.js
+index 7b9832e..77dc00b 100644
+--- a/native/nativeshell.js
++++ b/native/nativeshell.js
+@@ -7,6 +7,7 @@ const features = [
+     "clientsettings",
+     "multiserver",
+     "exitmenu",
++    "exit",
+     "remotecontrol",
+     "fullscreenchange",
+     "filedownload",
+@@ -369,7 +370,9 @@ window.NativeShell.AppHost = {
+         return jmpInfo.deviceName;
+     },
+     exit() {
+-        window.api.system.exit();
++        // On the TV: hand the screen back to the shell and stay loaded (the user script
++        // scripts/leave-to-shell in the profile). The shell closes the player later.
++        window.api.system.runUserScript("leave-to-shell");
+     }
+ };
+ 

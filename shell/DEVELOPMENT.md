@@ -212,6 +212,13 @@ YouTube a page that has been opened (frozen or not, it comes back where it was l
 (`frontAppOnScreen`); its `playing` reports activity like the shell's own videos do. Keys go
 to the app's window, so the shell sees input there only through gamescope's input counter.
 
+The other direction, the program asking for the shell, goes through `ShellService`
+(`src/ShellService.*`): the shell owns `local.tvshell` on the session bus, and its `LeaveApp`
+method does what Home does to the app. Jellyfin calls it when Back is pressed with nowhere
+to go back to: its web interface then asks the host to exit, and a patch in
+`../apps/jellyfin-desktop/patches` turns that into running a profile script that makes the
+call.
+
 What the program needs to behave on a TV (flags, controller settings, key map, logging) is in
 `../apps/jellyfin-desktop` and the log.
 
@@ -286,7 +293,7 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`,
   `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`,
   `tvshell.mediaproxy`, `tvshell.steam`, `tvshell.steamlog`, `tvshell.volume`,
-  `tvshell.sponsorblock`, `tvshell.app`.
+  `tvshell.sponsorblock`, `tvshell.app`, `tvshell.service`.
 
 ## Next
 

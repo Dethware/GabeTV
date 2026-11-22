@@ -982,6 +982,17 @@ Jellyfin becomes a "managed app": its own user service, shown by the shell (desi
 - A service rather than a child process of the shell, so a deploy doesn't end a film; the
   shell picks a running one up again.
 
+Added the same evening, asked for by the user: the remote's Netflix button opens Jellyfin, a
+dot on a tile marks a loaded app, and Back on Jellyfin's start screen returns to the shell.
+
+- Back at the top: Jellyfin's web client calls `appHost.exit()` when Back is pressed and
+  `appRouter.canGoBack()` is false, but only if the host lists the feature `exit`
+  (`jellyfin-web`, `src/scripts/inputManager.js`). Jellyfin Desktop lists `exitmenu` only, so
+  nothing happened. Chosen: patch its `native/nativeshell.js` to list `exit` and to run a
+  profile script from `exit()`, which calls the shell over the session bus; the player stays
+  loaded. Rejected: letting `exit()` quit the player (no shell change needed, but a few
+  seconds to reopen and unlike Home). The menu's "Exit" goes the same way now.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

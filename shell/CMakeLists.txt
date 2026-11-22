@@ -142,6 +142,8 @@ qt_add_qml_module(tvshell
         src/ViewerSettings.h
         src/ManagedApp.cpp
         src/ManagedApp.h
+        src/ShellService.cpp
+        src/ShellService.h
         src/WebKeys.cpp
         src/WebKeys.h
         src/YouTubeSettings.cpp
