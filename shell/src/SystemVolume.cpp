@@ -1,5 +1,6 @@
 #include "SystemVolume.h"
 
+#include <QKeyEvent>
 #include <QLoggingCategory>
 
 #include <pulse/pulseaudio.h>
@@ -32,6 +33,38 @@ SystemVolume::SystemVolume(QObject *parent)
 SystemVolume::~SystemVolume()
 {
     stop();
+}
+
+void SystemVolume::setWindow(QWindow *window)
+{
+    if (m_window == window)
+        return;
+    if (m_window)
+        m_window->removeEventFilter(this);
+    m_window = window;
+    if (m_window)
+        m_window->installEventFilter(this);
+    emit windowChanged();
+}
+
+bool SystemVolume::eventFilter(QObject *, QEvent *event)
+{
+    if (event->type() == QEvent::KeyPress) {
+        const int key = static_cast<QKeyEvent *>(event)->key();
+        if (key == Qt::Key_VolumeUp || key == Qt::Key_VolumeDown)
+            emit keyPressed();
+    }
+    return false;
+}
+
+void SystemVolume::toggleMute()
+{
+    if (!m_loop || m_sink.isEmpty())
+        return;
+    pa_threaded_mainloop_lock(m_loop);
+    if (pa_context_get_state(m_context) == PA_CONTEXT_READY)
+        unref(pa_context_set_sink_mute_by_name(m_context, m_sink.toUtf8().constData(), !m_muted, nullptr, nullptr));
+    pa_threaded_mainloop_unlock(m_loop);
 }
 
 void SystemVolume::start()

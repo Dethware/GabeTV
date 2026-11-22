@@ -105,6 +105,7 @@ Window {
             root.openYouTube()
             claim = true
         }
+        onMutePressed: systemVolume.toggleMute()
         onPowerPressed: {
             if (powerDialog.visible)
                 powerDialog.close()
@@ -353,6 +354,7 @@ Window {
 
     SystemVolume {
         id: systemVolume
+        window: root
     }
 
     Screensaver {

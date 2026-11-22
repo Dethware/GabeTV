@@ -22,8 +22,10 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   any other key ends it. Without albums: a clock.
 - **Screen off and sleep**: later still, the screen turns off, and later the machine
   sleeps. Defaults: screensaver after 5 minutes, screen off after 30, sleep after 60.
-- **Volume**: changing the volume shows a small indicator in the top right corner, over
-  whatever is on screen. It doesn't end the screensaver.
+- **Volume**: the remote's volume buttons show a small indicator in the top right corner,
+  over whatever is on screen, also when the volume is already at either end. Mute mutes and
+  unmutes, from anywhere; the indicator turns red and says "Muted". Neither ends the
+  screensaver.
 - **Assistant button**: holding it shows a ring that follows your voice and plays the
   recording back when you let go. It doesn't do anything else yet.
 
@@ -38,6 +40,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | Settings | top bar | Start (≡) |
 | Back to the shell | Home, from anywhere (again: the Home place) | |
 | YouTube | YouTube, from anywhere | Home → YouTube |
+| Mute | Mute, from anywhere | |
 | Screen off / on | Power (short press) | |
 | Sleep, power off, controllers off | Power (hold) | |
 | Steam's menu, Quick Access | | Steam, … buttons |

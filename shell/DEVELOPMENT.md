@@ -34,7 +34,7 @@ shell re-opens it with Steam's Ctrl+2 shortcut (XTest).
 
 ### Global keys (`src/BaseLayer.*`, `../system/`)
 
-Home (`XF86HomePage`), Power and YouTube are passive grabs on the root window, so they
+Home (`XF86HomePage`), Power, YouTube and Mute (`XF86AudioMute`) are passive grabs on the root window, so they
 arrive whichever window has focus (Steam's screens included). Several remote keys send evdev
 codes above 247, which X11 can't carry; `../system/etc/udev/hwdb.d/90-chromecast-remote.hwdb`
 remaps them (OK → `enter`, YouTube → `prog1` = `XF86Launch1`, Power → `sleep` =
@@ -169,10 +169,12 @@ notes: the log, "Voice protocol details".
   freely, OK switches the place showing and the focus stays on the bar. Only Down, LB/RB and
   Back move the focus between the bar and a place (the places' `focus` isn't bound to the
   selected tab, which would pull it into the place on every switch).
-- **Volume** (`src/SystemVolume.*`, `qml/VolumeIndicator.qml`): Steam handles the volume
-  keys; the shell only follows the default output's volume and mute through PipeWire's
-  PulseAudio interface (libpulse, its own thread) and shows the indicator when they change
-  on the same output. In the screensaver the volume keys pass without ending it
+- **Volume** (`src/SystemVolume.*`, `qml/VolumeIndicator.qml`): Steam handles volume up and
+  down; the shell follows the default output's volume and mute through PipeWire's PulseAudio
+  interface (libpulse, its own thread) and shows the indicator when they change on the same
+  output, or when a volume key press reaches the window (an event filter; so it also shows
+  at 0 % and 100 %). Nothing handles Mute, so the shell grabs it globally and toggles the
+  output's mute itself. In the screensaver the volume keys pass without ending it
   (`IdleController`).
 - **Card grids** (`qml/FitGrid.qml`): as many columns as fit at the design card size, then
   the cards grow so rows end flush with the right margin. Used by every place and the album

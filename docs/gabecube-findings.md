@@ -616,7 +616,17 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
 - YouTube Music has no TV website of its own that we found; on TVs it is a Music tab inside
   the YouTube app (YouTube's blog), so presumably inside `youtube.com/tv` too (not checked).
 - Volume: the remote's volume keys change the sound while the shell is on screen, without
-  the shell doing anything (confirmed by use). *Inferred:* Steam handles them.
+  the shell doing anything (confirmed by use). *Inferred:* Steam handles them. Mute did
+  nothing (reported), so the shell now grabs it and mutes the output itself.
+- SponsorBlock seen working on gabecube (11:31): a video with 3 segments, two sponsor
+  segments skipped, logged by the injected script. So the user script, the application-world
+  hand-over and the `#/watch?v=` address all work as assumed.
+- The shell's web engine has no separate GPU process (zygotes, one renderer, one utility
+  process): Qt WebEngine runs the GPU thread inside the shell. YouTube's interface looks as
+  if some effects were missing (reported); cause not looked into yet (the TV user agent we
+  send, or how the web view renders).
+- Steam's menu opened at 11:17 and 11:43 without a hang (the shell had been on screen for 7
+  and 19 minutes); `~/steam-hang-watch.log` has those as a healthy baseline.
 
 ## Waydroid prerequisites
 

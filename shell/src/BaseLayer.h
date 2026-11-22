@@ -62,6 +62,8 @@ signals:
     void homePressed();
     // The remote's YouTube key (remapped to XF86Launch1), grabbed the same way.
     void youtubePressed();
+    // The remote's Mute key, grabbed the same way: nothing else acts on it.
+    void mutePressed();
     // The remote's Power (remapped to the sleep key), grabbed the same way: a short press...
     void powerPressed();
     // ...or held for a moment (fires while still held).
@@ -109,6 +111,7 @@ private:
     xcb_keycode_t m_homeKeycode = 0;
     xcb_keycode_t m_sleepKeycode = 0;
     xcb_keycode_t m_youtubeKeycode = 0;
+    xcb_keycode_t m_muteKeycode = 0;
     // Power short/long press. A held key may auto-repeat as release+press pairs, so a release
     // only counts when no press follows quickly.
     bool m_powerDown = false;

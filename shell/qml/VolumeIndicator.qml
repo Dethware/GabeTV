@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Shapes
 import TvShell
 
-// A small volume display that appears for a moment when the volume or mute changes.
+// A small volume display that appears for a moment when the volume or mute changes, or a
+// volume key is pressed (also at either end, where nothing changes).
 // Sits above everything (YouTube, the screensaver, dialogs).
 Rectangle {
     id: indicator
@@ -25,12 +26,15 @@ Rectangle {
 
     Behavior on opacity { NumberAnimation { duration: 150 } }
 
+    function show() {
+        opacity = 1
+        hide.restart()
+    }
+
     Connections {
         target: indicator.volume
-        function onAdjusted() {
-            indicator.opacity = 1
-            hide.restart()
-        }
+        function onAdjusted() { indicator.show() }
+        function onKeyPressed() { indicator.show() }
     }
 
     Timer {
@@ -39,7 +43,7 @@ Rectangle {
         onTriggered: indicator.opacity = 0
     }
 
-    // A speaker: body and cone.
+    // A speaker: body and cone. Muted: dimmed, with a red stroke across.
     Shape {
         id: speaker
 
@@ -49,10 +53,9 @@ Rectangle {
         width: 36
         height: 36
         preferredRendererType: Shape.CurveRenderer
-        opacity: indicator.volume.muted ? 0.4 : 1
 
         ShapePath {
-            fillColor: "white"
+            fillColor: indicator.volume.muted ? "#66ffffff" : "white"
             strokeColor: "transparent"
             startX: 0; startY: 12
             PathLine { x: 10; y: 12 }
@@ -61,6 +64,15 @@ Rectangle {
             PathLine { x: 10; y: 24 }
             PathLine { x: 0; y: 24 }
             PathLine { x: 0; y: 12 }
+        }
+
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: indicator.volume.muted ? "#ff5a4f" : "transparent"
+            strokeWidth: 5
+            capStyle: ShapePath.RoundCap
+            startX: 2; startY: 2
+            PathLine { x: 34; y: 34 }
         }
     }
 
@@ -80,7 +92,7 @@ Rectangle {
             width: parent.width * indicator.level
             height: parent.height
             radius: parent.radius
-            color: indicator.volume.muted ? "#80ffffff" : "white"
+            color: indicator.volume.muted ? "#55ffffff" : "white"
         }
     }
 
@@ -92,7 +104,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: 96
         horizontalAlignment: Text.AlignRight
-        color: "white"
+        color: indicator.volume.muted ? "#ff5a4f" : "white"
         font.pixelSize: 30
         font.weight: Font.DemiBold
         text: indicator.volume.muted ? qsTr("Muted") : Math.round(indicator.volume.volume * 100) + " %"
