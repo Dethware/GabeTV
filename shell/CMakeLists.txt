@@ -61,6 +61,8 @@ set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid
 set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
 set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
 set_source_files_properties(qml/VolumeIndicator.qml PROPERTIES QT_RESOURCE_ALIAS VolumeIndicator.qml)
+set_source_files_properties(qml/NowPlayingButton.qml PROPERTIES QT_RESOURCE_ALIAS NowPlayingButton.qml)
+set_source_files_properties(qml/ChoiceDialog.qml PROPERTIES QT_RESOURCE_ALIAS ChoiceDialog.qml)
 set_source_files_properties(qml/sponsorskip.js PROPERTIES QT_RESOURCE_ALIAS sponsorskip.js)
 set_source_files_properties(qml/mediacaps.js PROPERTIES QT_RESOURCE_ALIAS mediacaps.js)
 set_source_files_properties(qml/HomePlace.qml PROPERTIES QT_RESOURCE_ALIAS HomePlace.qml)
@@ -92,6 +94,8 @@ qt_add_qml_module(tvshell
         qml/AppTile.qml
         qml/YouTubeLogo.qml
         qml/VolumeIndicator.qml
+        qml/NowPlayingButton.qml
+        qml/ChoiceDialog.qml
         qml/HomePlace.qml
         qml/YouTubePage.qml
     RESOURCES

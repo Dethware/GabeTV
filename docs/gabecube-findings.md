@@ -679,6 +679,16 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   the GPU. Widevine isn't available (`requestMediaKeySystemAccess` rejected), which only
   matters for bought or rented films. Shell memory while playing 4K: 574 MB plus 358 MB for
   the page's process.
+- Background music (decided 2026-11-22). Music keeps playing when YouTube is left, anything
+  else pauses; what is music is YouTube's `musicVideoType`, not the Music section (music
+  uploaded as ordinary videos carries the mark too, as far as YouTube recognises it); if the
+  mark can't be read the video pauses. The remote has no play/pause key, so the top bar gets a
+  now-playing item (OK toggles pause) and the YouTube button returns to it. Screen off with
+  music is a black picture, because switching the signal off drops the audio sink (see
+  above). Starting a game from the shell asks (pause the music, keep it, cancel). Not built:
+  telling apart "other sources" outside the shell (a game's own sound, Steam). Open: whether
+  YouTube really keeps playing with the page item at opacity 0, and what the hidden 4K
+  decoding costs under a game.
 - Shell at other resolutions (decided 2026-11-22): scale the whole UI with Qt's scale factor
   from the X screen height (design height 1440) rather than a scale transform in QML, which
   would blur the web view and text. Not yet seen at 4K: whether gamescope's X screen follows

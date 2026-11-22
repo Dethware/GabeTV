@@ -57,10 +57,27 @@ IdleController::IdleController(QObject *parent)
 
 void IdleController::prepareForSleep(bool start)
 {
-    if (!start) {
+    if (start) {
+        emit aboutToSleep();
+    } else {
         qCInfo(lcIdle) << "resumed";
         activity();
     }
+}
+
+void IdleController::setAudioPlaying(bool playing)
+{
+    if (m_audioPlaying == playing)
+        return;
+    m_audioPlaying = playing;
+    qCInfo(lcIdle) << (playing ? "music is playing: no signal off, no suspend" : "music stopped");
+    if (m_state == State::ScreenOff) {
+        // Black with the signal on while it plays; once it stops, really off, and the time
+        // to suspend counts from now.
+        setScreenSleeping(!playing);
+        m_sinceActivity.restart();
+    }
+    emit audioPlayingChanged();
 }
 
 IdleController::~IdleController()
@@ -178,7 +195,7 @@ void IdleController::tick()
 {
     const qint64 idleSeconds = m_sinceActivity.elapsed() / 1000;
     if (m_state == State::ScreenOff) {
-        if (m_counting && m_suspendAfter > 0 && !m_suspended && idleSeconds >= m_suspendAfter)
+        if (m_counting && !m_audioPlaying && m_suspendAfter > 0 && !m_suspended && idleSeconds >= m_suspendAfter)
             suspend();
         return;
     }
@@ -196,7 +213,7 @@ void IdleController::setState(State state)
         return;
     qCInfo(lcIdle) << "state" << m_state << "->" << state;
     if (state == State::ScreenOff)
-        setScreenSleeping(true);
+        setScreenSleeping(!m_audioPlaying);
     else if (m_state == State::ScreenOff)
         setScreenSleeping(false);
     m_state = state;
@@ -205,6 +222,9 @@ void IdleController::setState(State state)
 
 void IdleController::setScreenSleeping(bool sleeping)
 {
+    if (m_screenSleeping == sleeping)
+        return;
+    m_screenSleeping = sleeping;
     // gamescopectl finds gamescope through GAMESCOPE_WAYLAND_DISPLAY / XDG_RUNTIME_DIR,
     // both set in the session environment the unit reads.
     if (qEnvironmentVariableIsEmpty("GAMESCOPE_WAYLAND_DISPLAY"))

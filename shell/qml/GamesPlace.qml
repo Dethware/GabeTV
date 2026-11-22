@@ -7,6 +7,9 @@ FocusScope {
     required property SteamLibrary library
     property bool onScreen: true
 
+    // OK on a game. Whoever listens starts it (library.launch(appId)).
+    signal launchRequested(string appId, string name)
+
     // Pick up games installed or removed while a game or Steam had the screen.
     onOnScreenChanged: if (onScreen) library.reload()
 
@@ -23,8 +26,14 @@ FocusScope {
 
         delegate: GameTile {}
 
-        Keys.onReturnPressed: place.library.launch(grid.currentItem.appId)
-        Keys.onEnterPressed: place.library.launch(grid.currentItem.appId)
+        Keys.onReturnPressed: request()
+        Keys.onEnterPressed: request()
+
+        function request() {
+            const tile = currentItem as GameTile
+            if (tile)
+                place.launchRequested(tile.appId, tile.name)
+        }
     }
 
     Text {

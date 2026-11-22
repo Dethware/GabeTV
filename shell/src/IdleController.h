@@ -16,6 +16,10 @@
 // stays awake, so any input turns it back on. The first input after the screensaver or screen
 // off only wakes: key presses arriving right then are swallowed.
 //
+// While music plays (audioPlaying) the chain still runs, but "screen off" keeps the signal
+// (the sound travels with it) and the shell shows black instead, and the machine doesn't
+// suspend. When the music stops, the signal goes off and the time to suspend starts.
+//
 // It also takes the sleep key (the remote's Power) over from logind with a
 // "handle-suspend-key" inhibitor lock, so Power can mean "screen off" instead of suspend.
 class IdleController : public QObject
@@ -25,6 +29,8 @@ class IdleController : public QObject
 
     Q_PROPERTY(bool counting READ counting WRITE setCounting NOTIFY countingChanged)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    // Sound that should go on while nobody touches anything (music in the background).
+    Q_PROPERTY(bool audioPlaying READ audioPlaying WRITE setAudioPlaying NOTIFY audioPlayingChanged)
     // Seconds, 0 = never. Setting one saves it to the config file and applies it at once.
     Q_PROPERTY(int screensaverAfter READ screensaverAfter WRITE setScreensaverAfter NOTIFY timesChanged)
     Q_PROPERTY(int screenOffAfter READ screenOffAfter WRITE setScreenOffAfter NOTIFY timesChanged)
@@ -45,6 +51,9 @@ public:
     void setCounting(bool counting);
 
     State state() const { return m_state; }
+
+    bool audioPlaying() const { return m_audioPlaying; }
+    void setAudioPlaying(bool playing);
 
     int screensaverAfter() const { return m_screensaverAfter; }
     void setScreensaverAfter(int seconds);
@@ -71,6 +80,9 @@ signals:
     void countingChanged();
     void stateChanged();
     void timesChanged();
+    void audioPlayingChanged();
+    // The machine is about to suspend (whoever asked for it).
+    void aboutToSleep();
 
 private slots:
     // logind: true before suspend, false after resume.
@@ -85,6 +97,8 @@ private:
     void saveTime(const QString &key, int &member, int seconds);
 
     bool m_counting = false;
+    bool m_audioPlaying = false;
+    bool m_screenSleeping = false;
     State m_state = State::Active;
     QElapsedTimer m_sinceActivity;
     QElapsedTimer m_sinceWake;

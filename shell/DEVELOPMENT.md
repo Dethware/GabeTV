@@ -129,7 +129,7 @@ profile (`storageName` "youtube", forced persistent cookies) lives in
 `~/.local/share/tvshell/QtWebEngine/youtube`. The page sends a user agent in the format of YouTube's TV app platform (Cobalt), naming
 the device as it is (Valve, SteamMachine): without a TV user agent `/tv` redirects to the
 desktop site, and YouTube picks the app's quality tier from it (this one gets
-`TV_APP_QUALITY_FULL_ANIMATION`; see the log, "YouTube"). Leaving pauses every `<video>` and then
+`TV_APP_QUALITY_FULL_ANIMATION`; see the log, "YouTube"). Leaving a video pauses every `<video>` and then
 freezes the page (`lifecycleState` Frozen; a visible page can't be frozen); opening sets it
 Active again. `recentlyAudible` keeps the screen awake. YouTube's own Exit calls
 `window.close()` (`windowCloseRequested`).
@@ -148,6 +148,19 @@ and says yes to all of it, so the player distrusts every answer and stays at 720
 script, injected into the page's own world before its scripts, answers them: up to the
 screen's real resolution, 60 frames a second, standard dynamic range only. With it the
 player offers up to 2160p.
+
+Background music: once a second while the page runs, `YouTubePage.readPlayer()` asks the
+page for the main video's state, the player's `getPlayerResponse().videoDetails.musicVideoType`
+(YouTube's own music mark; absent on ordinary videos) and `navigator.mediaSession.metadata`
+(title, artist). `leave()` keeps the page going when music is playing (`background`),
+otherwise it suspends as before. In the background the page item stays `visible` with
+opacity 0 (`Main.qml`), so the page still counts as shown and YouTube carries on, but nothing
+is drawn; the video is still decoded. The top bar's `NowPlayingButton` shows it and toggles
+pause; ten minutes paused ends the session. `IdleController.audioPlaying` (playing and
+music, shown or not) keeps the signal on in the screen-off state (the shell draws black
+instead) and holds off suspend; `aboutToSleep` pauses it. A game started from the shell goes
+through `Main.launchGame()`, which asks with a `ChoiceDialog` while music plays in the
+background. A photo's video pauses it.
 
 SponsorBlock (`src/SponsorBlock.*`, `src/YouTubeSettings.*`, `qml/sponsorskip.js`): the page's
 address carries the video (`#/watch?v=<id>`), which `YouTubePage.videoId` reads. `SponsorBlock`

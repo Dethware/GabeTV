@@ -27,7 +27,7 @@ Window {
     }
 
     function leaveYouTube() {
-        youtube.suspend()
+        youtube.leave()
         showPage(youtubeReturnPage)
         if (youtubeReturnToSteam)
             baseLayer.claim = false
@@ -64,6 +64,19 @@ Window {
         showPage("photos")
     }
 
+    // Starting a game from the shell. With music playing in the background: ask first.
+    property string pendingGame
+
+    function launchGame(appId, name) {
+        if (youtube.background && youtube.playing) {
+            pendingGame = appId
+            gameDialog.title = qsTr("Start %1?").arg(name)
+            gameDialog.open()
+        } else {
+            steamLibrary.launch(appId)
+        }
+    }
+
     function openPowerDialog() {
         // Not over a running game for now.
         if (baseLayer.gameRunning)
@@ -87,8 +100,10 @@ Window {
             claim = true
             if (powerDialog.visible)
                 powerDialog.close()
+            if (gameDialog.visible)
+                gameDialog.close()
             if (root.page === "youtube")
-                youtube.suspend()
+                youtube.leave()
             root.showPage("home")
             if (alreadyHome) {
                 topBar.currentTab = 0
@@ -119,6 +134,10 @@ Window {
     IdleController {
         id: idle
         counting: baseLayer.onScreen || !baseLayer.available
+        // Music (in YouTube, shown or in the background): screensaver and a black screen as
+        // usual, but the sound's signal stays and the machine doesn't sleep.
+        audioPlaying: youtube.playing && youtube.music
+        onAboutToSleep: youtube.pause()
     }
 
     PowerActions {
@@ -156,7 +175,7 @@ Window {
         onActivity: idle.activity()
         // LB/RB: previous/next place, directly (only on the home screen, not over dialogs).
         onShoulderPressed: direction => {
-            if (root.page !== "home" || powerDialog.visible)
+            if (root.page !== "home" || powerDialog.visible || gameDialog.visible)
                 return
             topBar.step(direction)
             home.currentPlace.forceActiveFocus()
@@ -175,18 +194,32 @@ Window {
         id: mediaProxy
     }
 
-    // Videos keep the screen awake while they play (YouTube: while it plays sound).
+    // Videos keep the screen awake while they play (YouTube: while it plays sound; not for a
+    // music track that only shows its cover).
     Timer {
         interval: 30000
         repeat: true
-        running: photoViewer.playing || (root.page === "youtube" && youtube.audible)
+        running: photoViewer.playing || (root.page === "youtube" && youtube.audible && !youtube.coverOnly)
         onTriggered: idle.activity()
+    }
+
+    // One source of sound at a time: a photo's video pauses the music.
+    Connections {
+        target: photoViewer
+        function onPlayingChanged() {
+            if (photoViewer.playing && youtube.playing)
+                youtube.pause()
+        }
     }
 
     FocusScope {
         id: home
 
         readonly property Item currentPlace: [homePlace, games, photos][topBar.currentTab]
+
+        // Fresh albums and memories each time Photos is opened. (Not from the tab's own change
+        // signal: its handler can run before currentPlace has followed the tab.)
+        onCurrentPlaceChanged: if (currentPlace === photos) immich.refresh()
 
         anchors.fill: parent
         focus: true
@@ -208,7 +241,11 @@ Window {
 
             KeyNavigation.down: home.currentPlace
             onSettingsActivated: root.showPage("settings")
-            onCurrentTabChanged: if (home.currentPlace === photos) immich.refresh()
+
+            nowPlayingTitle: !youtube.background ? "" : youtube.title.length > 0 ? youtube.title : qsTr("YouTube")
+            nowPlayingArtist: youtube.artist
+            nowPlayingPaused: !youtube.playing
+            onNowPlayingActivated: youtube.togglePlay()
         }
 
         HomePlace {
@@ -240,6 +277,7 @@ Window {
             anchors.bottom: parent.bottom
             visible: home.currentPlace === games
             library: steamLibrary
+            onLaunchRequested: (appId, name) => root.launchGame(appId, name)
             onScreen: baseLayer.onScreen || !baseLayer.available
 
             KeyNavigation.up: topBar
@@ -266,7 +304,10 @@ Window {
         id: youtube
 
         anchors.fill: parent
-        visible: root.page === "youtube"
+        // Playing in the background it stays "visible" to the page, so YouTube carries on as
+        // if it were on screen, but it isn't drawn.
+        visible: root.page === "youtube" || background
+        opacity: root.page === "youtube" ? 1 : 0
         settings: youtubeSettings
 
         onClosed: root.leaveYouTube()
@@ -331,6 +372,22 @@ Window {
         onClosed: root.showPage("home")
     }
 
+    ChoiceDialog {
+        id: gameDialog
+
+        anchors.fill: parent
+        message: qsTr("Music is playing.")
+        choices: [qsTr("Pause the music and play"), qsTr("Keep the music playing"), qsTr("Cancel")]
+
+        onChosen: index => {
+            if (index === 0)
+                youtube.pause()
+            if (index <= 1)
+                steamLibrary.launch(root.pendingGame)
+        }
+        onClosed: root.showPage(root.page)
+    }
+
     PowerDialog {
         id: powerDialog
 
@@ -387,6 +444,13 @@ Window {
             else if (saver.activeFocus)
                 root.showPage(root.page)
         }
+    }
+
+    // "Screen off" while music plays keeps the signal (IdleController): black instead.
+    Rectangle {
+        anchors.fill: parent
+        visible: idle.state === IdleController.ScreenOff
+        color: "black"
     }
 
     AssistantIndicator {

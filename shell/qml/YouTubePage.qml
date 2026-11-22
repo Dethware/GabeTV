@@ -5,7 +5,10 @@ import QtWebEngine
 import TvShell
 
 // youtube.com/tv, the leanback UI smart TVs use. Created the first time it opens and kept
-// after that: Home pauses the video and freezes the page, opening it again carries on.
+// after that. Leaving it (leave()) pauses the video and freezes the page, and opening it
+// again carries on; music goes on playing in the background instead (`background`), where
+// togglePlay() pauses and resumes it. What counts as music is YouTube's own mark on the video
+// (musicVideoType in the player's response); if it can't be read, it's a video.
 // Sign-in and accounts: YouTube shows a code to enter at youtube.com/activate on a phone.
 // Cookies and storage live in the "youtube" profile (~/.local/share/tvshell/QtWebEngine/youtube).
 //
@@ -22,6 +25,20 @@ FocusScope {
     // Playing sound: keeps the screen awake.
     readonly property bool audible: view ? view.recentlyAudible : false
     readonly property WebEngineView view: loader.item as WebEngineView
+    // What the page's player is doing, read once a second while the page runs.
+    property bool playing: false
+    // YouTube's music mark: "" (not music), or MUSIC_VIDEO_TYPE_ATV (a track with its cover),
+    // _OMV (official music video), _UGC (music uploaded by a user), …
+    property string musicType: ""
+    property string title: ""
+    property string artist: ""
+    readonly property bool music: musicType.length > 0
+    // A track showing only its cover: nothing on screen worth keeping it awake for.
+    readonly property bool coverOnly: musicType === "MUSIC_VIDEO_TYPE_ATV"
+    // Left with music on: the page stays alive (and counts as visible, see Main.qml) until it
+    // is opened again, or has been paused for a while.
+    property bool background: false
+
     // The video being watched ("" = none).
     readonly property string videoId: {
         const match = view ? /#\/watch\?(?:[^#]*&)?v=([\w-]{11})/.exec(view.url.toString()) : null
@@ -33,8 +50,61 @@ FocusScope {
 
     function open() {
         loader.active = true
+        background = false
         page.view.lifecycleState = WebEngineView.LifecycleState.Active
         loader.forceActiveFocus()
+    }
+
+    // Leaving YouTube: music plays on, anything else pauses.
+    function leave() {
+        if (playing && music)
+            background = true
+        else
+            suspend()
+    }
+
+    function togglePlay() {
+        if (view)
+            view.runJavaScript("(() => { const v = document.querySelector('video.html5-main-video');"
+                               + " if (v) { if (v.paused) v.play(); else v.pause(); } })()")
+    }
+
+    function pause() {
+        if (view)
+            view.runJavaScript("document.querySelectorAll('video').forEach(v => v.pause())")
+    }
+
+    function readPlayer() {
+        view.runJavaScript("(() => {"
+            + " const v = document.querySelector('video.html5-main-video');"
+            + " if (!v || !/#\\/watch/.test(location.hash)) return null;"
+            + " const p = document.querySelector('.html5-video-player');"
+            + " let type = '';"
+            + " try { const r = p && p.getPlayerResponse && p.getPlayerResponse();"
+            + "       type = (r && r.videoDetails && r.videoDetails.musicVideoType) || ''; } catch (e) {}"
+            + " const m = navigator.mediaSession && navigator.mediaSession.metadata;"
+            + " return { playing: !v.paused && !v.ended, type: type,"
+            + "          title: m ? m.title : '', artist: m ? m.artist : '' }; })()",
+            state => {
+                page.playing = state ? state.playing === true : false
+                page.musicType = state && typeof state.type === "string" ? state.type : ""
+                page.title = state && typeof state.title === "string" ? state.title : ""
+                page.artist = state && typeof state.artist === "string" ? state.artist : ""
+            })
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: page.view !== null && page.view.lifecycleState === WebEngineView.LifecycleState.Active
+        onTriggered: page.readPlayer()
+    }
+
+    // Paused in the background for this long: the session ends (pause, freeze as usual).
+    Timer {
+        interval: 10 * 60 * 1000
+        running: page.background && !page.playing
+        onTriggered: page.suspend()
     }
 
     // Calls back with whether YouTube shows its "Who's watching?" account picker (its address
@@ -65,6 +135,8 @@ FocusScope {
 
     // Pause, then freeze once the page is hidden (a visible page can't be frozen).
     function suspend() {
+        background = false
+        playing = false
         const view = page.view
         if (!view)
             return

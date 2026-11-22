@@ -23,6 +23,12 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   any other key ends it. Without albums: a clock.
 - **Screen off and sleep**: later still, the screen turns off, and later the machine
   sleeps. Defaults: screensaver after 5 minutes, screen off after 30, sleep after 60.
+- **Music in the background**: leave YouTube while music is playing (what YouTube itself
+  marks as music) and it plays on; anything else pauses. The top bar then shows the title
+  and artist: OK there pauses and resumes, the YouTube button goes back to it. While music
+  plays, the screensaver and the screen-off time work as usual, but the screen only goes
+  black (the sound stays) and the machine doesn't sleep. Starting a game asks whether to
+  pause the music first; a photo's video pauses it. Paused for 10 minutes, it's put away.
 - **Volume**: the remote's volume buttons show a small indicator in the top right corner,
   over whatever is on screen, also when the volume is already at either end. Mute mutes and
   unmutes, from anywhere; the indicator turns red and says "Muted". Neither ends the
@@ -53,7 +59,8 @@ The top bar holds the places (Home, Games, Photos) and Settings: left/right move
 OK switches place, Down goes in. Back inside a place returns to the top bar.
 
 In YouTube, Back is YouTube's own back. On its "Who's watching?" screen, Back leaves YouTube
-for whatever was open before. Home pauses YouTube; opening it again carries on.
+for whatever was open before. Home pauses a video (opening YouTube again carries on) and
+leaves music playing.
 
 ## Setup
 
@@ -115,6 +122,8 @@ Needs Docker on your computer and SSH access to the Steam Machine as `deck@gabec
 
 ## Limitations
 
+- Music that YouTube doesn't mark as music pauses like any video when you leave YouTube.
+- With the screen black for music, changing the volume turns the picture back on.
 - While a game is running, Home, the YouTube button and the power dialog don't bring up the
   shell. Use the controller's Steam button, or quit the game.
 - "On this day" stays empty: the TV account owns no photos.
