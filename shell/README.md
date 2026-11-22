@@ -65,8 +65,8 @@ for whatever was open before. Home pauses a video (opening YouTube again carries
 leaves music playing.
 
 In Jellyfin, the arrows, OK and Back move around; while something plays, Left and Right seek.
-On the controller the d-pad moves, A is OK, B is Back, the bumpers seek, X pauses and Y
-searches. Home pauses and returns to the shell, and so does Back on Jellyfin's start screen;
+On the controller the d-pad or left stick moves, A is OK, B is Back, the bumpers seek, X
+pauses and Y searches. Home pauses and returns to the shell, and so does Back on Jellyfin's start screen;
 the Jellyfin tile (or the remote's Netflix button) brings it back where it was. Left alone for ten minutes it closes; what you were
 watching resumes from Jellyfin's "Continue watching". A paused film or an untouched menu gets
 the screensaver like the shell does.

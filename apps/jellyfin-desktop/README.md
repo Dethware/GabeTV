@@ -36,8 +36,8 @@ The service runs it like this:
   a level given once is remembered in the profile.
 - The two `SDL_` settings make it use Steam's virtual gamepad, like the shell does. With
   them the Steam Controller works through `inputmaps/steam-virtual-gamepad.json`, which
-  `./deploy.sh` copies into the player's profile: d-pad to move, A is OK, B is Back (hold:
-  home), X and Menu play or pause, Y searches, the bumpers seek. The sticks do nothing.
+  `./deploy.sh` copies into the player's profile: d-pad or left stick to move, A is OK, B is
+  Back (hold: home), X and Menu play or pause, Y searches, the bumpers seek.
 - With the remote: arrows, OK and Back; Left and Right seek while something plays.
 
 `--help` lists the other options. Settings,
@@ -59,6 +59,9 @@ To remove it, delete the folder (and those two for its data).
 - `controller-only-with-focus.patch`: controller buttons count only while the player's
   window has the focus. The original reads the controller all the time, so buttons pressed
   in the shell or in a game also acted on a player loaded in the background.
+- `stick-one-direction.patch`: a stick gives one direction at a time. The original treats
+  its two axes separately, so a push to the side that is also a little up or down moved
+  twice.
 
 ## What is in the folder
 

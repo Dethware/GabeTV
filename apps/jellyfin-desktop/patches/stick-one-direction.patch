@@ -1,0 +1,41 @@
+diff --git a/src/input/InputSDL.cpp b/src/input/InputSDL.cpp
+index 6712488..a19dda8 100644
+--- a/src/input/InputSDL.cpp
++++ b/src/input/InputSDL.cpp
+@@ -152,12 +152,23 @@ void InputSDLWorker::run()
+ 
+           qDebug() << "JoyAxisMotion:" << axis << value;
+ 
++          // The two axes of one stick (0/1 and 3/4) give one direction at a time: an axis
++          // doesn't count as pressed while its partner is, or while the partner is pushed
++          // further. Otherwise a push to the side that is also a little up or down is two
++          // directions at once.
++          m_axisValue.insert(axis, value);
++          const quint8 partner = (axis == 0 || axis == 3) ? axis + 1 : (axis == 1 || axis == 4) ? axis - 1 : axis;
++          const bool partnerLeads = partner != axis
++            && (m_axisState.contains(partner) || std::abs(m_axisValue.value(partner)) > std::abs(value));
++
+           // handle the Digital conversion of the analog axis
+           if (std::abs(value) > 32768 / 2)
+           {
+             bool up = value < 0;
+             if (!m_axisState.contains(axis))
+             {
++              if (partnerLeads)
++                break;
+               emit receivedInput(nameForId(event.jaxis.which), QString("KEY_AXIS_%1_%2").arg(axis).arg(up ? "UP" : "DOWN"), InputBase::KeyDown);
+               m_axisState.insert(axis, up);
+             }
+diff --git a/src/input/InputSDL.h b/src/input/InputSDL.h
+index e80dbd6..7fc5c51 100644
+--- a/src/input/InputSDL.h
++++ b/src/input/InputSDL.h
+@@ -50,6 +50,8 @@ private:
+ 
+   // map axis to up = true or down = false
+   QHash<quint8, bool> m_axisState;
++  // the last value seen on each axis
++  QHash<quint8, int> m_axisValue;
+   QString m_lastHat;
+ };
+ 

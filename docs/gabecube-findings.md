@@ -1015,6 +1015,10 @@ dot on a tile marks a loaded app, and Back on Jellyfin's start screen returns to
   second patch: input from anything but the keyboard and the socket is dropped while the
   player has no focus window. Freezing the hidden player instead was rejected: its unread
   controller events would be delivered when it thaws.
+- Left stick, asked for by the user. The player turns each axis into a key on its own (pressed
+  beyond half deflection, released under about a third), which is why a sideways push also
+  fired "up". Third patch: within a stick (axes 0/1 and 3/4) an axis isn't pressed while its
+  partner is, or while the partner is pushed further. The key map has the left stick again.
 
 ## Waydroid prerequisites
 

@@ -30,9 +30,12 @@
     "KEY_HAT_DOWN": "down",
     "KEY_HAT_UP": "up",
     "KEY_HAT_RIGHT": "right",
-    "KEY_HAT_LEFT": "left"
+    "KEY_HAT_LEFT": "left",
 
-    // The sticks are left out on purpose: a sideways push also reports a little up or down,
-    // which the player takes as a second direction.
+    // left stick (one direction at a time: patches/stick-one-direction.patch)
+    "KEY_AXIS_0_UP": "left",
+    "KEY_AXIS_0_DOWN": "right",
+    "KEY_AXIS_1_UP": "up",
+    "KEY_AXIS_1_DOWN": "down"
   }
 }
