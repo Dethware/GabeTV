@@ -706,6 +706,11 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
     on screen); the shell stepped aside as designed and Home brought it back 14 s later while
     Steam was still spinning. The 12:13 one was opened from the shell. No common trigger
     found: not the time since the last opening (longer gaps were fine), not resume.
+  - Reported by the user the same evening: it also happens inside Steam, with neither the
+    shell nor a managed app involved, and seems to start when the side menu opens. That
+    fits the recordings (every hang begins at `MainMenu … WasHidden 0`) and takes the
+    shell's screen handoff out of the list of suspects: *inferred*, a bug in Steam's own
+    menu.
 - 2026-11-22: with the screen off (`drm_sleep_external_screen 1`, HDMI still "connected") the
   HDMI audio sink is gone: PipeWire has only "Dummy Output" (`auto_null`). Sound can't play
   while the shell has the screen switched off this way.
