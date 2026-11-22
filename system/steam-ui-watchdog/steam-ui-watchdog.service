@@ -1,0 +1,13 @@
+[Unit]
+Description=Ends Steam's interface process when it hangs
+# Part of Steam's Gaming Mode session: starts and stops with it.
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart=%h/.local/share/steam-ui-watchdog/steam-ui-watchdog.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=gamescope-session.target

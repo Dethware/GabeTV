@@ -711,6 +711,24 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
     fits the recordings (every hang begins at `MainMenu … WasHidden 0`) and takes the
     shell's screen handoff out of the list of suspects: *inferred*, a bug in Steam's own
     menu.
+- 2026-11-22, late: a watchdog for it, `system/steam-ui-watchdog` (decided with the user:
+  detect the hung process and kill it sooner than Steam does).
+  - The recordings separate cleanly. 24 menu openings recorded that day, 3 of them hangs
+    (12:13, 21:00, 21:31; the last one from inside Steam). In each hang the main thread of
+    one webhelper page process was at 85 % or more in 26 to 30 of 30 consecutive samples
+    (about a minute). In the 21 healthy openings no webhelper thread reached 85 % in any
+    sample; the highest was 58 %.
+  - The watchdog reads the main thread's CPU time of every `steamwebhelper` process once a
+    second and kills (SIGKILL) a page process that stays at 90 % of a core or more for 15 s.
+    Page processes are the helpers started by another helper that have no children of their
+    own: not the main browser process, not the zygotes. Processes younger than 30 s are left
+    alone, and after a kill it waits 20 s.
+  - Tested in a container against a fake tree of processes named `steamwebhelper` (main,
+    zygote, one spinning and one idle page process): only the spinning one was killed, an
+    idle tree was left alone. Installed on gabecube at 22:13 as a user service. Not yet seen
+    acting on a real hang.
+  - The diagnostic watcher is gone (the machine was rebooted at 21:57); its log,
+    `~/steam-hang-watch.log`, is kept on gabecube as material for a report to Valve.
 - 2026-11-22: with the screen off (`drm_sleep_external_screen 1`, HDMI still "connected") the
   HDMI audio sink is gone: PipeWire has only "Dummy Output" (`auto_null`). Sound can't play
   while the shell has the screen switched off this way.
