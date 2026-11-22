@@ -25,8 +25,8 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: tile.border.width
         source: tile.source
-        sourceSize.width: 480
-        sourceSize.height: 480
+        sourceSize.width: Math.round(480 * Screen.devicePixelRatio)
+        sourceSize.height: Math.round(480 * Screen.devicePixelRatio)
         fillMode: tile.whole ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         asynchronous: true
         autoTransform: true

@@ -26,6 +26,9 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   over whatever is on screen, also when the volume is already at either end. Mute mutes and
   unmutes, from anywhere; the indicator turns red and says "Muted". Neither ends the
   screensaver.
+- **Any resolution**: the interface keeps its proportions from 1080p to 4K, and photos and
+  YouTube are shown at the screen's full resolution. When the resolution changes, the shell
+  restarts itself (a couple of seconds).
 - **Assistant button**: holding it shows a ring that follows your voice and plays the
   recording back when you let go. It doesn't do anything else yet.
 

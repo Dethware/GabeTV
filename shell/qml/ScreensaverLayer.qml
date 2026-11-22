@@ -67,8 +67,9 @@ Image {
     width: parent.width
     height: parent.height
     visible: false
-    sourceSize.width: width
-    sourceSize.height: height
+    // The screen's real pixels (the layout size times the UI scale).
+    sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+    sourceSize.height: Math.round(height * Screen.devicePixelRatio)
     fillMode: Image.PreserveAspectFit
     asynchronous: true
     autoTransform: true

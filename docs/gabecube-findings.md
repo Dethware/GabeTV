@@ -666,6 +666,19 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   to the monitor over DisplayPort (one sink, "HDMI / DisplayPort Digital Stereo (HDMI 4)").
   The soundbar on `HDMI-A-1` isn't detected at all ("disconnected", no EDID). *Inferred:* its
   HDMI port is an output for a TV's ARC, not an input.
+- Shell at other resolutions (decided 2026-11-22): scale the whole UI with Qt's scale factor
+  from the X screen height (design height 1440) rather than a scale transform in QML, which
+  would blur the web view and text. Not yet seen at 4K: whether gamescope's X screen follows
+  the output resolution when Steam switches it is the open point (at 1440p output the X screen
+  is 2560x1440).
+  13:29, output switched to 3840x2160@60 in Steam's settings (over DisplayPort): the X screen
+  is 3840x2160, the shell started with scale 1.50, and a gamescope screenshot is 3840x2160
+  with the UI in the same proportions as at 1440p. So the X screen does follow the output,
+  and the picture fills the monitor (reported).
+  The restart on a resolution change wasn't exercised (the switch happened before the deploy).
+- Soundbar over Bluetooth (2026-11-22, until the TV arrives): it is the default sink
+  (`bluez_output.…`), next to the DisplayPort audio sink. "Turn off controllers" leaves it
+  alone: it only disconnects bluez devices whose icon is `input-gaming`.
 - Steam's menu opened at 11:17 and 11:43 without a hang (the shell had been on screen for 7
   and 19 minutes); `~/steam-hang-watch.log` has those as a healthy baseline.
 

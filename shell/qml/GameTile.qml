@@ -26,8 +26,8 @@ Item {
             anchors.fill: parent
             anchors.margins: frame.border.width
             source: tile.cover
-            sourceSize.width: 600
-            sourceSize.height: 900
+            sourceSize.width: Math.round(400 * Screen.devicePixelRatio)
+            sourceSize.height: Math.round(600 * Screen.devicePixelRatio)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
         }

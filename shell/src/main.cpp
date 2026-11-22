@@ -2,14 +2,49 @@
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QScreen>
 #include <QSocketNotifier>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 
 #include <csignal>
 #include <sys/eventfd.h>
 #include <unistd.h>
+#include <xcb/xcb.h>
 
 namespace {
+
+// The UI is laid out for a screen 1440 pixels high; on any other it is scaled as a whole.
+constexpr int DesignHeight = 1440;
+// Exit code that makes systemd start the shell again (Restart=on-failure).
+constexpr int RestartExitCode = 75;
+
+// The height of the X screen (gamescope's output resolution), 0 if there is no X display.
+int outputHeight()
+{
+    int screenNumber = 0;
+    xcb_connection_t *connection = xcb_connect(nullptr, &screenNumber);
+    int height = 0;
+    if (!xcb_connection_has_error(connection)) {
+        xcb_screen_iterator_t screens = xcb_setup_roots_iterator(xcb_get_setup(connection));
+        for (int i = 0; i < screenNumber && screens.rem > 0; ++i)
+            xcb_screen_next(&screens);
+        if (screens.rem > 0)
+            height = screens.data->height_in_pixels;
+    }
+    xcb_disconnect(connection);
+    return height;
+}
+
+// Qt's scale factor has to be set before the application object exists. An explicit
+// QT_SCALE_FACTOR wins.
+void scaleToOutput(int height)
+{
+    if (height <= 0 || qEnvironmentVariableIsSet("QT_SCALE_FACTOR"))
+        return;
+    const double factor = double(height) / DesignHeight;
+    if (qAbs(factor - 1.0) > 0.01)
+        qputenv("QT_SCALE_FACTOR", QByteArray::number(factor, 'f', 4));
+}
 
 int quitFd = -1;
 
@@ -44,12 +79,27 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY") && !qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "xcb");
 
+    const int startHeight = outputHeight();
+    scaleToOutput(startHeight);
+
     // YouTube (qml/YouTubePage.qml). Must come before the application object.
     QtWebEngineQuick::initialize();
 
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("tvshell"));
     quitOnTermination(app);
+    qInfo("output %d pixels high, UI scale %.2f", startHeight, app.devicePixelRatio());
+
+    // The scale can't change while running: on another output resolution, start afresh.
+    if (QScreen *screen = app.primaryScreen()) {
+        QObject::connect(screen, &QScreen::geometryChanged, &app, [startHeight] {
+            const int height = outputHeight();
+            if (height > 0 && height != startHeight) {
+                qInfo("output is now %d pixels high (was %d): restarting", height, startHeight);
+                QCoreApplication::exit(RestartExitCode);
+            }
+        });
+    }
 
     QQmlApplicationEngine engine;
     // Adds the Immich API key to requests for the Immich server; disk cache.

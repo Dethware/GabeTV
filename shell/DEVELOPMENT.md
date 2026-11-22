@@ -12,6 +12,15 @@ user systemd unit. Only X11 windows can be put on screen in that session; `main.
 the `xcb` platform. It uses SteamOS's own Qt (relying on Qt's ABI compatibility) and is
 built in a toolchain image with the same package versions (`../toolchains/steamos-3.9`).
 
+Sizes in QML are for a screen 1440 pixels high. `main.cpp` reads the X screen's height
+(gamescope's output resolution) before the application object exists and sets
+`QT_SCALE_FACTOR` to height / 1440, so everything scales as a whole (1.5 at 4K, 0.75 at
+1080p); an explicit `QT_SCALE_FACTOR` wins. The factor can't change in a running program, so
+when the screen's size changes the shell exits with code 75 and systemd starts it again
+(`Restart=on-failure`). Images from the network aren't scaled by Qt: photo layers and tiles
+ask for `sourceSize` times `Screen.devicePixelRatio`. The YouTube page sees 2560x1440 CSS
+pixels at that device pixel ratio.
+
 `qml/Main.qml` holds the pages (`page`: `home`, `settings`, `photos`, `viewer`, `youtube`)
 and wires the C++ objects together; each page and place is its own QML file.
 
