@@ -890,6 +890,85 @@ machine resumed by itself and the shell came back on screen.
 - Change: the shell sends "screen on" on waking and after every resume, repeats it three
   times two seconds apart, and logs a failing `gamescopectl`.
 
+### The same evening: the monitor's own deep sleep (19:39)
+
+With the repeated "screen on" deployed (18:42), the screen again stayed dark after a wake-up,
+this time without any suspend in between.
+
+- 19:23:19 the shell switched the signal off (idle). `DP-1` stayed `connected` for 15 minutes,
+  then at 19:38:43 to 19:38:46 dropped, came back for 2 s and dropped for good: `disconnected`.
+- 19:39:34 Home was pressed; the shell went to Active and sent "screen on" (no failure
+  logged). Nothing to drive: gamescope had no connected output.
+- 19:41:28 `DP-1` came back and was `enabled` at once; the picture stayed.
+- So the monitor (CRO A409U on DisplayPort) goes into a deep sleep after 15 minutes without
+  a signal, drops off the link and only shows up again now and then. Until it does, nothing
+  on the machine can wake it without root (forcing the connector on in sysfs; untried).
+  Whether a button on the monitor was pressed at 19:41:28 is not known.
+- This also changes the reading of the 17:42 case above: the long wait was probably the
+  same deep sleep. What still differs is that there the monitor was `connected` for 43 s and
+  24 s at a time without being driven, while here it was driven the moment it appeared;
+  that part fits the lost "screen on" and its repetition having helped. Not proven.
+- Within the first 15 minutes of screen-off the monitor wakes at once (earlier wake-ups
+  today). Over HDMI on the old switch this was never seen.
+
+## Jellyfin Desktop as a plain folder (2026-11-22)
+
+Decided by the user: no Flatpak or anything like it; binaries in a folder. Recipe in
+`apps/jellyfin-desktop/`.
+
+- The project's AppImage (v2.1.0-pre2, built with Qt 6.12) doesn't run on SteamOS's Qt
+  6.11.1: the binary and its MpvQt library need 6.12 (tried by the user). The source only
+  asks for Qt 6.0.
+- Built from source (tag `v2.1.0-pre2`, MpvQt from the bundled submodule) in an image on top
+  of the toolchain image, with `mpv` 0.41.0, `extra-cmake-modules` and `patchelf` added from
+  SteamOS's repositories. No source changes needed.
+- gabecube has no mpv. Of everything the player and `libmpv` link to, SteamOS 3.9.5 lacks the
+  packages `mpv`, `mujs`, `libcdio`, `libcdio-paranoia`, `libsixel`, `libxpresent` and
+  `uchardet`; their libraries go into `lib/` (about 4 MB). `libmpv` names `libmujs.so` by its
+  full path, so that entry is rewritten with `patchelf`. The binary gets an RPATH (not
+  RUNPATH) of `$ORIGIN/lib`, which also covers what `libmpv` loads.
+- Result: a 6 MB folder, `~/apps/jellyfin-desktop` on gabecube. `ldd` finds every library and
+  `--help` works. Started with `--tv --platform offscreen` it runs until stopped: Qt 6.11.1,
+  all components up except `display` (expected without a screen), the web view created, its
+  web extension loaded from the binary's resources.
+- Not tested yet: on the TV at all (window, TV layout with the remote, sign-in, playback,
+  hardware decoding, HDR, audio), and how the shell starts it and gets the screen back.
+
+### On the TV (2026-11-22, evening)
+
+Started inside the session (`systemd-run --user` with the session's environment file,
+`--platform xcb`) and given the screen by hand, the way the shell takes it: its window tagged
+`STEAM_GAME=2113929218` with `xprop`, that id put first in `GAMESCOPECTRL_BASELAYER_APPID`.
+gamescope focuses it and resizes the window to 3840x2160.
+
+- TV layout, signed in, 1080p H.264 with E-AC3 5.1: **plays** (reported). `--scale-factor 2`
+  makes the interface a sensible size at 4K; without it it is tiny.
+- **Typing doesn't work in `--tv`**: the player takes every key and turns it into a remote
+  action (`resources/inputmaps/keyboard.json`): letters, digits and `. : _` pass, Backspace
+  is "back", `/` and `-` aren't mapped. Signing in with `--desktop` and a keyboard works, and
+  the sign-in carries over to `--tv`.
+- Remote: arrows, OK and Back work; Left and Right seek during playback (reported).
+- Steam Controller: SDL opens the raw controller through HIDAPI as "Steam Controller" (22
+  buttons), for which the player has no key map, so nothing happens. With
+  `SDL_JOYSTICK_HIDAPI=0` and `SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1` (what the
+  shell sets for itself) it sees "Microsoft X-Box 360 pad 0" (11 buttons, 6 axes), Steam's
+  virtual pad; no built-in map matches that name either. A map in the profile's `inputmaps/`
+  (`apps/jellyfin-desktop/inputmaps/steam-virtual-gamepad.json`) makes it work (reported,
+  bumpers seek). The sticks are left unmapped: a sideways push also fires "up" or "down" and
+  focus jumps to another control.
+- **Home doesn't return to the shell.** The key reaches the shell, but the shell counts any
+  foreign id in the base layer list as a running game and never takes the screen from one.
+  Switching by rewriting the list by hand works both ways (shell first, or player first).
+- The player registers on MPRIS (`org.mpris.MediaPlayer2.JellyfinDesktop.profile_<id>`):
+  `PlaybackStatus` reads "Playing"/"Paused" and `Pause` pauses it. Usable by the shell for
+  Home and for idle.
+- Logs: at `info` and `debug` the web client's console line "Stored JSON credentials" (the
+  stored sign-in) is written to the profile's log. A level passed once is remembered
+  (`"logLevel"` in `jellyfin-desktop.conf`), so it has to be started with
+  `--log-level error`. The log files that held it were deleted.
+- Not done: the shell starting it, a tile, Home, pausing, idle. It runs as a transient user
+  unit until stopped or the session ends.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

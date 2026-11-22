@@ -1,3 +1,4 @@
 # Built toolchain images (docker save | zstd); SHA256SUMS is tracked.
 toolchains/archive/*.tar.zst
 shell/build/
+apps/*/build/
