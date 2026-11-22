@@ -208,7 +208,7 @@ it and how it returns afterwards. Home and the YouTube key call `leaveApp()` (pa
 start the ten-minute quit timer); the timer also starts for a program found running that
 isn't shown. The remote's Netflix key (`XF86Launch2`, grabbed like the others) opens it.
 `HomePlace.runningApps` marks the tiles of loaded apps: `ManagedApp.running`, and for
-YouTube a page that isn't frozen. Idle time counts while the app is on screen
+YouTube a page that has been opened (frozen or not, it comes back where it was left). Idle time counts while the app is on screen
 (`frontAppOnScreen`); its `playing` reports activity like the shell's own videos do. Keys go
 to the app's window, so the shell sees input there only through gamescope's input counter.
 

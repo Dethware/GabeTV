@@ -41,10 +41,17 @@ Item {
             width: parent.width * 0.6
             spacing: 32
 
-            Loader {
+            // A square box for the logo, whatever its shape, so the names line up across tiles.
+            Item {
                 width: parent.width
-                sourceComponent: tile.logo
-                onLoaded: item.width = width
+                height: width
+
+                Loader {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    sourceComponent: tile.logo
+                    onLoaded: item.width = width
+                }
             }
 
             Text {
