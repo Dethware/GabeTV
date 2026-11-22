@@ -15,8 +15,10 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   a short note on screen; Settings chooses what else to skip. And Jellyfin, for your films and
   shows: its own TV interface, playing files directly.
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
-- **Photos**: photos from an Immich server. "On this day" memories and your albums; an
-  album opens a grid, OK opens a photo full screen. Left/right move between photos, with a
+- **Photos**: photos from an Immich server. "On this day" memories and your albums, in
+  groups by the year of their newest photo with the newest album first. Moving up and down
+  keeps to the column you chose, also across a short row. An album opens a grid, OK opens a
+  photo full screen. Left/right move between photos, with a
   slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
   its date and place. Videos play with OK.
 - **Screensaver**: after a while without input, photos from the albums you choose, one at a

@@ -100,11 +100,20 @@ crossfades in place (500 ms): Immich's thumbnail decoded at 96×54 (blur) or 3×
 blurred with `MultiEffect` and darkened. Date and place sit above the layers (z 2) and drift
 to a nearby spot every 5 minutes (OLED).
 
-### Photos (`src/ImmichClient.*`, `src/ImmichConfig.*`, `qml/PhotosPlace.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`, `PhotoTile.qml`, `PhotoLayer.qml`)
+### Photos (`src/ImmichClient.*`, `src/ImmichConfig.*`, `qml/PhotosPlace.qml`, `AlbumGroups.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`, `PhotoTile.qml`, `PhotoLayer.qml`)
 
-Albums sorted by name, memories for today, album contents a month bucket at a time
+Albums sorted by their newest photo (`endDate`), newest first, with its `year`; memories for
+today; album contents a month bucket at a time
 (`/timeline/buckets`, `/timeline/bucket`). Each asset map carries `id`, `ratio`, `isImage`,
 `date` (local, from `fileCreatedAt` + `localOffsetHours`) and `place`.
+
+`AlbumGroups` shows the albums by year: it turns the sorted list into rows for a `ListView`,
+a heading row per year and under it rows of as many albums as fit (the `FitGrid` rule for
+columns and card size). The selection is a row and a column, not a list index. Left and
+Right set `intendedColumn`; Up and Down go to the next row of albums and take that column,
+or the row's last one if it is shorter, so passing through a short row doesn't lose the
+column. The selected album is found again by its ID when the rows are rebuilt (each time
+Photos is opened, or when the width changes).
 
 The viewer shows the cached thumbnail at once and loads the preview and full size after
 250 ms on a photo; the last image stays up until the next one has something to show.
@@ -258,8 +267,8 @@ notes: the log, "Voice protocol details".
   output's mute itself. In the screensaver the volume keys pass without ending it
   (`IdleController`).
 - **Card grids** (`qml/FitGrid.qml`): as many columns as fit at the design card size, then
-  the cards grow so rows end flush with the right margin. Used by every place and the album
-  grid.
+  the cards grow so rows end flush with the right margin. Used by Home, Games and the photo
+  grid; the albums use the same rule in `AlbumGroups`.
 
 ## Build, deploy, debug
 

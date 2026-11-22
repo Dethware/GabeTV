@@ -132,20 +132,32 @@ void ImmichClient::refresh()
             const QJsonObject album = value.toObject();
             if (album.value(QStringLiteral("assetCount")).toInt() == 0)
                 continue;
+            // The date of the album's newest photo.
+            const QString latest = album.value(QStringLiteral("endDate")).toString();
+            const QDateTime latestTime = QDateTime::fromString(latest, Qt::ISODateWithMs);
             albums.append(QVariantMap{
                 {QStringLiteral("id"), album.value(QStringLiteral("id")).toString()},
                 {QStringLiteral("name"), album.value(QStringLiteral("albumName")).toString()},
                 {QStringLiteral("count"), album.value(QStringLiteral("assetCount")).toInt()},
                 {QStringLiteral("cover"), album.value(QStringLiteral("albumThumbnailAssetId")).toString()},
+                {QStringLiteral("latest"), latest},
+                {QStringLiteral("year"), latestTime.isValid() ? latestTime.toLocalTime().date().year() : 0},
             });
         }
-        // Stable positions: by name.
+        // By their newest photo, newest first (ISO dates in UTC sort as text); the same date,
+        // or none: by name.
         QCollator collator;
         collator.setNumericMode(true);
         collator.setCaseSensitivity(Qt::CaseInsensitive);
         std::sort(albums.begin(), albums.end(), [&collator](const QVariant &a, const QVariant &b) {
-            return collator.compare(a.toMap().value(QStringLiteral("name")).toString(),
-                                    b.toMap().value(QStringLiteral("name")).toString()) < 0;
+            const QVariantMap first = a.toMap();
+            const QVariantMap second = b.toMap();
+            const QString firstLatest = first.value(QStringLiteral("latest")).toString();
+            const QString secondLatest = second.value(QStringLiteral("latest")).toString();
+            if (firstLatest != secondLatest)
+                return firstLatest > secondLatest;
+            return collator.compare(first.value(QStringLiteral("name")).toString(),
+                                    second.value(QStringLiteral("name")).toString()) < 0;
         });
         qCInfo(lcImmich) << albums.size() << "albums";
         m_albums = albums;

@@ -51,6 +51,7 @@ set_source_files_properties(qml/PhotoViewer.qml PROPERTIES QT_RESOURCE_ALIAS Pho
 set_source_files_properties(qml/PhotoGrid.qml PROPERTIES QT_RESOURCE_ALIAS PhotoGrid.qml)
 set_source_files_properties(qml/PhotoTile.qml PROPERTIES QT_RESOURCE_ALIAS PhotoTile.qml)
 set_source_files_properties(qml/PhotosPlace.qml PROPERTIES QT_RESOURCE_ALIAS PhotosPlace.qml)
+set_source_files_properties(qml/AlbumGroups.qml PROPERTIES QT_RESOURCE_ALIAS AlbumGroups.qml)
 set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarButton.qml)
 set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
 set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
@@ -85,6 +86,7 @@ qt_add_qml_module(tvshell
         qml/PhotoGrid.qml
         qml/PhotoTile.qml
         qml/PhotosPlace.qml
+        qml/AlbumGroups.qml
         qml/BarButton.qml
         qml/PhotoLayer.qml
         qml/ScreensaverLayer.qml

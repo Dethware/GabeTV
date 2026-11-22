@@ -16,7 +16,8 @@
 // photos, and image URLs. Requests go through NetworkAccessManager, which adds the API key.
 //
 // Lists are plain QVariantLists of maps for now:
-//   albums:      { id, name, count, cover (asset id) }
+//   albums:      { id, name, count, cover (asset id), latest (ISO date and time of its
+//                  newest photo), year (of that, local; 0 = unknown) }, newest first
 //   memories:    { id, title, assets: [asset] }
 //   albumAssets: [asset]
 //   asset:       { id, ratio (width / height), isImage, date ("yyyy-MM-dd", local),

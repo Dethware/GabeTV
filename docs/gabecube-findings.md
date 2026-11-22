@@ -1020,6 +1020,21 @@ dot on a tile marks a loaded app, and Back on Jellyfin's start screen returns to
   fired "up". Third patch: within a stick (axes 0/1 and 3/4) an axis isn't pressed while its
   partner is, or while the partner is pushed further. The key map has the left stick again.
 
+## Albums by year (decided 2026-11-22)
+
+Asked for by the user: albums in groups by the year of their newest photo, sorted within a
+group, the newest album at the top left; modelled on MultiMC's groups. And rows keep an
+"intended column": from column 5 of a full row, Down into a row of three lands on its
+third, Down again into a full row lands on column 5 again; only Left and Right change the
+intended column.
+
+- This gives up "positions never reorder" for albums on purpose: an album moves to the front
+  when it gets a new photo.
+- Immich's `/albums` gives `endDate` (and `startDate`, `lastModifiedAssetTimestamp`) for every
+  album with photos: ISO with milliseconds, UTC. 13 albums on the TV account, 9 with their
+  newest photo in 2026 and 4 in 2025.
+- The screensaver's album picker in Settings lists the albums in the same new order.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

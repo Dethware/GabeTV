@@ -1,7 +1,7 @@
 import QtQuick
 import TvShell
 
-// Photos from Immich: today's memories and the albums.
+// Photos from Immich: today's memories and the albums (by year, newest first).
 FocusScope {
     id: place
 
@@ -70,56 +70,27 @@ FocusScope {
         Keys.onEnterPressed: place.memoryOpened(model[currentIndex])
     }
 
-    Text {
-        id: albumsHeading
-
-        anchors.left: parent.left
-        anchors.top: memories.bottom
-        anchors.leftMargin: 48
-        anchors.topMargin: place.hasMemories ? 16 : 0
-        visible: albums.count > 0
-        color: "white"
-        font.pixelSize: 36
-        text: qsTr("Albums")
-    }
-
-    FitGrid {
+    // The albums, in groups by year.
+    AlbumGroups {
         id: albums
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: albumsHeading.bottom
+        anchors.top: memories.bottom
         anchors.bottom: parent.bottom
         anchors.margins: 32
-        anchors.rightMargin: 32 - gap
-        designWidth: 400
-        designHeight: 316
-        gap: 24
+        anchors.topMargin: place.hasMemories ? 16 : 0
         focus: !place.hasMemories
-        model: place.immich.albums
-        highlightMoveDuration: 120
+        immich: place.immich
+        albums: place.immich.albums
 
-        delegate: PhotoTile {
-            required property var modelData
-
-            width: albums.cardWidth
-            height: albums.cardHeight
-            source: place.immich.imageUrl(modelData.cover, "thumbnail")
-            title: modelData.name
-            subtitle: modelData.count
-            current: GridView.isCurrentItem && albums.activeFocus
-        }
-
+        onAlbumOpened: (albumId, name) => place.albumOpened(albumId, name)
         // From the first row: to the memories, or out of the place.
-        Keys.onUpPressed: event => {
-            if (currentIndex >= columns)
-                event.accepted = false
-            else if (place.hasMemories)
+        onTopReached: {
+            if (place.hasMemories)
                 memories.forceActiveFocus()
             else
                 place.leftUpward()
         }
-        Keys.onReturnPressed: place.albumOpened(model[currentIndex].id, model[currentIndex].name)
-        Keys.onEnterPressed: place.albumOpened(model[currentIndex].id, model[currentIndex].name)
     }
 }
