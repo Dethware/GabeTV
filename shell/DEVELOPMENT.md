@@ -127,6 +127,10 @@ stops for 0.2 s. Images are requested with Immich's edits (`edited=true`) and EX
 Videos play in Qt Multimedia (ffmpeg backend) through `src/ImmichMediaProxy.*`, a loopback
 HTTP proxy that adds the API key (Qt's player can't send headers) and passes Range requests
 through; a random token in its URLs keeps other local programs out.
+The viewer's player is a `MediaPlayer` with its own `AudioOutput` whose `device` is bound to
+`MediaDevices.defaultAudioOutput`: an output left to itself keeps the device that was the
+default when it was created, and stays silent when the sound has since moved (the soundbar
+connecting over Bluetooth after the shell started).
 
 `src/NetworkAccess.*` is the shell's network layer, QML images included: it adds the key to
 requests for the Immich server only, and caches on disk (`~/.cache/tvshell/network`, up to

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 
 // A picture with an optional caption, highlighted when current.
 Rectangle {
@@ -10,6 +11,8 @@ Rectangle {
     property bool current
     // Show the whole picture (photo grids) instead of filling the tile (covers).
     property bool whole
+    // It is a video: a play badge in the corner.
+    property bool video
 
     radius: 8
     color: "#1d252c"
@@ -17,7 +20,7 @@ Rectangle {
     border.width: current ? 6 : 0
 
     Accessible.role: Accessible.ListItem
-    Accessible.name: title
+    Accessible.name: title.length > 0 ? title : video ? qsTr("Video") : qsTr("Photo")
 
     Image {
         id: picture
@@ -30,6 +33,37 @@ Rectangle {
         fillMode: tile.whole ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         asynchronous: true
         autoTransform: true
+    }
+
+    // The play badge: a dark disc with a white triangle, bottom left.
+    Rectangle {
+        id: badge
+
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 16
+        width: 64
+        height: 64
+        radius: 32
+        visible: tile.video
+        color: "#c0000000"
+        border.color: "white"
+        border.width: 3
+
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                fillColor: "white"
+                strokeColor: "transparent"
+                startX: badge.width * 0.40
+                startY: badge.height * 0.28
+                PathLine { x: badge.width * 0.72; y: badge.height * 0.50 }
+                PathLine { x: badge.width * 0.40; y: badge.height * 0.72 }
+                PathLine { x: badge.width * 0.40; y: badge.height * 0.28 }
+            }
+        }
     }
 
     Rectangle {

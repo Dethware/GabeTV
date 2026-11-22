@@ -1043,6 +1043,16 @@ dot on a tile marks a loaded app, and Back on Jellyfin's start screen returns to
   fired "up". Third patch: within a stick (axes 0/1 and 3/4) an axis isn't pressed while its
   partner is, or while the partner is pushed further. The key map has the left stick again.
 
+## Photo videos were silent (2026-11-22)
+
+Reported by the user after the soundbar had gone back to Bluetooth: videos in Photos played
+without sound. The viewer used QML's `Video`, whose built-in audio output takes the default
+device once, when it is created; the shell had started while the monitor's DisplayPort sink
+was the default (which that monitor doesn't play), and the Bluetooth sink became the default
+later. *Inferred* from that, not seen in a trace: no video was playing when I looked. Changed
+to an `AudioOutput` that follows `MediaDevices.defaultAudioOutput`. Not confirmed on the TV at
+the time of writing.
+
 ## Albums by year (decided 2026-11-22)
 
 Asked for by the user: albums in groups by the year of their newest photo, sorted within a

@@ -20,7 +20,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   keeps to the column you chose, also across a short row. An album opens a grid, OK opens a
   photo full screen. Left/right move between photos, with a
   slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
-  its date and place. Videos play with OK.
+  its date and place. Videos carry a play badge in an album and play with OK.
 - **Screensaver**: after a while without input, photos from the albums you choose, one at a
   time, with their date and place. Left/right browse without leaving it, OK opens the photo,
   any other key ends it. Without albums: a clock.

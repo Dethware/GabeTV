@@ -57,8 +57,7 @@ FocusScope {
             height: grid.cardHeight
             source: page.immich.imageUrl(modelData.id, "thumbnail")
             whole: true
-            subtitle: modelData.isImage ? "" : qsTr("Video")
-            title: modelData.isImage ? "" : qsTr("Video")
+            video: !modelData.isImage
             current: GridView.isCurrentItem && grid.activeFocus
         }
 

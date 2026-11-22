@@ -325,14 +325,30 @@ FocusScope {
             onStatusChanged: if (status === Image.Ready) viewer.lastShown = source
         }
 
-        Video {
+        MediaDevices {
+            id: mediaDevices
+        }
+
+        MediaPlayer {
             id: video
+
+            videoOutput: videoOutput
+            // The sound follows the system's output. On its own a player keeps the device
+            // that was the default when it was created: the monitor, silent, after the
+            // soundbar connected later.
+            audioOutput: AudioOutput {
+                device: mediaDevices.defaultAudioOutput
+            }
+
+            onErrorOccurred: (error, errorString) => console.warn("video:", errorString)
+        }
+
+        VideoOutput {
+            id: videoOutput
 
             anchors.fill: parent
             visible: viewer.videoActive
             fillMode: VideoOutput.PreserveAspectFit
-
-            onErrorOccurred: (error, errorString) => console.warn("video:", errorString)
         }
     }
 
