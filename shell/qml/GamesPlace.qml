@@ -10,15 +10,15 @@ FocusScope {
     // Pick up games installed or removed while a game or Steam had the screen.
     onOnScreenChanged: if (onScreen) library.reload()
 
-    GridView {
+    FitGrid {
         id: grid
 
         anchors.fill: parent
         anchors.margins: 32
         focus: true
         model: place.library
-        cellWidth: 320
-        cellHeight: 480
+        designWidth: 320
+        designHeight: 480
         highlightMoveDuration: 120
 
         delegate: GameTile {}

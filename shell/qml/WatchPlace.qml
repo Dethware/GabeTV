@@ -6,14 +6,14 @@ FocusScope {
 
     signal appOpened(string appId)
 
-    GridView {
+    FitGrid {
         id: grid
 
         anchors.fill: parent
         anchors.margins: 32
         focus: true
-        cellWidth: 320
-        cellHeight: 480
+        designWidth: 320
+        designHeight: 480
         highlightMoveDuration: 120
 
         model: ListModel {

@@ -33,7 +33,7 @@ FocusScope {
         text: page.loading ? qsTr("%1 (loading…)").arg(page.title) : page.title
     }
 
-    GridView {
+    FitGrid {
         id: grid
 
         anchors.left: parent.left
@@ -41,8 +41,10 @@ FocusScope {
         anchors.top: heading.bottom
         anchors.bottom: parent.bottom
         anchors.margins: 32
-        cellWidth: 368
-        cellHeight: 276
+        anchors.rightMargin: 32 - gap
+        designWidth: 352
+        designHeight: 260
+        gap: 16
         focus: true
         model: page.assets
         highlightMoveDuration: 120
@@ -51,8 +53,8 @@ FocusScope {
         delegate: PhotoTile {
             required property var modelData
 
-            width: 352
-            height: 260
+            width: grid.cardWidth
+            height: grid.cardHeight
             source: page.immich.imageUrl(modelData.id, "thumbnail")
             whole: true
             subtitle: modelData.isImage ? "" : qsTr("Video")

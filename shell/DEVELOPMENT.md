@@ -155,7 +155,12 @@ notes: the log, "Voice protocol details".
   games from Steam's manifests and its cached cover art; launched with
   `steam://rungameid/<id>`.
 - **Top bar** (`qml/TopBar.qml`, `BarButton.qml`): one tab per place; the highlight moves
-  freely, OK switches the place showing.
+  freely, OK switches the place showing and the focus stays on the bar. Only Down, LB/RB and
+  Back move the focus between the bar and a place (the places' `focus` isn't bound to the
+  selected tab, which would pull it into the place on every switch).
+- **Card grids** (`qml/FitGrid.qml`): as many columns as fit at the design card size, then
+  the cards grow so rows end flush with the right margin. Used by every place and the album
+  grid.
 
 ## Build, deploy, debug
 

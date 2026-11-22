@@ -83,7 +83,7 @@ FocusScope {
         text: qsTr("Albums")
     }
 
-    GridView {
+    FitGrid {
         id: albums
 
         anchors.left: parent.left
@@ -91,8 +91,10 @@ FocusScope {
         anchors.top: albumsHeading.bottom
         anchors.bottom: parent.bottom
         anchors.margins: 32
-        cellWidth: 424
-        cellHeight: 340
+        anchors.rightMargin: 32 - gap
+        designWidth: 400
+        designHeight: 316
+        gap: 24
         focus: !place.hasMemories
         model: place.immich.albums
         highlightMoveDuration: 120
@@ -100,8 +102,8 @@ FocusScope {
         delegate: PhotoTile {
             required property var modelData
 
-            width: 400
-            height: 316
+            width: albums.cardWidth
+            height: albums.cardHeight
             source: place.immich.imageUrl(modelData.cover, "thumbnail")
             title: modelData.name
             subtitle: modelData.count
@@ -110,7 +112,7 @@ FocusScope {
 
         // From the first row: to the memories, or out of the place.
         Keys.onUpPressed: event => {
-            if (currentIndex >= Math.floor(width / cellWidth))
+            if (currentIndex >= columns)
                 event.accepted = false
             else if (place.hasMemories)
                 memories.forceActiveFocus()

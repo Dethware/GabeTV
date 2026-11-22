@@ -211,7 +211,9 @@ Window {
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
             visible: home.currentPlace === games
-            focus: home.currentPlace === games
+            // Starts here; afterwards only Down, LB/RB and Back move the focus between the bar
+            // and the places, so switching tabs with OK keeps it on the bar.
+            focus: true
             library: steamLibrary
             onScreen: baseLayer.onScreen || !baseLayer.available
 
@@ -227,7 +229,6 @@ Window {
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
             visible: home.currentPlace === photos
-            focus: home.currentPlace === photos
             immich: immich
 
             onLeftUpward: topBar.forceActiveFocus()
@@ -243,7 +244,6 @@ Window {
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
             visible: home.currentPlace === watch
-            focus: home.currentPlace === watch
 
             KeyNavigation.up: topBar
             KeyNavigation.priority: KeyNavigation.AfterItem
