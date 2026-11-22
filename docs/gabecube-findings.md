@@ -711,6 +711,62 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
 - Steam's menu opened at 11:17 and 11:43 without a hang (the shell had been on screen for 7
   and 19 minutes); `~/steam-hang-watch.log` has those as a healthy baseline.
 
+## Suspend ends after 5 seconds: the wireless mouse receiver (2026-11-22)
+
+Seen while testing background music: the black screen with sound, the signal going off 20 s
+after the track ended and the suspend 2 minutes later all happened as intended, then the
+machine resumed by itself and the shell came back on screen.
+
+| Suspend | Resume | Slept | Setup | Requested by |
+|---|---|---|---|---|
+| 01:57:06 | 02:14:13 | 17 min | monitor on HDMI | shell (idle) |
+| 03:52:05 | 09:50:55 | 6 h | monitor on HDMI | not the shell |
+| 13:02:49 | 13:02:54 | 5 s | monitor on DisplayPort | Steam (power button) |
+| 15:38:08 | 15:38:14 | 5 s | DisplayPort, soundbar on Bluetooth | shell (idle) |
+| 15:47:09 | 15:47:15 | 5 s | same | shell (idle) |
+| 15:50:41 | 15:50:47 | 6 s | DisplayPort cable pulled | `systemctl suspend` over SSH |
+| 15:51:39 | 15:51:45 | 5 s | cable pulled, soundbar disconnected | same |
+| 15:53:42 | 15:53:48 | 6 s | cable pulled, soundbar back on Bluetooth; wake sources snapshotted | same |
+| 15:55:50 | 15:56:17 | 26 s | receiver unplugged 3 s earlier; ended by the power button | shell (idle) |
+| 15:56:38 | 16:01:59 | 5 min 21 s | as 15:53, **mouse receiver unplugged**; ended by the power button | same |
+| 16:08:28 | 16:11:43 | 3 min 14 s | receiver unplugged, mouse on Bluetooth, switched on, lying still; ended by using the mouse | same |
+
+- Suspend is `s2idle`. Of the 5 seconds about 3 are the kernel going down and coming up, so
+  the machine really sleeps for about 2.
+- **Not the monitor:** it also happens with no display connected. (The first guess was the
+  monitor toggling hot-plug on DisplayPort; gamescope does see `DP-1` disconnect and
+  reconnect after each resume, but that is an effect.)
+- **Not the soundbar's Bluetooth link:** it also happens with the soundbar disconnected, and
+  the Bluetooth adapter (`1-5`) counted no wake event in the 15:53 snapshot. (`bluetoothd`'s
+  "Controller resume with wake event 0x0" proves nothing: it says the same after the
+  Bluetooth mouse woke the machine at 16:11.) The soundbar
+  reconnects by itself after the resume.
+- The 13:02 one is a different case: the power button (`PNP0C0C:00`) has an event inside
+  that suspend, so a second press ended it.
+- `/sys/power/pm_wakeup_irq` after the short sleeps, in order: 1 (`i8042`), 7
+  (`pinctrl_amd`), 9 (ACPI), 9, 9. It doesn't single out a device.
+- Wake sources (`/sys/class/wakeup/*`, readable without root) that counted events during the
+  15:53 suspend, in order of their last change: `serio0` (the `i8042` keyboard port, +1),
+  the USB controller `0000:07:00.3` and its ACPI device (+2, +1), then one second later the
+  bridge to the Wi-Fi card `0000:00:02.2` (+2) and **USB device `1-2`, the JLab GO Mouse
+  receiver (+1)**. Interrupts: IRQ 1 +8, IRQ 7 +2, IRQ 9 +5, GPIO pin 58 +1.
+- **The cause: the wireless mouse receiver** (JLab GO Mouse, USB). With it unplugged and
+  nothing else changed, the machine stayed asleep until the power button was pressed, and
+  the USB controller counted no wake event in that suspend. *Inferred:* it signals a
+  wake-up right after the bus is suspended. It sits on that USB controller, has wake-up enabled, and counted one event
+  in that suspend (5 before it, after 4 short sleeps). It was plugged in during the long sleeps too, so something about
+  it changed around midday: the mouse was switched on then (reported). The receiver stays
+  unplugged; mouse and keyboard use Bluetooth instead. With the mouse connected over
+  Bluetooth and lying still the machine stays asleep, and using the mouse wakes it: the
+  Bluetooth adapter (`1-5`) and the USB controller count a wake event. To keep the mouse
+  plugged in, its `power/wakeup` would have to be set to `disabled` (root, e.g. a udev rule);
+  not done.
+- Also wake-enabled: the Steam Controller Puck (`1-3`), the Bluetooth adapter (`1-5`) and
+  CEC (`cros-ec-cec`, with `wake_tv`/`suspend_tv`/`allow_standby` set in
+  `~/.config/cecd/config.d/`).
+- The timer of `systemd-run --on-active=3` fired 48 s late (timer accuracy); a plain
+  `systemd-run --user sh -c "sleep 3; systemctl suspend"` is on time.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
