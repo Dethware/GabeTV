@@ -606,6 +606,17 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   once an account is chosen.
 - The remote's YouTube key reaches X11 as `XF86Launch1`, keycode 156 (after the hwdb remap
   to `prog1`); a root grab on it works like Home.
+- SponsorBlock: Qt WebEngine 6.11 can load Chrome extensions (`QWebEngineExtensionManager`,
+  since 6.10), but the SponsorBlock extension targets the desktop site; the TV-interface
+  projects (TizenTube, youtube-webos) carry their own SponsorBlock code. Decided: our own
+  script. The API answers `GET /api/skipSegments/<4 hex of sha256(id)>?categories=[…]&actionTypes=["skip"]`
+  with a list of `{videoID, segments: [{segment: [start, end], category, …}]}` for every video
+  under that prefix (checked with curl). Injection and skipping not yet seen working on
+  gabecube; a web view wouldn't load in the toolchain container to test it there.
+- YouTube Music has no TV website of its own that we found; on TVs it is a Music tab inside
+  the YouTube app (YouTube's blog), so presumably inside `youtube.com/tv` too (not checked).
+- Volume: the remote's volume keys change the sound while the shell is on screen, without
+  the shell doing anything (confirmed by use). *Inferred:* Steam handles them.
 
 ## Waydroid prerequisites
 

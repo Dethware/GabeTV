@@ -2,17 +2,28 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtWebEngine
+import TvShell
 
 // youtube.com/tv, the leanback UI smart TVs use. Created the first time it opens and kept
 // after that: Home pauses the video and freezes the page, opening it again carries on.
 // Sign-in and accounts: YouTube shows a code to enter at youtube.com/activate on a phone.
 // Cookies and storage live in the "youtube" profile (~/.local/share/tvshell/QtWebEngine/youtube).
+//
+// SponsorBlock: the video's ID is read from the address (#/watch?v=…), SponsorBlock (C++) asks
+// for its segments, and sponsorskip.js, injected into the page, skips them.
 FocusScope {
     id: page
+
+    required property YouTubeSettings settings
 
     // Playing sound: keeps the screen awake.
     readonly property bool audible: view ? view.recentlyAudible : false
     readonly property WebEngineView view: loader.item as WebEngineView
+    // The video being watched ("" = none).
+    readonly property string videoId: {
+        const match = view ? /#\/watch\?(?:[^#]*&)?v=([\w-]{11})/.exec(view.url.toString()) : null
+        return match ? match[1] : ""
+    }
 
     // YouTube's own exit (Back on its home screen, then Exit).
     signal closed()
@@ -33,6 +44,20 @@ FocusScope {
         view.runJavaScript("(() => { const e = document.querySelector('ytlr-account-selector');"
                            + " if (!e) return false; const r = e.getBoundingClientRect();"
                            + " return r.width > 0 && r.height > 0; })()", result => callback(result === true))
+    }
+
+    function pushSegments() {
+        if (view)
+            view.runJavaScript("globalThis.tvshellSetSegments && tvshellSetSegments("
+                               + JSON.stringify(sponsorBlock.segments) + ")", WebEngineScript.ApplicationWorld)
+    }
+
+    SponsorBlock {
+        id: sponsorBlock
+
+        videoId: page.videoId
+        categories: page.settings.skipCategories
+        onSegmentsChanged: page.pushSegments()
     }
 
     // Pause, then freeze once the page is hidden (a visible page can't be frozen).
@@ -72,6 +97,15 @@ FocusScope {
             settings.showScrollBars: false
 
             onWindowCloseRequested: page.closed()
+            // A (re)loaded page starts without segments.
+            onLoadingChanged: request => {
+                if (request.status === WebEngineView.LoadSucceededStatus)
+                    page.pushSegments()
+            }
+            onJavaScriptConsoleMessage: (level, message) => {
+                if (message.startsWith("tvshell:"))
+                    console.info("youtube page:", message.substring(8).trim())
+            }
             onRenderProcessTerminated: (status, exitCode) => {
                 console.warn("youtube: page process ended:", status, exitCode, "- reloading")
                 reload()
@@ -79,6 +113,12 @@ FocusScope {
 
             Component.onCompleted: {
                 profile = youtubeProfile.instance()
+                userScripts.collection = [{
+                    name: "sponsorskip",
+                    sourceUrl: Qt.resolvedUrl("sponsorskip.js"),
+                    injectionPoint: WebEngineScript.DocumentReady,
+                    worldId: WebEngineScript.ApplicationWorld
+                }]
                 // Without a TV user agent, youtube.com/tv sends the browser to the desktop site.
                 profile.httpUserAgent = "Mozilla/5.0 (SMART-TV; Linux; Tizen 7.0) AppleWebKit/537.36 "
                         + "(KHTML, like Gecko) Chrome/134.0.0.0 TV Safari/537.36"

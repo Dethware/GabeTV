@@ -10,7 +10,8 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 ## What it does
 
 - **Home**: the first place, with your apps. For now YouTube, in the same TV interface smart
-  TVs use, with all its accounts.
+  TVs use, with all its accounts. Sponsor segments in videos are skipped (SponsorBlock), with
+  a short note on screen; Settings chooses what else to skip.
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
 - **Photos**: photos from an Immich server. "On this day" memories and your albums; an
   album opens a grid, OK opens a photo full screen. Left/right move between photos, with a
@@ -21,6 +22,8 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   any other key ends it. Without albums: a clock.
 - **Screen off and sleep**: later still, the screen turns off, and later the machine
   sleeps. Defaults: screensaver after 5 minutes, screen off after 30, sleep after 60.
+- **Volume**: changing the volume shows a small indicator in the top right corner, over
+  whatever is on screen. It doesn't end the screensaver.
 - **Assistant button**: holding it shows a ring that follows your voice and plays the
   recording back when you let go. It doesn't do anything else yet.
 
@@ -70,8 +73,13 @@ keeps failing, take its batteries out for a few seconds.
 
 In the shell: Settings in the top bar, or Start on the controller. Power (when the
 screensaver, screen off and sleep start), Screensaver (albums, time per photo, transition,
-background, date and place) and Photos (transition and background in the viewer). Changes
-apply at once.
+background, date and place), Photos (transition and background in the viewer) and YouTube
+(what SponsorBlock skips: sponsors, self-promotion, reminders, intros, outros, recaps,
+non-music parts, filler; only sponsors at first). Changes apply at once.
+
+For the skipping, the shell asks the SponsorBlock service (sponsor.ajay.app) about each video
+you watch, by the first characters of a hash of its ID, not the ID itself. With every switch
+off, it asks nothing.
 
 They are saved in `~/.config/tvshell/tvshell.conf`:
 
@@ -84,6 +92,7 @@ They are saved in `~/.config/tvshell/tvshell.conf`:
 | | `background` | `blur`, `gradient` or `black` |
 | | `showInfo` | date and place on or off |
 | `[viewer]` | `transition`, `background` | as above, for the photo viewer |
+| `[youtube]` | `skipCategories` | SponsorBlock categories to skip, e.g. `sponsor, intro` |
 
 ## Install
 

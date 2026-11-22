@@ -266,6 +266,7 @@ Window {
 
         anchors.fill: parent
         visible: root.page === "youtube"
+        settings: youtubeSettings
 
         onClosed: root.leaveYouTube()
     }
@@ -323,6 +324,7 @@ Window {
         idle: idle
         screensaver: screensaverSettings
         viewer: viewerSettings
+        youtube: youtubeSettings
         immich: immich
 
         onClosed: root.showPage("home")
@@ -343,6 +345,14 @@ Window {
 
     ViewerSettings {
         id: viewerSettings
+    }
+
+    YouTubeSettings {
+        id: youtubeSettings
+    }
+
+    SystemVolume {
+        id: systemVolume
     }
 
     Screensaver {
@@ -382,5 +392,13 @@ Window {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 64
         assistant: assistant
+    }
+
+    // Last, so it draws over everything.
+    VolumeIndicator {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 48
+        volume: systemVolume
     }
 }

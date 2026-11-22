@@ -156,6 +156,10 @@ bool IdleController::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) {
         // Browsing keys go to the screensaver itself: it stays, the idle time restarts.
         const int key = static_cast<QKeyEvent *>(event)->key();
+        // Changing the volume doesn't end the screensaver.
+        if (m_state == State::Screensaver
+            && (key == Qt::Key_VolumeUp || key == Qt::Key_VolumeDown || key == Qt::Key_VolumeMute))
+            return false;
         if (m_state == State::Screensaver
             && (key == Qt::Key_Left || key == Qt::Key_Right || key == Qt::Key_Return || key == Qt::Key_Enter)) {
             m_sinceActivity.restart();

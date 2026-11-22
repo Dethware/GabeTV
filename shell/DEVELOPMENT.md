@@ -130,6 +130,17 @@ visible; if so the shell leaves YouTube, otherwise `WebKeys.sendBack()` hands th
 Escape, YouTube's back. Leaving returns to the page YouTube was opened from, or gives the
 screen back to Steam if Steam had it when the YouTube key was pressed.
 
+SponsorBlock (`src/SponsorBlock.*`, `src/YouTubeSettings.*`, `qml/sponsorskip.js`): the page's
+address carries the video (`#/watch?v=<id>`), which `YouTubePage.videoId` reads. `SponsorBlock`
+asks sponsor.ajay.app for the segments by the first four hex characters of the ID's SHA-256
+(the service's privacy mode), for the categories switched on in Settings, and keeps the
+entries of this video. `sponsorskip.js` is injected into the page as a user script in the
+application JavaScript world (the page's own scripts can't see it); the shell hands it the
+segments with `runJavaScript` in that world, and it checks the main `<video>` four times a
+second, seeks past a segment and shows a note. Its `console.log` lines starting with
+`tvshell:` go to the shell's log. Our own script rather than the SponsorBlock browser
+extension (Qt 6.10+ can load extensions): that one is written for the desktop site.
+
 ### Power (`src/PowerActions.*`, `qml/PowerDialog.qml`)
 
 Power short press toggles the screen; held 0.8 s it opens the dialog (Sleep, Power off, Turn
@@ -158,6 +169,11 @@ notes: the log, "Voice protocol details".
   freely, OK switches the place showing and the focus stays on the bar. Only Down, LB/RB and
   Back move the focus between the bar and a place (the places' `focus` isn't bound to the
   selected tab, which would pull it into the place on every switch).
+- **Volume** (`src/SystemVolume.*`, `qml/VolumeIndicator.qml`): Steam handles the volume
+  keys; the shell only follows the default output's volume and mute through PipeWire's
+  PulseAudio interface (libpulse, its own thread) and shows the indicator when they change
+  on the same output. In the screensaver the volume keys pass without ending it
+  (`IdleController`).
 - **Card grids** (`qml/FitGrid.qml`): as many columns as fit at the design card size, then
   the cards grow so rows end flush with the right margin. Used by every place and the album
   grid.
@@ -183,10 +199,18 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - `QTWEBENGINE_REMOTE_DEBUGGING=127.0.0.1:9222` (a unit drop-in) opens Chromium's DevTools
   on gabecube for inspecting YouTube's page; reach it with `ssh -L 9222:127.0.0.1:9222`.
   It exposes the signed-in session: remove it when done.
+- A start without a display, to catch QML errors before deploying (runs until the timeout;
+  anything QML prints is an error):
+
+      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+          -e QT_QPA_PLATFORM=offscreen -v "$PWD/build:/out:ro" \
+          tv/toolchains/steamos-3.9:dev timeout 8 /out/tvshell
+
 - A screenshot of what gamescope shows: `gamescopectl screenshot /tmp/x.png` on gabecube.
 - Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`,
   `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`,
-  `tvshell.mediaproxy`, `tvshell.steam`, `tvshell.steamlog`.
+  `tvshell.mediaproxy`, `tvshell.steam`, `tvshell.steamlog`, `tvshell.volume`,
+  `tvshell.sponsorblock`.
 
 ## Next
 

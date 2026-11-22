@@ -13,6 +13,7 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS DBus Gui Multimedia Network Quick WebE
 find_package(SDL3 3.4 REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
+pkg_check_modules(PULSE REQUIRED IMPORTED_TARGET libpulse)
 find_package(Threads REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.11)
@@ -59,6 +60,8 @@ set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS Photo
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
 set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
 set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
+set_source_files_properties(qml/VolumeIndicator.qml PROPERTIES QT_RESOURCE_ALIAS VolumeIndicator.qml)
+set_source_files_properties(qml/sponsorskip.js PROPERTIES QT_RESOURCE_ALIAS sponsorskip.js)
 set_source_files_properties(qml/HomePlace.qml PROPERTIES QT_RESOURCE_ALIAS HomePlace.qml)
 set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
 
@@ -87,8 +90,11 @@ qt_add_qml_module(tvshell
         qml/FitGrid.qml
         qml/AppTile.qml
         qml/YouTubeLogo.qml
+        qml/VolumeIndicator.qml
         qml/HomePlace.qml
         qml/YouTubePage.qml
+    RESOURCES
+        qml/sponsorskip.js
     SOURCES
         src/AudioPlayer.cpp
         src/AudioPlayer.h
@@ -120,10 +126,16 @@ qt_add_qml_module(tvshell
         src/SteamLibrary.h
         src/SteamLog.cpp
         src/SteamLog.h
+        src/SponsorBlock.cpp
+        src/SponsorBlock.h
+        src/SystemVolume.cpp
+        src/SystemVolume.h
         src/ViewerSettings.cpp
         src/ViewerSettings.h
         src/WebKeys.cpp
         src/WebKeys.h
+        src/YouTubeSettings.cpp
+        src/YouTubeSettings.h
 )
 
 # The generated QML type registration includes the headers by name.
@@ -139,5 +151,6 @@ target_link_libraries(tvshell
         Qt6::WebEngineQuick
         SDL3::SDL3
         PkgConfig::XCB
+        PkgConfig::PULSE
         miniaudio
 )

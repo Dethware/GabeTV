@@ -10,6 +10,7 @@ FocusScope {
     required property IdleController idle
     required property ScreensaverSettings screensaver
     required property ViewerSettings viewer
+    required property YouTubeSettings youtube
     required property ImmichClient immich
 
     signal closed()
@@ -58,6 +59,14 @@ FocusScope {
         return values[(values.indexOf(current) + direction + values.length) % values.length]
     }
 
+    // A switch for one SponsorBlock category.
+    function skipOption(label, category) {
+        return { label: label,
+                 value: () => youtube.skipCategories.includes(category) ? qsTr("On") : qsTr("Off"),
+                 change: d => youtube.toggleSkip(category),
+                 activate: () => youtube.toggleSkip(category) }
+    }
+
     function albumsText() {
         const count = screensaver.albums.length
         return count === 0 ? qsTr("None (clock)") : count === 1 ? qsTr("1 album") : qsTr("%1 albums").arg(count)
@@ -104,6 +113,17 @@ FocusScope {
               value: () => backgroundName(viewer.background),
               change: d => viewer.background = cycle(backgroundKinds, viewer.background, d) },
         ],
+        // YouTube: what SponsorBlock skips
+        [
+            skipOption(qsTr("Skip sponsors"), "sponsor"),
+            skipOption(qsTr("Skip self-promotion"), "selfpromo"),
+            skipOption(qsTr("Skip like and subscribe reminders"), "interaction"),
+            skipOption(qsTr("Skip intros"), "intro"),
+            skipOption(qsTr("Skip outros and credits"), "outro"),
+            skipOption(qsTr("Skip recaps and previews"), "preview"),
+            skipOption(qsTr("Skip non-music parts of music videos"), "music_offtopic"),
+            skipOption(qsTr("Skip filler and tangents"), "filler"),
+        ],
     ]
 
     Keys.onBackPressed: options.activeFocus ? categories.forceActiveFocus() : page.closed()
@@ -134,7 +154,7 @@ FocusScope {
         width: 400
         spacing: 8
         focus: true
-        model: [qsTr("Power"), qsTr("Screensaver"), qsTr("Photos")]
+        model: [qsTr("Power"), qsTr("Screensaver"), qsTr("Photos"), qsTr("YouTube")]
 
         delegate: SettingRow {
             required property string modelData

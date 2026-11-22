@@ -94,7 +94,8 @@ void BaseLayer::setClaim(bool claim)
 void BaseLayer::connectToX11()
 {
     auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
-    if (!x11)
+    // No X11 at all (another platform plugin, or "offscreen" in a test run).
+    if (!x11 || !x11->connection())
         return;
     m_connection = x11->connection();
     const xcb_window_t root = xcb_setup_roots_iterator(xcb_get_setup(m_connection)).data->root;
