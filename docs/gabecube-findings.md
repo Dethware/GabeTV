@@ -475,6 +475,52 @@ commands below work with it.
 - With two D-Bus clients subscribed (StartNotify) to the same characteristic, each client
   received every notification twice.
 
+### Waking the machine with the remote (2026-11-22)
+
+Tried again after a Bluetooth mouse turned out to wake the machine. Result: not possible
+over Bluetooth with this remote. Connected at suspend, it can't wake the machine (above);
+disconnected at suspend, it wakes the machine by itself.
+
+- A Bluetooth mouse (JLab GO Mouse, also LE HID like the remote) connected at suspend and
+  lying still wakes the machine when used (16:11). So wake-on-LE works on this hardware.
+- `btmon` trace, 16:36 to 16:48, remote held off with `bluetoothctl block`, discovery on
+  (`bluetoothctl scan on`; one report per discovery cycle, about every 6 s):
+  - **Left untouched for 10 minutes the remote never stopped calling.** 100 `ADV_IND`
+    reports plus scan responses, no gap over 16 s.
+  - **Every call is identical**: `ADV_IND`, connectable and scannable, flags `0x05` (LE
+    Limited Discoverable, no BR/EDR), appearance Keyboard, data
+    `02 01 05 03 19 c1 03 05 02 12 18 0f 18 10 ff e0 00 ff…`.
+  - **Three OK presses (after 16:46:40) changed nothing**: same type, same data. The rate
+    of its calls can't be read from this trace.
+- So the adapter, which lets devices wake the machine by address only, can't tell a button
+  press from the remote's idle calls.
+- 16:30:19, suspended with the remote paired, not blocked and disconnected: the machine
+  woke by itself at 16:30:30 (no button pressed, reported). The Bluetooth adapter (`1-5`)
+  counted one wake event and the remote connected 2 s after the resume.
+- 16:21:14, suspended by the power button while the remote was blocked: woke after 3.7 s,
+  also with a wake event on the Bluetooth adapter.
+- Both fit: a disconnected remote is always calling, and a call that reaches the suspend
+  scan wakes the machine. The duplicate filter (above) is what keeps a remote that was
+  connected at suspend from doing the same: its first call is spent before the machine
+  sleeps. *Inferred:* the few seconds before the self-wake are the slow call rate meeting
+  the suspend scan's 10 % duty cycle.
+- Consequence: keep the remote connected when the machine suspends (the normal case).
+  Waking with the remote needs another path: its IR side with a USB IR receiver, or CEC.
+- bluez behavior met on the way (5.87):
+  - `bluetoothctl disconnect` doesn't keep the remote away; it was connected again 5 s
+    later. `block` does.
+  - After a block of some minutes, `unblock` didn't bring the remote back although it was
+    calling (16:29 and 16:48); `bluetoothctl connect` did at once, and so did a resume.
+    After a 3 s block, `unblock` alone was enough.
+  - `bluetoothd` crashed with SIGSEGV at 16:24:08, one second after the remote was blocked
+    while `bluetoothctl scan on` was starting; systemd restarted it. Seen once; blocking
+    with the scan already running was fine.
+  - `dbus-monitor` on the device's path shows nothing while the device is blocked.
+  - The daemon logs a `wake-policy` plugin looking for `/etc/bluetooth/wake-policy.conf`
+    (absent); not looked into.
+- The trace file can contain the remote's link key (it connected once during the trace); it
+  was deleted after reading.
+
 ## Immich (photos.peterix.cz, checked 2026-11-21)
 
 - Server: Immich **3.0.3** (`/api/server/version`, public), with smart search, faces, map,
