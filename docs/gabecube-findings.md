@@ -475,6 +475,63 @@ commands below work with it.
 - With two D-Bus clients subscribed (StartNotify) to the same characteristic, each client
   received every notification twice.
 
+### IR programming service (2026-11-22: a test code loaded, the remote sends it)
+
+The remote sends no infrared now (phone camera: the soundbar's remote shows up, this one
+doesn't). *Inferred:* no IR codes are loaded. It exposes the service the reference firmware
+uses to load them:
+
+| Characteristic | Flags on the remote | Reference firmware name |
+|---|---|---|
+| `d343bfc1-5a21-4f05-bc7d-af01f617b664` | write | Program Control |
+| `d343bfc2-…` | write | Key ID |
+| `d343bfc3-…` | write | Code |
+| `d343bfc4-…` | write | Suppress |
+| `d343bfc5-…` | notify | Key Event |
+
+(`6c6f6701-…` has one readable characteristic, `6c6f6705-…`; not looked into.)
+
+From the reference firmware (`refDesignRcu` `main`, `vendor/827x_ble_remote/app_ir.c`,
+`app_ir.h`, `app_att.c`). The UUID values are defined in a header not read; the order of the
+five characteristics matches. The Chromecast remote (TI chip, other firmware) follows it
+as far as tested, see below.
+
+- Program Control, 1 byte: `01` starts programming (clears the table), `00` ends it and
+  commits to flash. 30 s timeout between writes.
+- Key ID, 2 bytes big-endian, Android key codes: `0018` volume up, `0019` volume down,
+  `00A4` mute, `001A` power, `00B2` input. At most 5 keys.
+- Code, at most 300 bytes, may arrive in several writes (the total length is computed from
+  the header): byte 0 type (`0` off, `1` one sequence, `2` repeating sequence, `3` first
+  plus repeating sequence, other: two sequences alternating per press), byte 1 duty cycle in
+  percent, bytes 2 to 3 carrier in units of 100 Hz, bytes 4 to 5 number of mark/space pairs;
+  type 2 then has a repeat delay (2 bytes), types 3 and up the second sequence's pair count
+  (2 bytes); then the pairs, 4 bytes each: mark and space as big-endian counts of carrier
+  cycles. The Key ID is consumed by each Code write.
+- Suppress: a list of key IDs (2 bytes each) that go over Bluetooth instead of IR; an empty
+  write puts all programmed keys back on IR.
+- Key Event (when notifications are on): 3 bytes per press of a programmed key, `00` down
+  or `01` up, then the key ID. So the host still hears about a key that went out as IR.
+- Codes are kept in flash and reloaded at start.
+
+Test at 18:00:38, over bluez's D-Bus API as `deck` (MTU 247, so a code fits in one write;
+script kept nowhere, the sequence is all there is to it):
+
+1. `StartNotify` on Key Event.
+2. Program Control `01`.
+3. Key ID `00 b2` (Input, which the shell doesn't use).
+4. Code `01 21 01 7c 00 08` + 8 × `0e d8 07 6c`: one sequence, 33 % duty, 38.0 kHz, 8 pairs
+   of 3800 cycles on (100 ms) and 1900 off (50 ms). Not a real protocol, just easy to see.
+5. Program Control `00`.
+
+All writes were acknowledged. Pressing Input then **flickers in a phone camera** (reported),
+and the remote notified `00 00 b2` on press and `01 00 b2` on release. Not checked: whether
+Input still also sends its Bluetooth key while it carries a code, whether a code survives a
+battery change, the other code types, Suppress.
+
+Clearing, 18:04:12: Program Control `01`, then `00`, with no key in between (the reference
+firmware keeps an empty table then). Acknowledged; Input **no longer flickers** (reported)
+and its presses are no longer notified on Key Event.
+
 ### Waking the machine with the remote (2026-11-22)
 
 Tried again after a Bluetooth mouse turned out to wake the machine. Result: not possible
