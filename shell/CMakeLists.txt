@@ -60,6 +60,7 @@ set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS Photo
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
 set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
 set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
+set_source_files_properties(qml/JellyfinLogo.qml PROPERTIES QT_RESOURCE_ALIAS JellyfinLogo.qml)
 set_source_files_properties(qml/VolumeIndicator.qml PROPERTIES QT_RESOURCE_ALIAS VolumeIndicator.qml)
 set_source_files_properties(qml/NowPlayingButton.qml PROPERTIES QT_RESOURCE_ALIAS NowPlayingButton.qml)
 set_source_files_properties(qml/ChoiceDialog.qml PROPERTIES QT_RESOURCE_ALIAS ChoiceDialog.qml)
@@ -93,6 +94,7 @@ qt_add_qml_module(tvshell
         qml/FitGrid.qml
         qml/AppTile.qml
         qml/YouTubeLogo.qml
+        qml/JellyfinLogo.qml
         qml/VolumeIndicator.qml
         qml/NowPlayingButton.qml
         qml/ChoiceDialog.qml
@@ -138,6 +140,8 @@ qt_add_qml_module(tvshell
         src/SystemVolume.h
         src/ViewerSettings.cpp
         src/ViewerSettings.h
+        src/ManagedApp.cpp
+        src/ManagedApp.h
         src/WebKeys.cpp
         src/WebKeys.h
         src/YouTubeSettings.cpp

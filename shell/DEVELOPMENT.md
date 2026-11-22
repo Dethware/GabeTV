@@ -35,6 +35,10 @@ own entries (769, 413091) are left, never while a game's ID is in it (`gameRunni
 it removes its ID again. `claim = false` steps aside for Steam. `onScreen` follows
 `GAMESCOPE_FOCUSED_APP`. Does nothing outside gamescope (`available`).
 
+IDs `0x7E0000xx` are the shell's own (`isOurs`): they never count as a game. `frontApp` names
+one of them, a managed app's, to show in place of the shell: the list then starts with that
+ID, then the shell's. `frontAppOnScreen` follows the focus like `onScreen`.
+
 Steam keeps the Steam and … buttons and draws its menu and Quick Access in its own window,
 behind the shell. The shell steps aside when Steam opens its menu (Steam writes root
 `GAMESCOPE_BLUR_MODE`) or Quick Access (only visible in Steam's `logs/webhelper.txt`,
@@ -43,10 +47,11 @@ shell re-opens it with Steam's Ctrl+2 shortcut (XTest).
 
 ### Global keys (`src/BaseLayer.*`, `../system/`)
 
-Home (`XF86HomePage`), Power, YouTube and Mute (`XF86AudioMute`) are passive grabs on the root window, so they
+Home (`XF86HomePage`), Power, YouTube, Netflix and Mute (`XF86AudioMute`) are passive grabs on the root window, so they
 arrive whichever window has focus (Steam's screens included). Several remote keys send evdev
 codes above 247, which X11 can't carry; `../system/etc/udev/hwdb.d/90-chromecast-remote.hwdb`
-remaps them (OK → `enter`, YouTube → `prog1` = `XF86Launch1`, Power → `sleep` =
+remaps them (OK → `enter`, YouTube → `prog1` = `XF86Launch1`, Netflix → `prog2` =
+`XF86Launch2`, Power → `sleep` =
 `XF86Sleep`), and `../system/etc/atomic-update.conf.d/tv-remote.conf` keeps that file across
 SteamOS updates.
 
@@ -179,6 +184,37 @@ second, seeks past a segment and shows a note. Its `console.log` lines starting 
 `tvshell:` go to the shell's log. Our own script rather than the SponsorBlock browser
 extension (Qt 6.10+ can load extensions): that one is written for the desktop site.
 
+### Managed apps: Jellyfin (`src/ManagedApp.*`, `qml/Main.qml`, `../apps/jellyfin-desktop`)
+
+A managed app is a separate program the shell starts and shows itself, without Steam.
+Jellyfin Desktop is the only one. It runs as its own user service
+(`jellyfin-desktop.service`, installed with the program), so restarting the shell doesn't end
+it and the shell picks a running one up again.
+
+`ManagedApp` does three things for one such program:
+
+- **Service:** follows the unit's `ActiveState` on systemd's session-bus API (`running`),
+  starts and stops it (`start()`, `quit()`), and reports when it ends on its own (`exited`).
+- **Window:** while the service runs, looks every half second for the largest top-level
+  window with the program's `WM_CLASS` and tags it `STEAM_GAME=<appId>` (`ready`). The
+  program doesn't know about gamescope; the tag is what lets `BaseLayer.frontApp` show it.
+- **Playback:** finds the program's MPRIS name by its prefix, follows `PlaybackStatus`
+  (`playing`) and calls `Pause` (`pause()`).
+
+`Main.qml` holds which app is shown (`shownApp`). `BaseLayer.frontApp` is that app's ID while
+it is ready, the idle state is Active and the power dialog is closed; otherwise the shell
+itself has the screen, which is how the screensaver, screen off and the dialog appear over
+it and how it returns afterwards. Home and the YouTube key call `leaveApp()` (pause, hide,
+start the ten-minute quit timer); the timer also starts for a program found running that
+isn't shown. The remote's Netflix key (`XF86Launch2`, grabbed like the others) opens it.
+`HomePlace.runningApps` marks the tiles of loaded apps: `ManagedApp.running`, and for
+YouTube a page that isn't frozen. Idle time counts while the app is on screen
+(`frontAppOnScreen`); its `playing` reports activity like the shell's own videos do. Keys go
+to the app's window, so the shell sees input there only through gamescope's input counter.
+
+What the program needs to behave on a TV (flags, controller settings, key map, logging) is in
+`../apps/jellyfin-desktop` and the log.
+
 ### Power (`src/PowerActions.*`, `qml/PowerDialog.qml`)
 
 Power short press toggles the screen; held 0.8 s it opens the dialog (Sleep, Power off, Turn
@@ -250,13 +286,15 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - Logging categories: `tvshell.baselayer`, `tvshell.gamepad`, `tvshell.idle`,
   `tvshell.power`, `tvshell.assistant`, `tvshell.audio`, `tvshell.immich`,
   `tvshell.mediaproxy`, `tvshell.steam`, `tvshell.steamlog`, `tvshell.volume`,
-  `tvshell.sponsorblock`.
+  `tvshell.sponsorblock`, `tvshell.app`.
 
 ## Next
 
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.
-- More apps in Home (Jellyfin, music), more places (emulators).
+- More apps in Home (music), more places (emulators).
+- Jellyfin: text entry with the remote, interface size by resolution, its paused film in the
+  top bar, a way to sign in from the shell.
 - YouTube: check video decoding (GPU or CPU, 4K), the remote's media keys, memory use.
-- Home, the YouTube key and the power dialog over a running game.
+- Home, the YouTube and Netflix keys and the power dialog over a running game.

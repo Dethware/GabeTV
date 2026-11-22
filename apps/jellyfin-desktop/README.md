@@ -17,15 +17,20 @@ To build another version of the player, remove `build/src` and run
 
 ## Run
 
-It has to start inside the Gaming Mode session to appear on the TV (the shell does that; a
-non-Steam shortcut in Steam works too):
+The TV shell starts it from its Jellyfin tile, as the user service `jellyfin-desktop.service`
+that `./deploy.sh` installs. By hand, inside the Gaming Mode session:
+
+    systemctl --user start jellyfin-desktop
+
+The service runs it like this:
 
     SDL_JOYSTICK_HIDAPI=0 SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1 \
         ~/apps/jellyfin-desktop/jellyfin-desktop --tv --fullscreen --scale-factor 2 --log-level error
 
 - `--tv` is the layout for a remote or controller. In it every key is a remote button, so
   text can't be typed properly: **sign in once with `--desktop` instead of `--tv`** and a
-  keyboard. The sign-in is kept.
+  keyboard (stop the service, run the line above with `--desktop`, sign in, quit). The
+  sign-in is kept.
 - `--scale-factor 2` makes it readable on a 4K screen.
 - `--log-level error`: at the more detailed levels the log contains the stored sign-in, and
   a level given once is remembered in the profile.

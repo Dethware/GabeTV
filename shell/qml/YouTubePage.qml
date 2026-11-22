@@ -38,6 +38,8 @@ FocusScope {
     // Left with music on: the page stays alive (and counts as visible, see Main.qml) until it
     // is opened again, or has been paused for a while.
     property bool background: false
+    // The page is alive (shown, or kept going in the background), not frozen.
+    readonly property bool running: view !== null && view.lifecycleState === WebEngineView.LifecycleState.Active
 
     // The video being watched ("" = none).
     readonly property string videoId: {

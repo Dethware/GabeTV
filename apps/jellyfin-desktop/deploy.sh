@@ -1,6 +1,6 @@
 #!/bin/bash
-# Copy the built Jellyfin Desktop folder (./build.sh) to the Steam Machine and check that
-# every library it needs is there.
+# Copy the built Jellyfin Desktop folder (./build.sh) to the Steam Machine, check that every
+# library it needs is there, and install the user service the TV shell starts it with.
 #
 # Usage: ./deploy.sh
 set -euo pipefail
@@ -20,6 +20,12 @@ ssh "$TARGET" "
     fi
     echo \"installed \$(cat '$FOLDER/VERSION') in ~/$FOLDER, all libraries found\"
 "
+
+# The service is only installed, not enabled or started: the shell starts it. A running player
+# keeps running; it gets the new files the next time it starts.
+rsync -a "$HERE/jellyfin-desktop.service" "$TARGET:.config/systemd/user/"
+ssh "$TARGET" 'systemctl --user daemon-reload'
+echo "service installed"
 
 # The key map for Steam's virtual gamepad goes into every profile the player has made so far
 # (it creates the first one when it first starts).

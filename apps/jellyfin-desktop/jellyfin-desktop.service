@@ -1,0 +1,17 @@
+[Unit]
+Description=Jellyfin Desktop
+# Started and stopped by the TV shell, never on its own. Part of Steam's Gaming Mode session:
+# it stops with it.
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+# gamescope's DISPLAY etc., written by /usr/lib/steamos/gamescope-session.
+EnvironmentFile=%t/gamescope-environment
+# Use Steam's virtual gamepad, not the raw controller (the shell does the same for itself).
+Environment=SDL_JOYSTICK_HIDAPI=0
+Environment=SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1
+# --tv: the layout for a remote. --scale-factor 2: readable at 4K. --log-level error: the
+# more detailed levels write the stored sign-in into the log.
+ExecStart=%h/apps/jellyfin-desktop/jellyfin-desktop --platform xcb --tv --fullscreen --scale-factor 2 --log-level error
+Slice=session.slice

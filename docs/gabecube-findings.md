@@ -969,6 +969,19 @@ gamescope focuses it and resizes the window to 3840x2160.
 - Not done: the shell starting it, a tile, Home, pausing, idle. It runs as a transient user
   unit until stopped or the session ends.
 
+### In the shell (decided 2026-11-22)
+
+Jellyfin becomes a "managed app": its own user service, shown by the shell (design in
+`shell/DEVELOPMENT.md`). Decided with the user:
+
+- Home pauses it and keeps it running; ten minutes later it is quit (the rule YouTube has).
+  Rejected: quitting at once (slower to return, loses the place in the menus).
+- The screensaver starts over it when it sits paused or untouched (OLED). Rejected: treating
+  it like a game and never interrupting.
+- Sign-in stays a manual one-time step with a keyboard. Not built: a Settings entry for it.
+- A service rather than a child process of the shell, so a deploy doesn't end a film; the
+  shell picks a running one up again.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

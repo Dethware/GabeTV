@@ -12,7 +12,8 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 - **Home**: the first place, with your apps. For now YouTube, in the same TV interface smart
   TVs use, with all its accounts, playing at up to the screen's resolution (4K on a 4K
   screen). Sponsor segments in videos are skipped (SponsorBlock), with
-  a short note on screen; Settings chooses what else to skip.
+  a short note on screen; Settings chooses what else to skip. And Jellyfin, for your films and
+  shows: its own TV interface, playing files directly.
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
 - **Photos**: photos from an Immich server. "On this day" memories and your albums; an
   album opens a grid, OK opens a photo full screen. Left/right move between photos, with a
@@ -50,6 +51,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | Settings | top bar | Start (≡) |
 | Back to the shell | Home, from anywhere (again: the Home place) | |
 | YouTube | YouTube, from anywhere | Home → YouTube |
+| Jellyfin | Netflix, from anywhere | Home → Jellyfin |
 | Mute | Mute, from anywhere | |
 | Screen off / on | Power (short press) | |
 | Sleep, power off, controllers off | Power (hold) | |
@@ -61,6 +63,16 @@ OK switches place, Down goes in. Back inside a place returns to the top bar.
 In YouTube, Back is YouTube's own back. On its "Who's watching?" screen, Back leaves YouTube
 for whatever was open before. Home pauses a video (opening YouTube again carries on) and
 leaves music playing.
+
+In Jellyfin, the arrows, OK and Back move around; while something plays, Left and Right seek.
+On the controller the d-pad moves, A is OK, B is Back, the bumpers seek, X pauses and Y
+searches. Home pauses and returns to the shell; the Jellyfin tile (or the remote's Netflix
+button) brings it back where it was. Left alone for ten minutes it closes; what you were
+watching resumes from Jellyfin's "Continue watching". A paused film or an untouched menu gets
+the screensaver like the shell does.
+
+A blue dot in the corner of an app's tile means the app is still loaded: opening it is
+instant and it is where you left it.
 
 ## Setup
 
@@ -78,6 +90,10 @@ The key needs the permissions `album.read`, `memory.read`, `asset.read` and `ass
 
 **YouTube:** open it and choose "Sign in": it shows a code to enter at youtube.com/activate
 on your phone. Add more accounts the same way. Sign-ins are kept.
+
+**Jellyfin:** it is a separate program, Jellyfin Desktop, installed from
+`../apps/jellyfin-desktop` (see its README). Signing in needs a keyboard once, in its
+desktop mode; that is described there too.
 
 **Remote:** the Chromecast with Google TV remote, paired over Bluetooth. Pair it with
 `system/pair-remote.sh` (hold Back + Home on the remote until its light pulses). If pairing
@@ -124,8 +140,10 @@ Needs Docker on your computer and SSH access to the Steam Machine as `deck@gabec
 
 - Music that YouTube doesn't mark as music pauses like any video when you leave YouTube.
 - With the screen black for music, changing the volume turns the picture back on.
-- While a game is running, Home, the YouTube button and the power dialog don't bring up the
-  shell. Use the controller's Steam button, or quit the game.
+- While a game is running, Home, the YouTube and Netflix buttons and the power dialog don't
+  bring up the shell. Use the controller's Steam button, or quit the game.
+- Jellyfin: text can't be typed with the remote (search, sign-in), and its interface has one
+  size, made for a 4K screen.
 - "On this day" stays empty: the TV account owns no photos.
 - Finer place names ("Blackeberg, Stockholm") only for Sweden and the Czech Republic so far;
   elsewhere the names come from Immich ("Stockholm, Sweden").

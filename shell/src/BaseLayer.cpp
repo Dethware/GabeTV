@@ -91,6 +91,15 @@ void BaseLayer::setClaim(bool claim)
     emit claimChanged();
 }
 
+void BaseLayer::setFrontApp(quint32 appId)
+{
+    if (m_frontApp == appId)
+        return;
+    m_frontApp = appId;
+    emit frontAppChanged();
+    evaluate();
+}
+
 void BaseLayer::connectToX11()
 {
     auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
@@ -173,6 +182,8 @@ void BaseLayer::grabKeys()
     m_sleepKeycode = grabKey(XF86Sleep, "Sleep");
     constexpr xcb_keysym_t XF86Launch1 = 0x1008FF41;
     m_youtubeKeycode = grabKey(XF86Launch1, "YouTube");
+    constexpr xcb_keysym_t XF86Launch2 = 0x1008FF42;
+    m_netflixKeycode = grabKey(XF86Launch2, "Netflix");
     constexpr xcb_keysym_t XF86AudioMute = 0x1008FF12;
     m_muteKeycode = grabKey(XF86AudioMute, "Mute");
 }
@@ -182,7 +193,8 @@ void BaseLayer::prepareForSleep(bool start)
     if (start || !m_root)
         return;
     qCInfo(lcBaseLayer) << "resumed: grabbing the global keys again";
-    for (xcb_keycode_t keycode : {m_homeKeycode, m_sleepKeycode, m_youtubeKeycode, m_muteKeycode}) {
+    for (xcb_keycode_t keycode :
+         {m_homeKeycode, m_sleepKeycode, m_youtubeKeycode, m_netflixKeycode, m_muteKeycode}) {
         if (keycode)
             xcb_ungrab_key(m_connection, keycode, m_root, XCB_MOD_MASK_ANY);
     }
@@ -232,7 +244,7 @@ void BaseLayer::evaluate()
     const QList<quint32> layer = readRootCardinals(m_baseLayer);
     bool game = false;
     for (quint32 id : layer) {
-        if (id != AppId && id != SteamUiAppId && id != SteamPlaceholderAppId)
+        if (!isOurs(id) && id != SteamUiAppId && id != SteamPlaceholderAppId)
             game = true;
     }
     if (m_gameRunning != game) {
@@ -240,22 +252,33 @@ void BaseLayer::evaluate()
         emit gameRunningChanged();
     }
 
-    if (m_claim && m_window && !game && layer.value(0) != AppId) {
-        QList<quint32> claimed{AppId};
+    // Ours first: the front app if there is one, then the shell; then whatever else is there.
+    QList<quint32> ours;
+    if (m_frontApp)
+        ours << m_frontApp;
+    ours << AppId;
+    if (m_claim && m_window && !game && layer.mid(0, ours.size()) != ours) {
+        QList<quint32> claimed = ours;
         for (quint32 id : layer) {
-            if (id != AppId)
+            if (!isOurs(id))
                 claimed << id;
         }
-        if (claimed.size() == 1)
+        if (claimed.size() == ours.size())
             claimed << SteamUiAppId;
         qCInfo(lcBaseLayer) << "claiming the screen:" << toString(layer) << "->" << toString(claimed);
         writeBaseLayer(claimed);
     }
 
-    const bool onScreen = readRootCardinals(m_focusedApp).value(0) == AppId;
+    const quint32 focused = readRootCardinals(m_focusedApp).value(0);
+    const bool onScreen = focused == AppId;
     if (m_onScreen != onScreen) {
         m_onScreen = onScreen;
         emit onScreenChanged();
+    }
+    const bool frontOnScreen = m_frontApp != 0 && focused == m_frontApp;
+    if (m_frontAppOnScreen != frontOnScreen) {
+        m_frontAppOnScreen = frontOnScreen;
+        emit frontAppOnScreenChanged();
     }
 }
 
@@ -268,7 +291,7 @@ void BaseLayer::release()
         return;
     QList<quint32> released;
     for (quint32 id : layer) {
-        if (id != AppId)
+        if (!isOurs(id))
             released << id;
     }
     if (released.isEmpty())
@@ -310,6 +333,13 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
             }
             return true;
         }
+        if (key->detail == m_netflixKeycode) {
+            if (type == XCB_KEY_PRESS) {
+                qCInfo(lcBaseLayer) << "Netflix pressed (global grab)";
+                emit netflixPressed();
+            }
+            return true;
+        }
         if (key->detail == m_muteKeycode) {
             if (type == XCB_KEY_PRESS)
                 emit mutePressed();
@@ -348,7 +378,7 @@ bool BaseLayer::nativeEventFilter(const QByteArray &eventType, void *message, qi
     } else if (notify->atom == m_blurMode && m_sinceSteamStart.isValid()
                && m_sinceSteamStart.elapsed() < SteamRestartWindowMs) {
         qCInfo(lcBaseLayer) << "ignoring Steam's blur write while Steam is starting";
-    } else if (notify->atom == m_blurMode && m_onScreen && !m_gameRunning) {
+    } else if (notify->atom == m_blurMode && (m_onScreen || m_frontAppOnScreen) && !m_gameRunning) {
         qCInfo(lcBaseLayer) << "Steam opened its menu";
         emit steamMenuOpened();
     }

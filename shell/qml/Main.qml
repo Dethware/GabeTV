@@ -17,6 +17,27 @@ Window {
     // the screen when the remote's YouTube key opened it.
     property string youtubeReturnPage: "home"
     property bool youtubeReturnToSteam: false
+    // The managed app that has the screen in place of the shell (Jellyfin), or null.
+    property ManagedApp shownApp: null
+
+    // Show a managed app, starting it if needed. The shell stays on screen until its window
+    // is there.
+    function openApp(app) {
+        appQuitTimer.stop()
+        if (youtube.playing)
+            youtube.pause()
+        app.start()
+        shownApp = app
+    }
+
+    // Back to the shell: the app pauses and stays loaded for a while.
+    function leaveApp() {
+        if (!shownApp)
+            return
+        shownApp.pause()
+        shownApp = null
+        appQuitTimer.restart()
+    }
 
     function openYouTube() {
         if (page !== "youtube") {
@@ -91,6 +112,10 @@ Window {
     BaseLayer {
         id: baseLayer
         window: root
+        // The shell itself takes the screen for the screensaver, screen off and the power
+        // dialog; the app gets it back afterwards.
+        frontApp: root.shownApp !== null && root.shownApp.ready && idle.state === IdleController.Active
+                  && !powerDialog.visible ? root.shownApp.appId : 0
         onSteamMenuOpened: claim = false
         // Home: back to the shell, where it was left. Pressed there: to the Home place.
         onHomePressed: {
@@ -104,6 +129,7 @@ Window {
                 gameDialog.close()
             if (root.page === "youtube")
                 youtube.leave()
+            root.leaveApp()
             root.showPage("home")
             if (alreadyHome) {
                 topBar.currentTab = 0
@@ -117,7 +143,27 @@ Window {
             idle.wake()
             if (powerDialog.visible)
                 powerDialog.close()
+            const fromApp = root.shownApp !== null
+            root.leaveApp()
             root.openYouTube()
+            // Coming from a managed app the shell wasn't on screen, but Steam didn't have it either.
+            if (fromApp)
+                root.youtubeReturnToSteam = false
+            claim = true
+        }
+        // The remote's Netflix key: Jellyfin, from anywhere (not over a running game for now).
+        onNetflixPressed: {
+            if (gameRunning)
+                return
+            idle.wake()
+            if (powerDialog.visible)
+                powerDialog.close()
+            if (gameDialog.visible)
+                gameDialog.close()
+            if (root.page === "youtube")
+                youtube.leave()
+            root.showPage("home")
+            root.openApp(jellyfin)
             claim = true
         }
         onMutePressed: systemVolume.toggleMute()
@@ -133,11 +179,47 @@ Window {
 
     IdleController {
         id: idle
-        counting: baseLayer.onScreen || !baseLayer.available
+        // Also over a managed app: a paused film or an untouched menu gets the screensaver too.
+        counting: baseLayer.onScreen || baseLayer.frontAppOnScreen || !baseLayer.available
         // Music (in YouTube, shown or in the background): screensaver and a black screen as
         // usual, but the sound's signal stays and the machine doesn't sleep.
         audioPlaying: youtube.playing && youtube.music
-        onAboutToSleep: youtube.pause()
+        onAboutToSleep: {
+            youtube.pause()
+            jellyfin.pause()
+        }
+        // Screen off over a playing film (the remote's Power): it pauses.
+        onStateChanged: {
+            if (state !== IdleController.Active && root.shownApp !== null)
+                root.shownApp.pause()
+        }
+    }
+
+    // Jellyfin Desktop, a separate program (apps/jellyfin-desktop) shown in place of the shell.
+    ManagedApp {
+        id: jellyfin
+        unit: "jellyfin-desktop.service"
+        windowClass: "jellyfin-desktop"
+        appId: 0x7E000002
+        mprisName: "org.mpris.MediaPlayer2.JellyfinDesktop"
+        // Quit from its own menu, or crashed: the shell is back by itself.
+        onExited: {
+            if (root.shownApp === jellyfin)
+                root.shownApp = null
+        }
+        // Found running when the shell started, or started by hand: it closes like one that
+        // was left.
+        onRunningChanged: {
+            if (running && root.shownApp !== jellyfin)
+                appQuitTimer.restart()
+        }
+    }
+
+    // A managed app left with Home stays loaded this long, then it is quit.
+    Timer {
+        id: appQuitTimer
+        interval: 600000
+        onTriggered: jellyfin.quit()
     }
 
     PowerActions {
@@ -200,6 +282,7 @@ Window {
         interval: 30000
         repeat: true
         running: photoViewer.playing || (root.page === "youtube" && youtube.audible && !youtube.coverOnly)
+                 || (root.shownApp !== null && root.shownApp.playing)
         onTriggered: idle.activity()
     }
 
@@ -263,9 +346,12 @@ Window {
 
             KeyNavigation.up: topBar
             KeyNavigation.priority: KeyNavigation.AfterItem
+            runningApps: [youtube.running ? "youtube" : "", jellyfin.running ? "jellyfin" : ""]
             onAppOpened: appId => {
                 if (appId === "youtube")
                     root.openYouTube()
+                else if (appId === "jellyfin")
+                    root.openApp(jellyfin)
             }
         }
 

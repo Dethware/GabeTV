@@ -8,6 +8,8 @@ Item {
     required property string appId
     required property string name
     property Component logo
+    // The app is loaded: a mark in the tile's corner.
+    property bool running: false
 
     width: GridView.view.cellWidth
     height: GridView.view.cellHeight
@@ -21,6 +23,18 @@ Item {
         color: "#1d252c"
         border.color: "white"
         border.width: tile.GridView.isCurrentItem && tile.GridView.view.activeFocus ? 6 : 0
+
+        // Loaded and waiting: a dot in the corner.
+        Rectangle {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 24
+            width: 20
+            height: 20
+            radius: 10
+            color: "#4fc3f7"
+            visible: tile.running
+        }
 
         Column {
             anchors.centerIn: parent
