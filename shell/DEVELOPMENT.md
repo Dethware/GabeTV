@@ -113,7 +113,7 @@ town, from `places.tsv` next to the program, made by `./make-places.py` from Geo
 administrative level is the town. Elsewhere, or without the list, Immich's `city, country`.
 Immich's own names are too coarse; see the log, "Place names".
 
-### YouTube (`qml/WatchPlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`)
+### YouTube (`qml/HomePlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`)
 
 `youtube.com/tv` in a Qt WebEngine `WebEngineView`, created on first open and kept. Its
 profile (`storageName` "youtube", forced persistent cookies) lives in
@@ -193,6 +193,6 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.
-- More places: media apps (Jellyfin in Watch), emulators.
+- More apps in Home (Jellyfin, music), more places (emulators).
 - YouTube: check video decoding (GPU or CPU, 4K), the remote's media keys, memory use.
 - Home, the YouTube key and the power dialog over a running game.

@@ -577,6 +577,20 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   over YouTube. Cause: it covered the screen with black at once, then fetched its order and
   the first full-size photo (never cached: each run starts on a new random photo). Fixed by
   preparing the next run when one ends and fading in once the first photo is up.
+- 2026-11-22: Steam's UI hang is a pattern, not a one-off. Four times so far (11-21 17:17 and
+  23:32, 11-22 10:32 and 10:45) Steam's webhelper logged "killing unresponsive browser" and
+  dumped core, each 45 s to 2 min after Steam's main menu was shown (`MainMenu … WasHidden 0`)
+  following a stretch with the shell on screen (11 min to hours). After the reload Steam works,
+  and reopening it within seconds is fine (10:46:53). Not tied to resume: 10:45 came 55 min
+  after waking. Steam never logs its Big Picture window as hidden (`SP BPM … WasHidden 1`) while
+  the shell covers it, nor did it for a game launched from the shell. Cause unknown.
+  `~/steam-hang-watch.sh` (transient user unit `steam-hang-watch`, gone after a reboot) records
+  the busiest threads and the webhelper processes' wait states for 60 s whenever the menu is
+  shown, into `~/steam-hang-watch.log`. Stacks need root (`ptrace_scope` 1; `gdb` and
+  `eu-stack` are installed).
+- 2026-11-22: with the screen off (`drm_sleep_external_screen 1`, HDMI still "connected") the
+  HDMI audio sink is gone: PipeWire has only "Dummy Output" (`auto_null`). Sound can't play
+  while the shell has the screen switched off this way.
 
 ## YouTube (2026-11-22)
 

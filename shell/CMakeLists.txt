@@ -59,7 +59,7 @@ set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS Photo
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
 set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
 set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
-set_source_files_properties(qml/WatchPlace.qml PROPERTIES QT_RESOURCE_ALIAS WatchPlace.qml)
+set_source_files_properties(qml/HomePlace.qml PROPERTIES QT_RESOURCE_ALIAS HomePlace.qml)
 set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
 
 qt_add_qml_module(tvshell
@@ -87,7 +87,7 @@ qt_add_qml_module(tvshell
         qml/FitGrid.qml
         qml/AppTile.qml
         qml/YouTubeLogo.qml
-        qml/WatchPlace.qml
+        qml/HomePlace.qml
         qml/YouTubePage.qml
     SOURCES
         src/AudioPlayer.cpp

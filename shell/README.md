@@ -9,12 +9,13 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## What it does
 
+- **Home**: the first place, with your apps. For now YouTube, in the same TV interface smart
+  TVs use, with all its accounts.
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
 - **Photos**: photos from an Immich server. "On this day" memories and your albums; an
   album opens a grid, OK opens a photo full screen. Left/right move between photos, with a
   slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
   its date and place. Videos play with OK.
-- **Watch**: YouTube, in the same TV interface smart TVs use, with all its accounts.
 - **Screensaver**: after a while without input, photos from the albums you choose, one at a
   time, with their date and place. Left/right browse without leaving it, OK opens the photo,
   any other key ends it. Without albums: a clock.
@@ -32,13 +33,13 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | Back | Back | B |
 | Switch place | top bar | LB / RB |
 | Settings | top bar | Start (≡) |
-| Back to the shell | Home, from anywhere | |
-| YouTube | YouTube, from anywhere | Watch → YouTube |
+| Back to the shell | Home, from anywhere (again: the Home place) | |
+| YouTube | YouTube, from anywhere | Home → YouTube |
 | Screen off / on | Power (short press) | |
 | Sleep, power off, controllers off | Power (hold) | |
 | Steam's menu, Quick Access | | Steam, … buttons |
 
-The top bar holds the places (Games, Photos, Watch) and Settings: left/right move along it,
+The top bar holds the places (Home, Games, Photos) and Settings: left/right move along it,
 OK switches place, Down goes in. Back inside a place returns to the top bar.
 
 In YouTube, Back is YouTube's own back. On its "Who's watching?" screen, Back leaves YouTube

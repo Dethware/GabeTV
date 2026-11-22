@@ -79,7 +79,10 @@ Window {
         id: baseLayer
         window: root
         onSteamMenuOpened: claim = false
+        // Home: back to the shell, where it was left. Pressed there: to the Home place.
         onHomePressed: {
+            const alreadyHome = onScreen && root.page === "home" && !powerDialog.visible
+                              && idle.state === IdleController.Active
             idle.wake()
             claim = true
             if (powerDialog.visible)
@@ -87,6 +90,10 @@ Window {
             if (root.page === "youtube")
                 youtube.suspend()
             root.showPage("home")
+            if (alreadyHome) {
+                topBar.currentTab = 0
+                homePlace.forceActiveFocus()
+            }
         }
         // The remote's YouTube key: YouTube, from anywhere (not over a running game for now).
         onYoutubePressed: {
@@ -178,7 +185,7 @@ Window {
     FocusScope {
         id: home
 
-        readonly property Item currentPlace: [games, photos, watch][topBar.currentTab]
+        readonly property Item currentPlace: [homePlace, games, photos][topBar.currentTab]
 
         anchors.fill: parent
         focus: true
@@ -196,11 +203,31 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            tabs: [qsTr("Games"), qsTr("Photos"), qsTr("Watch")]
+            tabs: [qsTr("Home"), qsTr("Games"), qsTr("Photos")]
 
             KeyNavigation.down: home.currentPlace
             onSettingsActivated: root.showPage("settings")
-            onCurrentTabChanged: if (currentTab === 1) immich.refresh()
+            onCurrentTabChanged: if (home.currentPlace === photos) immich.refresh()
+        }
+
+        HomePlace {
+            id: homePlace
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: topBar.bottom
+            anchors.bottom: parent.bottom
+            visible: home.currentPlace === homePlace
+            // Starts here; afterwards only Down, LB/RB, Back and Home move the focus between the
+            // bar and the places, so switching tabs with OK keeps it on the bar.
+            focus: true
+
+            KeyNavigation.up: topBar
+            KeyNavigation.priority: KeyNavigation.AfterItem
+            onAppOpened: appId => {
+                if (appId === "youtube")
+                    root.openYouTube()
+            }
         }
 
         GamesPlace {
@@ -211,9 +238,6 @@ Window {
             anchors.top: topBar.bottom
             anchors.bottom: parent.bottom
             visible: home.currentPlace === games
-            // Starts here; afterwards only Down, LB/RB and Back move the focus between the bar
-            // and the places, so switching tabs with OK keeps it on the bar.
-            focus: true
             library: steamLibrary
             onScreen: baseLayer.onScreen || !baseLayer.available
 
@@ -234,23 +258,6 @@ Window {
             onLeftUpward: topBar.forceActiveFocus()
             onAlbumOpened: (albumId, name) => root.openAlbum(albumId, name)
             onMemoryOpened: memory => root.openMemory(memory)
-        }
-
-        WatchPlace {
-            id: watch
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: topBar.bottom
-            anchors.bottom: parent.bottom
-            visible: home.currentPlace === watch
-
-            KeyNavigation.up: topBar
-            KeyNavigation.priority: KeyNavigation.AfterItem
-            onAppOpened: appId => {
-                if (appId === "youtube")
-                    root.openYouTube()
-            }
         }
     }
 

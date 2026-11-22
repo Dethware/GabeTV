@@ -2,7 +2,8 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// Video apps. YouTube for now; Jellyfin and others join later, at stable positions.
+// The first place: apps. YouTube for now; Jellyfin, music and others join later, at stable
+// positions.
 FocusScope {
     id: place
 
