@@ -139,7 +139,10 @@ Active again. `recentlyAudible` keeps the screen awake. YouTube's own Exit calls
 `YouTubePage.checkAccountPicker` asks the page whether a `ytlr-account-selector` element is
 visible; if so the shell leaves YouTube, otherwise `WebKeys.sendBack()` hands the page
 Escape, YouTube's back. Leaving returns to the page YouTube was opened from, or gives the
-screen back to Steam if Steam had it when the YouTube key was pressed.
+screen back to Steam if Steam had it when the YouTube key was pressed. When the filter
+becomes active (YouTube opened, the screensaver or the power dialog closed over it), it keeps
+everything from the page until the next fresh key press: the repeats and the release of the
+press that got us there would otherwise count as OK in YouTube and start a video.
 
 Resolution (`qml/mediacaps.js`): YouTube's TV player asks `MediaSource.isTypeSupported()`
 about width, height, frame rate, bitrate and more, including trick questions (`width=99999`,

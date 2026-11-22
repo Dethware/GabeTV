@@ -8,6 +8,7 @@
 // While enabled, the shell's Back key (controller B, the remote's Back) is taken from the
 // window and reported as backPressed(); sendBack() then hands it to the page as Escape, which
 // web TV apps such as youtube.com/tv take as "back". So QML can look at the page first.
+// A key still held when it gets enabled is kept from the page until its release.
 class WebKeys : public QObject
 {
     Q_OBJECT
@@ -37,4 +38,6 @@ protected:
 private:
     QPointer<QWindow> m_window;
     bool m_enabled = false;
+    // Enabled with a key possibly still down: nothing passes until the next fresh press.
+    bool m_heldFromBefore = false;
 };
