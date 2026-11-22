@@ -8,7 +8,8 @@ import TvShell
 //
 // Moving between rows keeps an intended column: Left and Right set it, Up and Down go to it
 // or, in a shorter row, as close to it as the row reaches. So going down through a short row
-// and on into a full one lands in the column you started from.
+// and on into a full one lands in the column you started from. Left and Right don't stop at
+// a row's ends: they continue in the neighbouring row.
 FocusScope {
     id: groups
 
@@ -84,13 +85,20 @@ FocusScope {
         return true
     }
 
+    // Left and Right. Past a row's end they carry on in the next row (its first album), and
+    // before its start in the previous one (its last), across the years' headings too.
     function moveColumn(direction) {
         if (!current)
             return
-        const next = column + direction
-        if (next < 0 || next >= rows[row].items.length)
-            return
-        select(row, next)
+        let nextRow = row
+        let next = column + direction
+        if (next < 0 || next >= rows[row].items.length) {
+            nextRow = albumRow(row, direction)
+            if (nextRow < 0)
+                return
+            next = direction > 0 ? 0 : rows[nextRow].items.length - 1
+        }
+        select(nextRow, next)
         intendedColumn = next
     }
 

@@ -114,7 +114,8 @@ a heading row per year and under it rows of as many albums as fit (the `FitGrid`
 columns and card size). The selection is a row and a column, not a list index. Left and
 Right set `intendedColumn`; Up and Down go to the next row of albums and take that column,
 or the row's last one if it is shorter, so passing through a short row doesn't lose the
-column. The selected album is found again by its ID when the rows are rebuilt (each time
+column. Left and Right past a row's end continue in the neighbouring row of albums (first
+or last album), headings skipped. The selected album is found again by its ID when the rows are rebuilt (each time
 Photos is opened, or when the width changes).
 
 The viewer shows the cached thumbnail at once and loads the preview and full size after

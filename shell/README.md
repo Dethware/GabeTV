@@ -17,7 +17,8 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 - **Games**: your installed Steam games. OK starts one; when it ends, you're back in the shell.
 - **Photos**: photos from an Immich server. "On this day" memories and your albums, in
   groups by the year of their newest photo with the newest album first. Moving up and down
-  keeps to the column you chose, also across a short row. An album opens a grid, OK opens a
+  keeps to the column you chose, also across a short row; Left and Right carry on into the
+  next or previous row at a row's end. An album opens a grid, OK opens a
   photo full screen. Left/right move between photos, with a
   slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
   its date and place. Videos carry a play badge in an album and play with OK; while one is
