@@ -691,6 +691,21 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   the busiest threads and the webhelper processes' wait states for 60 s whenever the menu is
   shown, into `~/steam-hang-watch.log`. Stacks need root (`ptrace_scope` 1; `gdb` and
   `eu-stack` are installed).
+- 2026-11-22, evening: the watcher caught two hangs (12:13:25, killed 12:18:18; 21:00:08,
+  killed 21:01:07) among 20 menu openings that day; the other 18 were fine.
+  - In a healthy opening Steam's webhelper processes sit idle (waiting in `poll` or `futex`)
+    and nothing of Steam's is among the busiest threads.
+  - In both hangs three webhelper processes run flat out for the whole recorded minute: the
+    UI's renderer at up to 100 % CPU, and the browser and GPU processes at 60 to 99 %, mostly
+    not waiting on anything. So Steam's UI is spinning, not blocked.
+  - Steam ends it itself: "killing unresponsive browser" (the renderer gets SIGSEGV and dumps
+    core), then a new renderer starts and the UI is back. `coredumpctl info <pid>` shows the
+    killed thread's stack, all inside `libcef.so` without symbols; the core file itself needs
+    root.
+  - The 21:00 one was the first opening from a managed app (the Steam button with Jellyfin
+    on screen); the shell stepped aside as designed and Home brought it back 14 s later while
+    Steam was still spinning. The 12:13 one was opened from the shell. No common trigger
+    found: not the time since the last opening (longer gaps were fine), not resume.
 - 2026-11-22: with the screen off (`drm_sleep_external_screen 1`, HDMI still "connected") the
   HDMI audio sink is gone: PipeWire has only "Dummy Output" (`auto_null`). Sound can't play
   while the shell has the screen switched off this way.
@@ -991,7 +1006,15 @@ dot on a tile marks a loaded app, and Back on Jellyfin's start screen returns to
   nothing happened. Chosen: patch its `native/nativeshell.js` to list `exit` and to run a
   profile script from `exit()`, which calls the shell over the session bus; the player stays
   loaded. Rejected: letting `exit()` quit the player (no shell change needed, but a few
-  seconds to reopen and unlike Home). The menu's "Exit" goes the same way now.
+  seconds to reopen and unlike Home). The menu's "Exit" goes the same way now. Confirmed on
+  the TV.
+- Controller presses in the shell reached the hidden player (A resumed a paused film in the
+  background, reported): the player reads the virtual gamepad through SDL's joystick API,
+  which knows nothing of window focus. While the shell or Steam is on screen the X input
+  focus is on their window (`xdotool getwindowfocus`), so the player can tell. Fixed with a
+  second patch: input from anything but the keyboard and the socket is dropped while the
+  player has no focus window. Freezing the hidden player instead was rejected: its unread
+  controller events would be delivered when it thaws.
 
 ## Waydroid prerequisites
 

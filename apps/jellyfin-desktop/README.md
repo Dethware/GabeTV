@@ -49,13 +49,16 @@ To remove it, delete the folder (and those two for its data).
 
 ## Changes to the player
 
-`patches/` holds our changes to its source; `./build.sh` applies them. One so far:
+`patches/` holds our changes to its source; `./build.sh` applies them:
 
 - `back-leaves-to-shell.patch`: Back on the start screen, and "Exit" in its menu, hand the
   screen back to the TV shell and leave the player loaded, where the original quits (from
   the menu) or does nothing (Back). The player runs `scripts/leave-to-shell` from its
   profile for that, which `./deploy.sh` installs. Without the TV shell running, neither does
   anything; stop the service to quit it.
+- `controller-only-with-focus.patch`: controller buttons count only while the player's
+  window has the focus. The original reads the controller all the time, so buttons pressed
+  in the shell or in a game also acted on a player loaded in the background.
 
 ## What is in the folder
 

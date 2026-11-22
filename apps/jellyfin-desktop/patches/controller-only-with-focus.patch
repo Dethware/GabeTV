@@ -1,0 +1,27 @@
+diff --git a/src/input/InputComponent.cpp b/src/input/InputComponent.cpp
+index 69b3010..3e21ff7 100644
+--- a/src/input/InputComponent.cpp
++++ b/src/input/InputComponent.cpp
+@@ -1,4 +1,5 @@
+ #include <QDebug>
++#include <QGuiApplication>
+ #include "InputComponent.h"
+ #include "settings/SettingsComponent.h"
+ #include "system/SystemComponent.h"
+@@ -164,6 +165,16 @@ void InputComponent::remapInput(const QString &source, const QString &keycode, I
+ {
+   qDebug() << "Input received: source:" << source << "keycode:" << keycode << ":" << keyState;
+ 
++  // Controllers are read whether or not our window has the focus. On the TV another window
++  // (the shell, a game) can be in front of us: their button presses aren't meant for us then.
++  // The keyboard only arrives with the focus anyway; the socket is a deliberate remote control.
++  if (!qobject_cast<InputKeyboard*>(sender()) && !qobject_cast<InputSocket*>(sender())
++      && QGuiApplication::focusWindow() == nullptr)
++  {
++    cancelAutoRepeat();
++    return;
++  }
++
+   emit receivedInput();
+ 
+   if (keyState == InputBase::KeyUp)
