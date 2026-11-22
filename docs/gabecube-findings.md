@@ -689,6 +689,12 @@ Survey of everything the TV account sees: 13 albums, 7439 assets, 3776 with GPS.
   telling apart "other sources" outside the shell (a game's own sound, Steam). Open: whether
   YouTube really keeps playing with the page item at opacity 0, and what the hidden 4K
   decoding costs under a game.
+  13:56, deployed: it does keep playing at opacity 0 (music from a mix, the shell on the
+  Photos place, title in the top bar), with the shell at 10 % CPU and the page's process at
+  5 %. The idle log showed "music is playing" / "music stopped" flipping several times within
+  two minutes: the player reports not playing for a moment between tracks. Hence a 20 s
+  grace before the music counts as stopped (otherwise a black screen would lose its signal
+  between two tracks).
 - Shell at other resolutions (decided 2026-11-22): scale the whole UI with Qt's scale factor
   from the X screen height (design height 1440) rather than a scale transform in QML, which
   would blur the web view and text. Not yet seen at 4K: whether gamescope's X screen follows

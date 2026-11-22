@@ -27,6 +27,8 @@ constexpr int SwallowAfterWakeMs = 400;
 constexpr int IgnoreAfterScreenOffMs = 1000;
 // A short Power press completes (on release) this soon after its press woke the screen.
 constexpr int JustWokeMs = 1500;
+// Music that pauses for less than this hasn't stopped (the gap between two tracks).
+constexpr int AudioStoppedMs = 20000;
 
 } // namespace
 
@@ -40,6 +42,10 @@ IdleController::IdleController(QObject *parent)
     m_suspendAfter = settings.value(QStringLiteral("suspendAfter"), m_suspendAfter).toInt();
     qCInfo(lcIdle) << "screensaver after" << m_screensaverAfter << "s, screen off after" << m_screenOffAfter
                    << "s, suspend after" << m_suspendAfter << "s (0 = never)";
+
+    m_audioStopped.setSingleShot(true);
+    m_audioStopped.setInterval(AudioStoppedMs);
+    connect(&m_audioStopped, &QTimer::timeout, this, [this] { applyAudioPlaying(false); });
 
     m_sinceActivity.start();
     m_tick.setInterval(TickMs);
@@ -66,6 +72,16 @@ void IdleController::prepareForSleep(bool start)
 }
 
 void IdleController::setAudioPlaying(bool playing)
+{
+    if (playing) {
+        m_audioStopped.stop();
+        applyAudioPlaying(true);
+    } else if (m_audioPlaying && !m_audioStopped.isActive()) {
+        m_audioStopped.start();
+    }
+}
+
+void IdleController::applyAudioPlaying(bool playing)
 {
     if (m_audioPlaying == playing)
         return;

@@ -1,10 +1,13 @@
 import QtQuick
 
-// What's playing in the background, in the top bar: a state mark (three bars: playing, two:
-// paused) and the title. Focus: white fill, like the other bar buttons. OK toggles pause.
+// What's playing in the background, in the top bar: the source's icon, a state mark (three
+// bars: playing, two: paused) and the title. Focus: white fill, like the other bar buttons.
+// OK toggles pause.
 Rectangle {
     id: button
 
+    // Where it plays from: "youtube" (more to come).
+    property string source
     property string title
     property string artist
     property bool paused
@@ -26,6 +29,13 @@ Rectangle {
         anchors.leftMargin: 32
         anchors.verticalCenter: parent.verticalCenter
         spacing: 20
+
+        Loader {
+            anchors.verticalCenter: parent.verticalCenter
+            active: button.source === "youtube"
+            visible: active
+            sourceComponent: YouTubeLogo { width: 52 }
+        }
 
         // Playing: three bars of different heights. Paused: two equal ones.
         Row {
@@ -50,7 +60,7 @@ Rectangle {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             // A fixed limit: sizing it from the button, which is sized from this row, loops.
-            width: Math.min(implicitWidth, 620)
+            width: Math.min(implicitWidth, 1100)
             elide: Text.ElideRight
             color: button.ink
             font.pixelSize: 30

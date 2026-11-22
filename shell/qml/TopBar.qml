@@ -10,6 +10,7 @@ FocusScope {
     property int currentTab: 0
 
     // What plays in the background ("" = nothing; then the item is hidden).
+    property string nowPlayingSource
     property string nowPlayingTitle
     property string nowPlayingArtist
     property bool nowPlayingPaused
@@ -71,6 +72,7 @@ FocusScope {
         anchors.rightMargin: 32
         anchors.verticalCenter: parent.verticalCenter
         visible: bar.nowPlayingTitle.length > 0
+        source: bar.nowPlayingSource
         title: bar.nowPlayingTitle
         artist: bar.nowPlayingArtist
         paused: bar.nowPlayingPaused

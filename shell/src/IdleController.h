@@ -92,6 +92,7 @@ private:
     void tick();
     void setState(State state);
     void setScreenSleeping(bool sleeping);
+    void applyAudioPlaying(bool playing);
     void takeSuspendKey();
     void suspend();
     void saveTime(const QString &key, int &member, int seconds);
@@ -104,6 +105,8 @@ private:
     QElapsedTimer m_sinceWake;
     QElapsedTimer m_sinceScreenOffRequest;
     QTimer m_tick;
+    // Runs out when the music has really stopped (not just between two tracks).
+    QTimer m_audioStopped;
     bool m_suspended = false;
 
     int m_screensaverAfter = 300;

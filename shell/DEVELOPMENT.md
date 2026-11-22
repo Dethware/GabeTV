@@ -155,10 +155,11 @@ page for the main video's state, the player's `getPlayerResponse().videoDetails.
 (title, artist). `leave()` keeps the page going when music is playing (`background`),
 otherwise it suspends as before. In the background the page item stays `visible` with
 opacity 0 (`Main.qml`), so the page still counts as shown and YouTube carries on, but nothing
-is drawn; the video is still decoded. The top bar's `NowPlayingButton` shows it and toggles
-pause; ten minutes paused ends the session. `IdleController.audioPlaying` (playing and
+is drawn; the video is still decoded. The top bar's `NowPlayingButton` shows it (source icon, state mark,
+title and artist) and toggles pause; ten minutes paused ends the session. `IdleController.audioPlaying` (playing and
 music, shown or not) keeps the signal on in the screen-off state (the shell draws black
-instead) and holds off suspend; `aboutToSleep` pauses it. A game started from the shell goes
+instead) and holds off suspend; it only counts as stopped after 20 s without playing, since
+the player reports a short stop between two tracks; `aboutToSleep` pauses it. A game started from the shell goes
 through `Main.launchGame()`, which asks with a `ChoiceDialog` while music plays in the
 background. A photo's video pauses it.
 

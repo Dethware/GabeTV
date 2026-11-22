@@ -242,6 +242,7 @@ Window {
             KeyNavigation.down: home.currentPlace
             onSettingsActivated: root.showPage("settings")
 
+            nowPlayingSource: "youtube"
             nowPlayingTitle: !youtube.background ? "" : youtube.title.length > 0 ? youtube.title : qsTr("YouTube")
             nowPlayingArtist: youtube.artist
             nowPlayingPaused: !youtube.playing
