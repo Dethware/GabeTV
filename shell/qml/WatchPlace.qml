@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 
 // Video apps. YouTube for now; Jellyfin and others join later, at stable positions.
@@ -20,13 +22,19 @@ FocusScope {
             ListElement {
                 appId: "youtube"
                 name: "YouTube"
-                cover: ""
             }
         }
 
-        delegate: GameTile {}
+        delegate: AppTile {
+            logo: appId === "youtube" ? youtubeLogo : null
+        }
 
-        Keys.onReturnPressed: place.appOpened((grid.currentItem as GameTile).appId)
-        Keys.onEnterPressed: place.appOpened((grid.currentItem as GameTile).appId)
+        Keys.onReturnPressed: place.appOpened((grid.currentItem as AppTile).appId)
+        Keys.onEnterPressed: place.appOpened((grid.currentItem as AppTile).appId)
+    }
+
+    Component {
+        id: youtubeLogo
+        YouTubeLogo {}
     }
 }

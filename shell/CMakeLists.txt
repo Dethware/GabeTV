@@ -57,6 +57,8 @@ set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS Alb
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
+set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
+set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
 set_source_files_properties(qml/WatchPlace.qml PROPERTIES QT_RESOURCE_ALIAS WatchPlace.qml)
 set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
 
@@ -83,6 +85,8 @@ qt_add_qml_module(tvshell
         qml/PhotoBackdrop.qml
         qml/PhotoInfo.qml
         qml/FitGrid.qml
+        qml/AppTile.qml
+        qml/YouTubeLogo.qml
         qml/WatchPlace.qml
         qml/YouTubePage.qml
     SOURCES
