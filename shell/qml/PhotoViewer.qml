@@ -55,6 +55,21 @@ FocusScope {
         video.source = ""
     }
 
+    // Jump back or forward in the video: 5 s steps in a short clip, 10 s in a longer one.
+    function seek(direction) {
+        const step = video.duration < 120000 ? 5000 : 10000
+        video.position = Math.max(0, Math.min(video.duration, video.position + direction * step))
+    }
+
+    // "1:05" (or "1:02:03") for a time in milliseconds.
+    function clock(milliseconds) {
+        const seconds = Math.floor(milliseconds / 1000)
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor(seconds / 60) % 60
+        const rest = String(seconds % 60).padStart(2, "0")
+        return hours > 0 ? hours + ":" + String(minutes).padStart(2, "0") + ":" + rest : minutes + ":" + rest
+    }
+
     readonly property var asset: shownIndex >= 0 && shownIndex < assets.length ? assets[shownIndex] : null
     // The photo has been shown long enough to load the big versions.
     property bool settled: false
@@ -159,8 +174,10 @@ FocusScope {
     Keys.onEscapePressed: videoActive ? stopVideo() : closed()
     Keys.onReturnPressed: activate()
     Keys.onEnterPressed: activate()
-    Keys.onLeftPressed: event => step(-1, event.isAutoRepeat)
-    Keys.onRightPressed: event => step(1, event.isAutoRepeat)
+    // In a video (playing or paused) Left and Right seek; Back leaves it, then they move
+    // between photos again.
+    Keys.onLeftPressed: event => videoActive ? seek(-1) : step(-1, event.isAutoRepeat)
+    Keys.onRightPressed: event => videoActive ? seek(1) : step(1, event.isAutoRepeat)
 
     Timer {
         id: repeatLimit
@@ -361,6 +378,29 @@ FocusScope {
         visible: hasInfo
     }
 
+    // How far the video is, along the bottom edge under the texts.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 64
+        anchors.rightMargin: 64
+        anchors.bottomMargin: 28
+        height: 8
+        radius: 4
+        visible: viewer.videoActive
+        color: "#60ffffff"
+        border.color: "#80000000"
+        border.width: 1
+
+        Rectangle {
+            width: video.duration > 0 ? parent.width * Math.min(1, video.position / video.duration) : 0
+            height: parent.height
+            radius: 4
+            color: "white"
+        }
+    }
+
     // Position and video state, bottom right; outlined like the screensaver's date and place.
     Text {
         anchors.right: parent.right
@@ -388,8 +428,9 @@ FocusScope {
                     state = qsTr("Video can't play: %1").arg(video.errorString)
                 else if (!viewer.videoActive)
                     state = qsTr("OK: play")
-                else if (!viewer.playing)
-                    state = qsTr("Paused")
+                else
+                    state = (viewer.playing ? "" : qsTr("Paused") + "  ")
+                            + viewer.clock(video.position) + " / " + viewer.clock(video.duration)
                 state += "   "
             }
             return state + (viewer.index + 1) + " / " + viewer.assets.length

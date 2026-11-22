@@ -32,10 +32,15 @@
     "KEY_HAT_RIGHT": "right",
     "KEY_HAT_LEFT": "left",
 
-    // left stick (one direction at a time: patches/stick-one-direction.patch)
+    // both sticks (one direction at a time: patches/stick-one-direction.patch); the right one
+    // sits by the buttons, for using the controller in one hand
     "KEY_AXIS_0_UP": "left",
     "KEY_AXIS_0_DOWN": "right",
     "KEY_AXIS_1_UP": "up",
-    "KEY_AXIS_1_DOWN": "down"
+    "KEY_AXIS_1_DOWN": "down",
+    "KEY_AXIS_3_UP": "left",
+    "KEY_AXIS_3_DOWN": "right",
+    "KEY_AXIS_4_UP": "up",
+    "KEY_AXIS_4_DOWN": "down"
   }
 }

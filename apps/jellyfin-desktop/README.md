@@ -36,8 +36,8 @@ The service runs it like this:
   a level given once is remembered in the profile.
 - The two `SDL_` settings make it use Steam's virtual gamepad, like the shell does. With
   them the Steam Controller works through `inputmaps/steam-virtual-gamepad.json`, which
-  `./deploy.sh` copies into the player's profile: d-pad or left stick to move, A is OK, B is
-  Back (hold: home), X and Menu play or pause, Y searches, the bumpers seek.
+  `./deploy.sh` copies into the player's profile: d-pad or either stick to move, A is OK, B
+  is Back (hold: home), X and Menu play or pause, Y searches, the bumpers seek.
 - With the remote: arrows, OK and Back; Left and Right seek while something plays.
 
 `--help` lists the other options. Settings,

@@ -164,6 +164,10 @@ void GamepadInput::poll()
                 m_stickX = event.gaxis.value;
             else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY)
                 m_stickY = event.gaxis.value;
+            else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX)
+                m_rightX = event.gaxis.value;
+            else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
+                m_rightY = event.gaxis.value;
             else
                 break;
             if (!m_sticks)
@@ -171,12 +175,17 @@ void GamepadInput::poll()
             // The virtual pad reports some stick noise at rest; ignore that for idle tracking.
             if (std::abs(event.gaxis.value) >= StickActivity)
                 emit activity();
+            // Whichever stick is pushed further decides.
+            const bool right = std::max(std::abs(m_rightX), std::abs(m_rightY))
+                               > std::max(std::abs(m_stickX), std::abs(m_stickY));
+            const int x = right ? m_rightX : m_stickX;
+            const int y = right ? m_rightY : m_stickY;
             int key = 0;
             const int threshold = m_stickKey ? StickRelease : StickPress;
-            if (std::abs(m_stickX) >= std::abs(m_stickY) && std::abs(m_stickX) >= threshold)
-                key = m_stickX < 0 ? Qt::Key_Left : Qt::Key_Right;
-            else if (std::abs(m_stickY) > std::abs(m_stickX) && std::abs(m_stickY) >= threshold)
-                key = m_stickY < 0 ? Qt::Key_Up : Qt::Key_Down;
+            if (std::abs(x) >= std::abs(y) && std::abs(x) >= threshold)
+                key = x < 0 ? Qt::Key_Left : Qt::Key_Right;
+            else if (std::abs(y) > std::abs(x) && std::abs(y) >= threshold)
+                key = y < 0 ? Qt::Key_Up : Qt::Key_Down;
             if (key != m_stickKey) {
                 qCDebug(lcGamepad) << "stick key" << key;
                 if (m_stickKey)

@@ -1053,6 +1053,17 @@ later. *Inferred* from that, not seen in a trace: no video was playing when I lo
 to an `AudioOutput` that follows `MediaDevices.defaultAudioOutput`. Not confirmed on the TV at
 the time of writing.
 
+## One-handed controller, video seeking (decided 2026-11-22)
+
+Asked for by the user:
+
+- The right stick navigates like the left one, in the shell (YouTube included, it gets the
+  shell's key events) and in Jellyfin (its key map): held as a remote, the right stick is on
+  the side of the A button, so one hand does.
+- Photo videos get a progress bar and seeking. Chosen: while a video is loaded, Left and
+  Right seek, and Back first leaves the video; before, Left and Right went to the next
+  photo even during a video. Not asked for explicitly in that form; easy to change back.
+
 ## Albums by year (decided 2026-11-22)
 
 Asked for by the user: albums in groups by the year of their newest photo, sorted within a

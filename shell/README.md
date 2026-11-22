@@ -20,7 +20,9 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   keeps to the column you chose, also across a short row. An album opens a grid, OK opens a
   photo full screen. Left/right move between photos, with a
   slide or crossfade and the photo's colours or a blurred copy behind it. Each photo shows
-  its date and place. Videos carry a play badge in an album and play with OK.
+  its date and place. Videos carry a play badge in an album and play with OK; while one is
+  open, a bar along the bottom shows how far it is, Left and Right jump back and forward,
+  and Back returns to moving between photos.
 - **Screensaver**: after a while without input, photos from the albums you choose, one at a
   time, with their date and place. Left/right browse without leaving it, OK opens the photo,
   any other key ends it. Without albums: a clock.
@@ -46,7 +48,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 | | Remote | Controller |
 |---|---|---|
-| Move | ring | d-pad, left stick |
+| Move | ring | d-pad, either stick |
 | Select | OK | A |
 | Back | Back | B |
 | Switch place | top bar | LB / RB |
@@ -67,7 +69,7 @@ for whatever was open before. Home pauses a video (opening YouTube again carries
 leaves music playing.
 
 In Jellyfin, the arrows, OK and Back move around; while something plays, Left and Right seek.
-On the controller the d-pad or left stick moves, A is OK, B is Back, the bumpers seek, X
+On the controller the d-pad or either stick moves, A is OK, B is Back, the bumpers seek, X
 pauses and Y searches. Home pauses and returns to the shell, and so does Back on Jellyfin's start screen;
 the Jellyfin tile (or the remote's Netflix button) brings it back where it was. Left alone for ten minutes it closes; what you were
 watching resumes from Jellyfin's "Continue watching". A paused film or an untouched menu gets

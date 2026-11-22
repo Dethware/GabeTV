@@ -32,7 +32,7 @@ public:
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled);
 
-    // Whether the left stick counts at all (keys and activity). A thumb resting on a trackpad
+    // Whether the sticks count at all (keys and activity). A thumb resting on a trackpad
     // that Steam maps to the stick moves it, so the screensaver and screen-off turn this off:
     // only real button presses end them.
     bool sticks() const { return m_sticks; }
@@ -67,8 +67,11 @@ private:
     // Held direction (stick or d-pad) and its auto-repeat.
     int m_heldKey = 0;
     QTimer m_repeatTimer;
-    // Left stick position and the direction it currently counts as (0 = centred).
+    // The sticks' positions and the direction they currently count as (0 = centred). Either
+    // stick moves: the right one sits by the buttons, for using the controller in one hand.
     int m_stickX = 0;
     int m_stickY = 0;
+    int m_rightX = 0;
+    int m_rightY = 0;
     int m_stickKey = 0;
 };

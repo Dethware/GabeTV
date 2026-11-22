@@ -66,9 +66,11 @@ inhibitor lock so logind doesn't suspend on Power itself.
 The remote and keyboards arrive as normal key events. The controller is read through SDL3
 from Steam's virtual Xbox pad (`SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1`, evdev
 only, no hidapi) and turned into key events sent to the window: A = Return, B/Back = Back,
-Start = Menu, d-pad and left stick = arrows with repeat; LB/RB are a signal
+Start = Menu, d-pad and both sticks = arrows with repeat (whichever stick is pushed further
+decides; the right one is there for one-handed use, next to the buttons); LB/RB are a signal
 (`shoulderPressed`), not keys. Only while the shell is on screen and active, since the same
-pad feeds games. The left stick counts only while the shell is fully awake (`sticks`): a
+pad feeds games. YouTube gets these keys like the rest of the shell. The sticks count only
+while the shell is fully awake (`sticks`): a
 thumb resting on a Steam Controller trackpad that Steam maps to the stick ended the
 screensaver.
 
@@ -127,6 +129,11 @@ stops for 0.2 s. Images are requested with Immich's edits (`edited=true`) and EX
 Videos play in Qt Multimedia (ffmpeg backend) through `src/ImmichMediaProxy.*`, a loopback
 HTTP proxy that adds the API key (Qt's player can't send headers) and passes Range requests
 through; a random token in its URLs keeps other local programs out.
+While a video is loaded (playing or paused) the viewer's Left and Right set the player's
+`position` (5 s steps under two minutes, 10 s above), a bar along the bottom shows
+`position / duration`, and Back unloads the video; only then do Left and Right step between
+photos again.
+
 The viewer's player is a `MediaPlayer` with its own `AudioOutput` whose `device` is bound to
 `MediaDevices.defaultAudioOutput`: an output left to itself keeps the device that was the
 default when it was created, and stays silent when the sound has since moved (the soundbar
