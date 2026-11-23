@@ -96,7 +96,8 @@ the bus every three seconds.
   the rest is outline. It also logs bluez's connect and
   disconnect events, with the reason, for every Joy-Con the service has seen.
 - **`ControllerService`** is the shell's view: `Describe()` (JSON), `Changed`,
-  `HomePressed`, and the search and switch-off calls.
+  `HomePressed`, and the search and switch-off calls. The shell's `ShellService` listens
+  for `HomePressed` and treats it as Home on the remote.
 
 Still outline only: searching, pairing and forgetting in `Bluetooth` (marked `SCAFFOLD`
 in the file). The pair has not been tried: only one Joy-Con is paired with the machine.
@@ -122,8 +123,7 @@ differ from the repository's.
 
 ## Next
 
-1. Home in the shell: the shell listens for `HomePressed`.
-2. `Bluetooth` search and pairing, and a controllers screen in the shell (pair, order,
+1. `Bluetooth` search and pairing, and a controllers screen in the shell (pair, order,
    battery, switch off, and why a Joy-Con left: switched off, battery empty, out of reach).
-3. A way to end a unit without switching a Joy-Con off.
-4. Motion, rumble, then the Ring-Con.
+2. A way to end a unit without switching a Joy-Con off.
+3. Motion, rumble, then the Ring-Con.

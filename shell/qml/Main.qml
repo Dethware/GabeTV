@@ -226,6 +226,8 @@ Window {
     // Back at the top level of a managed app: it asks for the shell, like Home.
     ShellService {
         onLeaveAppRequested: root.leaveApp()
+        // Home on a Joy-Con does what Home on the remote does.
+        onControllerHomePressed: baseLayer.homePressed()
     }
 
     // A managed app left with Home stays loaded this long, then it is quit.

@@ -1367,6 +1367,8 @@ PIN):
   shell ignored ours ("not one of Steam's") and added Steam's. So the chain Joy-Con →
   service → virtual controller → Steam → shell holds. The user: "seems OK", and it works
   in YouTube too.
+- Home on a Joy-Con: the shell's `ShellService` now listens for the service's
+  `HomePressed` D-Bus signal and passes it on as the remote's Home. Built; not deployed.
 - The first connection ended after 5 s (Steam: "Controller device closed after hid_read
   failure"), with nothing in the kernel log. The Joy-Con then reconnected by itself on a
   button press and stayed for the 45 s watched. A sleeping Joy-Con can't be connected from

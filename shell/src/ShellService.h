@@ -9,6 +9,9 @@
 //
 // LeaveApp: the managed app on screen wants the shell back (Back at Jellyfin's top level).
 // It stays loaded, as after Home.
+//
+// It also listens to the controller service (controllers/): Home on a Joy-Con arrives as
+// that service's HomePressed signal, since no program but the service sees the Joy-Cons.
 class ShellService : public QObject
 {
     Q_OBJECT
@@ -23,4 +26,9 @@ public slots:
 
 signals:
     void leaveAppRequested();
+    // Home on a Joy-Con: the same as Home on the remote.
+    void controllerHomePressed();
+
+private slots:
+    void onControllerHome();
 };

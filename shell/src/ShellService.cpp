@@ -13,6 +13,15 @@ ShellService::ShellService(QObject *parent)
     if (!bus.registerObject(QStringLiteral("/local/tvshell"), this, QDBusConnection::ExportScriptableSlots)
         || !bus.registerService(QStringLiteral("local.tvshell")))
         qCWarning(lcService) << "not reachable on the session bus:" << bus.lastError().message();
+    // Works whether or not the controller service is running yet: the match is by name.
+    bus.connect(QStringLiteral("local.tvcontrollers"), QStringLiteral("/local/tvcontrollers"),
+                QStringLiteral("local.tvcontrollers"), QStringLiteral("HomePressed"), this, SLOT(onControllerHome()));
+}
+
+void ShellService::onControllerHome()
+{
+    qCInfo(lcService) << "Home on a Joy-Con";
+    emit controllerHomePressed();
 }
 
 void ShellService::LeaveApp()

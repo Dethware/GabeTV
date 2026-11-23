@@ -54,7 +54,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | Back | Back | B |
 | Switch place | top bar | LB / RB |
 | Settings | top bar | Start (≡) |
-| Back to the shell | Home, from anywhere (again: the Home place) | |
+| Back to the shell | Home, from anywhere (again: the Home place) | Home on a Joy-Con |
 | YouTube | YouTube, from anywhere | Home → YouTube |
 | Jellyfin | Netflix, from anywhere | Home → Jellyfin |
 | Mute | Mute, from anywhere | |

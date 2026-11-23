@@ -253,6 +253,12 @@ to go back to: its web interface then asks the host to exit, and a patch in
 `../apps/jellyfin-desktop/patches` turns that into running a profile script that makes the
 call.
 
+`ShellService` also listens to the controller service (`../controllers`, `local.tvcontrollers`
+on the session bus): its `HomePressed` signal, Home on a Joy-Con, becomes
+`controllerHomePressed()`, which `Main.qml` passes on as `BaseLayer`'s `homePressed()`, so
+it does exactly what Home on the remote does. The Joy-Cons' virtual controllers have no
+Home button, and nothing but that service can read a Joy-Con.
+
 What the program needs to behave on a TV (flags, controller settings, key map, logging) is in
 `../apps/jellyfin-desktop` and the log.
 

@@ -22,13 +22,12 @@ This is an early version:
 - **Press L on a left Joy-Con and R on a right one together** and the two become one full
   controller.
 - Games and Steam see each of these as an ordinary controller. Home is kept back for the
-  TV.
+  TV: it brings up the TV's home screen, like Home on the remote.
 - When a Joy-Con is switched off, it can be woken again after about five seconds. One that
   is carried out of reach keeps its connection for up to 20 seconds and carries on when it
   is back.
 
-Not there yet: pairing from the TV's own screens, Home bringing up the TV's interface,
-motion, rumble and the Ring-Con.
+Not there yet: pairing from the TV's own screens, motion, rumble and the Ring-Con.
 
 ## Install
 
