@@ -1,0 +1,21 @@
+[Unit]
+Description=Eden with Ring Fit Adventure
+# Started and stopped by the TV shell, never on its own. Part of Steam's Gaming Mode session:
+# it stops with it.
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+# gamescope's DISPLAY etc., written by /usr/lib/steamos/gamescope-session.
+EnvironmentFile=%t/gamescope-environment
+Environment=QT_QPA_PLATFORM=xcb
+# Eden looks for its data folder, user/, in the current directory.
+WorkingDirectory=%h/apps/eden
+# -f: fullscreen. -g: the game; one game for now, so it is named here.
+ExecStart=%h/apps/eden/eden -f -g %h/Games/Emulators/Switch/ringfit/ROM.xci
+# Stopped, our Eden ends by itself without asking (the shell's Close); if it hasn't after
+# this long it is killed. The shell's Force close kills it at once, which counts as an end
+# like any other: the game's own saves are on disk either way.
+TimeoutStopSec=15
+SuccessExitStatus=SIGKILL
+Slice=session.slice

@@ -21,6 +21,9 @@ qt_add_executable(tvcontrollers
     src/ControllerService.h
     src/DeviceWatcher.cpp
     src/DeviceWatcher.h
+    protocol/emulator.h
+    src/EmulatorServer.cpp
+    src/EmulatorServer.h
     src/JoyCon.cpp
     src/JoyCon.h
     src/JoyConProtocol.h

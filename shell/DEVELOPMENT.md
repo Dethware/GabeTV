@@ -63,6 +63,11 @@ inhibitor lock so logind doesn't suspend on Power itself.
 
 ### Controller and keys (`src/GamepadInput.*`)
 
+Each controller's sticks are kept by themselves, and the one pushed furthest decides the
+direction. Steam's virtual pad of a controller that lies untouched still sends its
+sticks' noise, a couple of hundred events a second; with one position for all of them it
+overwrote the stick being pushed, and every return to the pushed value was a new press.
+
 The remote and keyboards arrive as normal key events. The controller is read through SDL3
 from Steam's virtual Xbox pad (`SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1`, evdev
 only, no hidapi) and turned into key events sent to the window. Only Steam's virtual pads
@@ -220,8 +225,8 @@ extension (Qt 6.10+ can load extensions): that one is written for the desktop si
 
 ### Managed apps: Jellyfin (`src/ManagedApp.*`, `qml/Main.qml`, `../apps/jellyfin-desktop`)
 
-A managed app is a separate program the shell starts and shows itself, without Steam.
-Jellyfin Desktop is the only one. It runs as its own user service
+A managed app is a separate program the shell starts and shows itself, without Steam:
+Jellyfin Desktop, and Eden with a Switch game (`../apps/eden`). It runs as its own user service
 (`jellyfin-desktop.service`, installed with the program), so restarting the shell doesn't end
 it and the shell picks a running one up again.
 
@@ -261,6 +266,21 @@ Home button, and nothing but that service can read a Joy-Con.
 
 What the program needs to behave on a TV (flags, controller settings, key map, logging) is in
 `../apps/jellyfin-desktop` and the log.
+
+Eden differs in three ways. It opens windows as it goes (its on-screen keyboard is a
+dialog the game waits behind), so with `allWindows` every window of its class is tagged,
+not only the largest. Left with Home it is paused and kept without a quit timer: a parked
+game, continued with `ManagedApp::resume()` (MPRIS `Play`) when its tile is opened; our
+Eden speaks that much MPRIS. And because a parked game holds about half the machine's
+memory, `launchGame` asks before a Steam game is started next to one (`parkedDialog`).
+It is paused before the machine sleeps, like the others.
+
+On the Home place OK opens a tile when the key is let go; held for 0.6 s it brings up the
+tile's menu (`tileMenu` in `Main.qml`): Open, and for a loaded app Close and Force close.
+Close ends the program its own way (`ManagedApp::quit()` stops the unit; YouTube's page is
+unloaded), Force close kills the unit's processes (`ManagedApp::kill()`). `ChoiceDialog`
+takes no repeats of OK, so the key that is still held when the menu opens doesn't pick its
+first answer.
 
 ### Controllers in Settings (`src/ControllerClient.*`, `qml/ControllersPane.qml`)
 
@@ -317,7 +337,8 @@ what it passes on from then on. At a wall only the place is held; the speed is k
 still moving and its slowing down has to come off that speed (set to zero at the wall, a
 long move ended in travel backwards). `ControllerTest` draws a wire box that stays
 put and moves the shape inside it by that position. Readings arrive 200 times a second and are
-passed on to QML 60 times. The protocol's axes for a controller lying flat, face up, top
+passed on to QML 60 times. `MotionClient` turns the packets' directions (set by what Eden expects) into the
+pad's axes, which for a controller lying flat, face up, top
 away from the viewer are Qt Quick 3D's (x right, y up, z towards the viewer), so the
 orientation goes straight onto `ControllerModel`, a few boxes and cylinders in that pose.
 Qt Quick 3D is only imported in QML, not linked; SteamOS ships it and the toolchain image

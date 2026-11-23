@@ -1,0 +1,326 @@
+diff --git a/src/hid_core/CMakeLists.txt b/src/hid_core/CMakeLists.txt
+index c740cdb..5ecaa39 100644
+--- a/src/hid_core/CMakeLists.txt
++++ b/src/hid_core/CMakeLists.txt
+@@ -17,6 +17,9 @@ add_library(hid_core STATIC
+     frontend/input_interpreter.h
+     frontend/motion_input.cpp
+     frontend/motion_input.h
++    frontend/tv_controllers.cpp
++    frontend/tv_controllers.h
++    frontend/tv_emulator_protocol.h
+     hidbus/hidbus_base.cpp
+     hidbus/hidbus_base.h
+     hidbus/ringcon.cpp
+diff --git a/src/hid_core/frontend/emulated_controller.cpp b/src/hid_core/frontend/emulated_controller.cpp
+index ef841e2..258600d 100644
+--- a/src/hid_core/frontend/emulated_controller.cpp
++++ b/src/hid_core/frontend/emulated_controller.cpp
+@@ -12,6 +12,7 @@
+ #include "common/thread.h"
+ #include "hid_core/frontend/emulated_controller.h"
+ #include "hid_core/frontend/input_converter.h"
++#include "hid_core/frontend/tv_controllers.h"
+ #include "hid_core/hid_util.h"
+ 
+ namespace Core::HID {
+@@ -87,6 +88,10 @@ Settings::ControllerType EmulatedController::MapNPadToSettingsType(NpadStyleInde
+ }
+ 
+ void EmulatedController::ReloadFromSettings() {
++    if (tv_controllers) {
++        tv_controllers->Reload(*this);
++        return;
++    }
+     const auto player_index = Service::HID::NpadIdTypeToIndex(npad_id_type);
+     const auto& player = Settings::values.players.GetValue()[player_index];
+ 
+@@ -1345,6 +1350,9 @@ Common::Input::DriverResult EmulatedController::SetPollingMode(
+     if (!is_initialized) {
+         return Common::Input::DriverResult::InvalidHandle;
+     }
++    if (tv_controllers) {
++        return tv_controllers->SetPollingMode(*this, device_index, polling_mode);
++    }
+ 
+     auto& left_output_device = output_devices[static_cast<std::size_t>(DeviceIndex::Left)];
+     auto& right_output_device = output_devices[static_cast<std::size_t>(DeviceIndex::Right)];
+@@ -1555,6 +1563,10 @@ void EmulatedController::SetLedPattern() {
+     if (!is_initialized) {
+         return;
+     }
++    if (tv_controllers) {
++        tv_controllers->SetLeds(*this);
++        return;
++    }
+ 
+     for (auto& device : output_devices) {
+         if (!device) {
+diff --git a/src/hid_core/frontend/emulated_controller.h b/src/hid_core/frontend/emulated_controller.h
+index bee8fb8..55dc798 100644
+--- a/src/hid_core/frontend/emulated_controller.h
++++ b/src/hid_core/frontend/emulated_controller.h
+@@ -176,6 +176,8 @@ struct ControllerUpdateCallback {
+     bool is_npad_service;
+ };
+ 
++class TvControllers;
++
+ class EmulatedController {
+ public:
+     /**
+@@ -476,6 +478,10 @@ public:
+     void StatusUpdate();
+ 
+ private:
++    // Set while the TV's controller service is the source of this controller: it then
++    // writes the state below itself (tv_controllers.cpp).
++    friend class TvControllers;
++    TvControllers* tv_controllers{};
+     /// creates input devices from params
+     void LoadDevices();
+ 
+diff --git a/src/hid_core/hid_core.cpp b/src/hid_core/hid_core.cpp
+index 410c84a..6deb653 100644
+--- a/src/hid_core/hid_core.cpp
++++ b/src/hid_core/hid_core.cpp
+@@ -5,6 +5,7 @@
+ #include "hid_core/frontend/emulated_console.h"
+ #include "hid_core/frontend/emulated_controller.h"
+ #include "hid_core/frontend/emulated_devices.h"
++#include "hid_core/frontend/tv_controllers.h"
+ #include "hid_core/hid_core.h"
+ #include "hid_core/hid_util.h"
+ 
+@@ -21,10 +22,15 @@ HIDCore::HIDCore()
+       player_8{std::make_unique<EmulatedController>(NpadIdType::Player8)},
+       other{std::make_unique<EmulatedController>(NpadIdType::Other)},
+       handheld{std::make_unique<EmulatedController>(NpadIdType::Handheld)},
+-      console{std::make_unique<EmulatedConsole>()}, devices{std::make_unique<EmulatedDevices>()} {}
++      console{std::make_unique<EmulatedConsole>()}, devices{std::make_unique<EmulatedDevices>()},
++      tv_controllers{std::make_unique<TvControllers>(*this)} {}
+ 
+ HIDCore::~HIDCore() = default;
+ 
++TvControllers& HIDCore::GetTvControllers() {
++    return *tv_controllers;
++}
++
+ EmulatedController* HIDCore::GetEmulatedController(NpadIdType npad_id_type) {
+     switch (npad_id_type) {
+     case NpadIdType::Player1:
+diff --git a/src/hid_core/hid_core.h b/src/hid_core/hid_core.h
+index dae29c5..3b8ebe7 100644
+--- a/src/hid_core/hid_core.h
++++ b/src/hid_core/hid_core.h
+@@ -12,6 +12,7 @@ namespace Core::HID {
+ class EmulatedConsole;
+ class EmulatedController;
+ class EmulatedDevices;
++class TvControllers;
+ } // namespace Core::HID
+ 
+ namespace Core::HID {
+@@ -34,6 +35,9 @@ public:
+     const EmulatedConsole* GetEmulatedConsole() const;
+ 
+     EmulatedDevices* GetEmulatedDevices();
++
++    /// The players' controllers come from the TV's controller service
++    TvControllers& GetTvControllers();
+     const EmulatedDevices* GetEmulatedDevices() const;
+ 
+     void SetSupportedStyleTag(NpadStyleTag style_tag);
+@@ -82,6 +86,8 @@ private:
+     std::unique_ptr<EmulatedController> handheld;
+     std::unique_ptr<EmulatedConsole> console;
+     std::unique_ptr<EmulatedDevices> devices;
++    // After the players: it writes into them from a thread of its own.
++    std::unique_ptr<TvControllers> tv_controllers;
+     NpadStyleTag supported_style_tag{NpadStyleSet::All};
+     NpadIdType last_active_controller{NpadIdType::Handheld};
+ };
+diff --git a/src/hid_core/hidbus/ringcon.h b/src/hid_core/hidbus/ringcon.h
+index a48eeed..e52b3c7 100644
+--- a/src/hid_core/hidbus/ringcon.h
++++ b/src/hid_core/hidbus/ringcon.h
+@@ -7,6 +7,7 @@
+ #include <span>
+ 
+ #include "common/common_types.h"
++#include "hid_core/frontend/tv_controllers.h"
+ #include "hid_core/hidbus/hidbus_base.h"
+ 
+ namespace Core::HID {
+@@ -37,10 +38,11 @@ public:
+     u64 GetReply(std::span<u8> data) const override;
+ 
+ private:
+-    // These values are obtained from a real ring controller
+-    static constexpr s16 idle_value = 2280;
++    // The numbers of the ring the TV's controller service reads, so that the value the
++    // game gets is that ring's own (tv_controllers.h)
++    static constexpr s16 idle_value = Core::HID::TvRingRest;
+     static constexpr s16 idle_deadzone = 120;
+-    static constexpr s16 range = 2500;
++    static constexpr s16 range = Core::HID::TvRingRange;
+ 
+     // Most missing command names are leftovers from other firmware versions
+     enum class RingConCommands : u32 {
+diff --git a/src/hid_core/resources/npad/npad.cpp b/src/hid_core/resources/npad/npad.cpp
+index 3a191f4..3aa67c0 100644
+--- a/src/hid_core/resources/npad/npad.cpp
++++ b/src/hid_core/resources/npad/npad.cpp
+@@ -18,6 +18,7 @@
+ #include "core/hle/kernel/k_readable_event.h"
+ #include "core/hle/service/kernel_helpers.h"
+ #include "hid_core/frontend/emulated_controller.h"
++#include "hid_core/frontend/tv_controllers.h"
+ #include "hid_core/hid_core.h"
+ #include "hid_core/hid_result.h"
+ #include "hid_core/hid_util.h"
+@@ -46,9 +47,27 @@ NPad::NPad(Core::HID::HIDCore& hid_core_, KernelHelpers::ServiceContext& service
+         abstracted_pads[i] = AbstractPad{};
+         abstracted_pads[i].SetNpadId(IndexToNpadIdType(i));
+     }
++    // A pair that shows up (again) at a player whose Joy-Cons the game wanted apart is
++    // taken apart the way the game's own request does it.
++    hid_core.GetTvControllers().SetSplitter([this](Core::HID::NpadIdType npad_id, bool left_stays) {
++        if (applet_resource_holder.applet_resource == nullptr) {
++            return;
++        }
++        for (std::size_t aruid_index = 0; aruid_index < AruidIndexMax; aruid_index++) {
++            auto* data = applet_resource_holder.applet_resource->GetAruidDataByIndex(aruid_index);
++            if (data == nullptr || !data->flag.is_assigned) {
++                continue;
++            }
++            Core::HID::NpadIdType new_npad_id{};
++            SetNpadMode(data->aruid, new_npad_id, npad_id,
++                        left_stays ? NpadJoyDeviceType::Left : NpadJoyDeviceType::Right,
++                        NpadJoyAssignmentMode::Single);
++        }
++    });
+ }
+ 
+ NPad::~NPad() {
++    hid_core.GetTvControllers().SetSplitter({});
+     for (std::size_t aruid_index = 0; aruid_index < AruidIndexMax; ++aruid_index) {
+         for (std::size_t i = 0; i < controller_data[aruid_index].size(); ++i) {
+             auto& controller = controller_data[aruid_index][i];
+@@ -715,6 +734,9 @@ bool NPad::SetNpadMode(u64 aruid, Core::HID::NpadIdType& new_npad_id, Core::HID:
+     if (controller.shared_memory->assignment_mode != assignment_mode) {
+         controller.shared_memory->assignment_mode = assignment_mode;
+     }
++    hid_core.GetTvControllers().SetJoyAssignment(npad_id,
++                                                 assignment_mode == NpadJoyAssignmentMode::Single,
++                                                 npad_device_type == NpadJoyDeviceType::Left);
+ 
+     if (!controller.device->IsConnected()) {
+         return false;
+@@ -759,6 +781,8 @@ bool NPad::SetNpadMode(u64 aruid, Core::HID::NpadIdType& new_npad_id, Core::HID:
+     // We have two controllers connected to the same npad_id we need to split them
+     new_npad_id = hid_core.GetFirstDisconnectedNpadId();
+     auto& controller_2 = GetControllerFromNpadIdType(aruid, new_npad_id);
++    hid_core.GetTvControllers().Split(npad_id, new_npad_id,
++                                      npad_device_type == NpadJoyDeviceType::Left);
+     DisconnectNpad(aruid, npad_id);
+     if (npad_device_type == NpadJoyDeviceType::Left) {
+         UpdateControllerAt(aruid, Core::HID::NpadStyleIndex::JoyconLeft, npad_id, true);
+@@ -927,6 +951,7 @@ Result NPad::MergeSingleJoyAsDualJoy(u64 aruid, Core::HID::NpadIdType npad_id_1,
+         return NpadIsDualJoycon;
+     }
+ 
++    hid_core.GetTvControllers().Merge(npad_id_1, npad_id_2);
+     // Disconnect the joycons and connect them as dual joycon at the first index.
+     DisconnectNpad(aruid, npad_id_1);
+     DisconnectNpad(aruid, npad_id_2);
+diff --git a/src/yuzu/CMakeLists.txt b/src/yuzu/CMakeLists.txt
+index ff03126..3beb461 100644
+--- a/src/yuzu/CMakeLists.txt
++++ b/src/yuzu/CMakeLists.txt
+@@ -238,6 +238,7 @@ add_executable(yuzu
+     data_widget.ui
+     ryujinx_dialog.h ryujinx_dialog.cpp ryujinx_dialog.ui
+     main_window.h main_window.cpp main.ui
++    tv_player.h tv_player.cpp
+ 
+     configuration/system/new_user_dialog.h configuration/system/new_user_dialog.cpp configuration/system/new_user_dialog.ui
+     configuration/system/profile_avatar_dialog.h configuration/system/profile_avatar_dialog.cpp
+diff --git a/src/yuzu/applets/qt_software_keyboard.cpp b/src/yuzu/applets/qt_software_keyboard.cpp
+index aa77e08..fdd6e11 100644
+--- a/src/yuzu/applets/qt_software_keyboard.cpp
++++ b/src/yuzu/applets/qt_software_keyboard.cpp
+@@ -13,6 +13,7 @@
+ #include "core/core.h"
+ #include "hid_core/frontend/emulated_controller.h"
+ #include "hid_core/frontend/input_interpreter.h"
++#include "hid_core/frontend/tv_controllers.h"
+ #include "hid_core/hid_core.h"
+ #include "hid_core/hid_types.h"
+ #include "ui_qt_software_keyboard.h"
+@@ -1269,6 +1270,7 @@ void QtSoftwareKeyboardDialog::HandleButtonHold() {
+ }
+ 
+ void QtSoftwareKeyboardDialog::TranslateButtonPress(Core::HID::NpadButton button) {
++    button = system.HIDCore().GetTvControllers().AsThePlayerSeesIt(button);
+     switch (button) {
+     case Core::HID::NpadButton::A:
+         switch (bottom_osk_index) {
+diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
+index 7549325..6ecae4f 100644
+--- a/src/yuzu/main_window.cpp
++++ b/src/yuzu/main_window.cpp
+@@ -34,6 +34,8 @@
+ #include "set_play_time_dialog.h"
+ #include "util/util.h"
+ #include "vk_device_info.h"
++#include "hid_core/frontend/tv_controllers.h"
++#include "yuzu/tv_player.h"
+ #include "yuzu/game/game_list.h"
+ 
+ #include "applets/qt_amiibo_settings.h"
+@@ -689,6 +691,44 @@ MainWindow::MainWindow(bool has_broken_vulkan)
+         ui->action_Fullscreen->setChecked(is_fullscreen);
+     }
+ 
++    // On the TV nobody can answer "are you sure?" when Eden is asked to end (the shell's
++    // Close does that with SIGTERM): it then just ends, as it would after a yes.
++    UISettings::values.confirm_before_stopping.SetValue(ConfirmStop::Ask_Never);
++
++    // The TV shell pauses and continues the game, and the controller service is told when
++    // one is being played.
++    new TvPlayer(
++        {
++            .state =
++                [this] {
++                    if (!emulation_running || !emu_thread) {
++                        return TvPlayer::State::Stopped;
++                    }
++                    return emu_thread->IsRunning() ? TvPlayer::State::Playing
++                                                   : TvPlayer::State::Paused;
++                },
++            .pause =
++                [this] {
++                    if (emulation_running && emu_thread && emu_thread->IsRunning()) {
++                        OnPauseGame();
++                    }
++                },
++            .play =
++                [this] {
++                    if (emulation_running && emu_thread && !emu_thread->IsRunning()) {
++                        // Before it carries on: what is held now isn't the game's.
++                        QtCommon::system->HIDCore().GetTvControllers().SetPlaying(true);
++                        OnStartGame();
++                    }
++                },
++            .changed =
++                [](TvPlayer::State state) {
++                    QtCommon::system->HIDCore().GetTvControllers().SetPlaying(
++                        state == TvPlayer::State::Playing);
++                },
++        },
++        this);
++
+     if (should_launch_setup) {
+         LaunchFirmwareApplet(u64(Service::AM::AppletProgramId::Starter), std::nullopt);
+     } else {

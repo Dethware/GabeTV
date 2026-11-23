@@ -44,7 +44,8 @@ private:
         // Which pads it asked for; all of them if it named none.
         bool pads[Pads] = {};
         qint64 lastAsked = 0; // ms
-        quint32 packets = 0;
+        // From 1: Eden's client drops a packet whose number is the 0 it starts from.
+        quint32 packets = 1;
     };
 
     void assignPads();

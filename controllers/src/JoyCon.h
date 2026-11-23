@@ -8,6 +8,7 @@
 #include <QTimer>
 
 #include <array>
+#include <cstdint>
 #include <functional>
 
 class QSocketNotifier;
@@ -78,8 +79,18 @@ public:
     // Whether to look for a Ring-Con on this (right) Joy-Con's rail and read it. It
     // keeps the Joy-Con's second processor running, which costs battery, so only while
     // something wants it.
-    void setRingWanted(bool wanted);
+    // Several may want it at once; it is read for as long as any of them does.
+    enum class RingUser { Shell = 1, Emulator = 2, Probe = 4, Grip = 8 };
+    void setRingWanted(RingUser who, bool wanted);
     bool hasRing() const { return m_ring; }
+    // Whether this Joy-Con sits in a Ring-Con, as far as is known: what the rail said the
+    // last time it was asked. It is asked while the ring is read, and once by probeRing(),
+    // which switches the second processor on just long enough for that.
+    bool inRing() const { return m_inRing; }
+    void probeRing();
+    // The ring's latest flex as the Joy-Con reports it; NoRingFlex without a ring.
+    static constexpr int NoRingFlex = INT16_MIN;
+    int lastRingFlex() const { return m_ringFlex; }
 
     // The stick's position: -1 to 1, right and up positive, calibrated, with a dead zone.
     struct Stick
@@ -127,6 +138,7 @@ signals:
     void motion(const JoyCon::MotionReport &samples);
     // A Ring-Con was found on the rail, or is gone.
     void ringChanged();
+    void inRingChanged();
     // The ring's flex as the Joy-Con reports it, every 15 ms while a ring is attached.
     void ringFlex(int raw);
     // It went quiet from a perfectly regular stream of reports: that is what a Joy-Con
@@ -156,6 +168,8 @@ private:
     void trackRest(const MotionReport &samples, bool gap);
     void lookForRing();
     void setRing(bool ring);
+    void applyRingWanted(bool wanted);
+    void setInRing(bool inRing);
 
     // The stick's raw values at rest and how far it reaches from there in each direction.
     struct Calibration
@@ -208,6 +222,11 @@ private:
     RestWindow m_restWindow;
     Motion m_lastMotion;
     bool m_ringWanted = false;
+    int m_ringUsers = 0;
+    int m_ringFlex = NoRingFlex;
+    bool m_inRing = false;
+    // Ends a probe that got no answer.
+    QTimer m_probeTimer;
     bool m_ring = false;
     // Asks the rail what is attached, while a ring is wanted and none is there.
     QTimer m_ringTimer;

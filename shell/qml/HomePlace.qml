@@ -3,7 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 
 // The first place: apps, at stable positions. YouTube and Jellyfin for now; music and others
-// join later.
+// join later. Ring Fit Adventure (in Eden) stands here until the Games place can hold games
+// that aren't Steam's.
 FocusScope {
     id: place
 
@@ -11,6 +12,8 @@ FocusScope {
     property list<string> runningApps
 
     signal appOpened(string appId)
+    // OK held on a tile: its menu (close, force close).
+    signal menuRequested(string appId, string name)
 
     FitGrid {
         id: grid
@@ -31,6 +34,10 @@ FocusScope {
                 appId: "jellyfin"
                 name: "Jellyfin"
             }
+            ListElement {
+                appId: "ringfit"
+                name: "Ring Fit Adventure"
+            }
         }
 
         delegate: AppTile {
@@ -38,8 +45,52 @@ FocusScope {
             running: place.runningApps.includes(appId)
         }
 
-        Keys.onReturnPressed: place.appOpened((grid.currentItem as AppTile).appId)
-        Keys.onEnterPressed: place.appOpened((grid.currentItem as AppTile).appId)
+        // OK opens the tile when it is let go; held for a moment it brings up the tile's
+        // menu instead.
+        property bool okDown: false
+
+        function isOk(event) {
+            return event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+        }
+
+        Keys.onPressed: event => {
+            if (!isOk(event))
+                return
+            event.accepted = true
+            if (event.isAutoRepeat || okDown)
+                return
+            okDown = true
+            hold.restart()
+        }
+        Keys.onReleased: event => {
+            if (!isOk(event))
+                return
+            event.accepted = true
+            if (event.isAutoRepeat || !okDown)
+                return
+            okDown = false
+            if (hold.running) {
+                hold.stop()
+                place.appOpened((grid.currentItem as AppTile).appId)
+            }
+        }
+        onActiveFocusChanged: {
+            if (!activeFocus) {
+                okDown = false
+                hold.stop()
+            }
+        }
+
+        Timer {
+            id: hold
+
+            interval: 600
+            onTriggered: {
+                const tile = grid.currentItem as AppTile
+                if (tile)
+                    place.menuRequested(tile.appId, tile.name)
+            }
+        }
     }
 
     Component {

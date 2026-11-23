@@ -1931,6 +1931,429 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   earlier), came back at 20:50:57 and the pair was formed again at 20:51:11. What exactly
   they saw (lights, rumble) wasn't asked yet; Eden can't have sent the Joy-Cons anything.
 
+### The motion server's directions were wrong for Eden (2026-11-23, late)
+
+- With the temporary binding the game got to its Attachment Guide ("Insert the Joy-Con
+  (L) into the leg strap pocket", "Wrap the leg strap around your left thigh … and stand
+  still") and stayed there. The user: "It needs the motion data to continue from this
+  screen. And the joycons are on player 2" (the Pro Controller was player 1; the binding
+  was made for player 2's virtual controller and motion pads 2 and 3).
+- Eden's log shows the game asking for the ring on player 1's right rail (polling mode 4
+  on the right Joy-Con, `EnableJoyPollingReceiveMode`) and also opening the left rail.
+- The cause, from Eden's source, not from trying: what its cemuhook client makes of a
+  packet (`udp_client.cpp`, `OnPadData`: acceleration `(x, -z, y)`, rotation `(pitch,
+  roll, -yaw)` times 1/312) against what its own Joy-Con driver gives
+  (`joycon_protocol/poller.cpp`). That driver swaps the sensor's first two axes and then
+  flips signs per side; written in the service's axes (x to the controller's top, y to
+  its left, z out of its face, the right Joy-Con already turned) it comes to the same for
+  left, right and Pro: acceleration `(y, -x, -z)`, rotation `(-y, x, z)`. The server's
+  mapping, a guess until now, gave Eden the acceleration with all three signs reversed
+  and roll and yaw reversed; only pitch was right. To the game the Joy-Con was upside
+  down.
+- Changed: the server now sends acceleration `(y, -z, x)` and pitch, yaw, roll as
+  `(-y, -z, x)` of ours, so a controller lying face up shows -1 g on the protocol's y;
+  the packet counter starts at 1. The shell's motion client turns the packets back into
+  its own axes, so the motion test is unchanged. Built, not deployed: the deploy needs
+  the user's go-ahead. Not yet confirmed in the game.
+- Eden's 1/312 on the rotation means it takes the protocol's degrees a second as 15 %
+  more than a turn per 360; our own driver will hand it the unit it wants.
+
+- Deployed with the user's go-ahead (21:00:42). The Pro Controller lying still then read
+  (0.00, -0.98, -0.19) g on the protocol's axes, as intended. The game stayed at the leg
+  strap screen all the same ("It is stuck").
+- Why, this time: the two Joy-Cons' motion was nonsense, (0, -9.90, 0) g and
+  (0, -61.97, 0) g. At the restart both were already connected and answered slowly, and
+  the service's log has for both "factory motion calibration: accelerometer origin -1 -1
+  -1 sensitivity -1 -1 255 gyroscope origin 0 0 0 sensitivity 0 0 0", next to "answered a
+  subcommand that isn't ours" lines. A memory read (subcommand `0x10`) was answered after
+  its 250 ms were over and the next read had gone out, and the late answer, for the
+  user's stick calibration (all `ff`), was taken as the motion calibration's: answers
+  were matched by subcommand only. At the connects before that (20:50) the calibration
+  had been read right, so the first failed attempt was the directions and this one the
+  calibration. Fixed: a memory read's answer must repeat the address and length that
+  were asked for. Built, not deployed yet.
+
+- The user agreed to deploys as needed while Ring Fit is being got going ("Yes, let's
+  keep going"). Deployed 21:04:42: both Joy-Cons' calibrations read right, the late
+  answers now logged as not ours and ignored. With the pair formed, the left Joy-Con
+  worn in the strap read (-0.18, -0.17, +0.88) g on the protocol's axes (its top up),
+  the right one lying face up (0.03, -1.00, 0.02).
+- The game still waited. Third cause, in Eden's log and source: **Ring Fit takes player
+  1's pair apart.** It calls `SetNpadJoyAssignmentModeSingle` for npad 0 with the right
+  Joy-Con as the one to keep, and Eden (`hid_core/resources/npad/npad.cpp`,
+  `NPad::SetNpadMode`) then makes player 1 a right Joy-Con alone and gives the left one
+  to the first player that isn't connected, as a dual controller with only its left half.
+  The game then opens the left rail of that second npad (`GetBusHandle npad_id=1
+  bus_type=0`). Eden's player 2 had no bindings, so the leg's Joy-Con didn't exist for
+  the game. With player 2 given the same bindings as player 1 (and left unconnected), the
+  game went past the leg strap to "Press in on the Ring-Con." So the motion directions
+  hold for the game's leg check, and our own driver has to serve the left Joy-Con to
+  whichever player Eden moves it to.
+
+### Decided: replace Eden's controller input (2026-11-23, night)
+
+- The stand-in for the ring (the right stick bound as Eden's ring axis) did nothing at
+  "Press in on the Ring-Con." Why wasn't looked into: the user's call was "I say we clean
+  up whatever they are doing with input and replace it". Eden was stopped and the screen
+  given back to the shell.
+- What Eden's controller input is, from its source: `hid_core`'s `EmulatedController`
+  (one per player) is built entirely from binding strings in the settings
+  (`ReloadFromSettings`, `LoadDevices`): one string per button, stick and motion sensor,
+  each naming an input driver ("engine") of `input_common` and a device by GUID, port and
+  pad; battery, colour, camera, ring, rumble and lights are derived from the strings of A
+  and d-pad right. Type and "connected" also come from the settings. Drivers are
+  registered in `input_common/main.cpp` (keyboard, mouse, touch, GameCube adapter,
+  cemuhook, TAS, camera, virtual amiibo, virtual gamepad, SDL, Joy-Con). A driver is an
+  `InputEngine`: it reports buttons, axes, motion, battery, colour and camera frames per
+  device, and takes rumble, lights, the polling mode (ring, IR, NFC) and the camera
+  format. Eden's own Joy-Con driver delivers a real ring as axis 100 of its device.
+- The design put to the user (the contract is `controllers/protocol/emulator.h`, written
+  as the scaffold):
+  - The service gets a second interface next to the virtual pads: a Unix socket on which
+    an emulator gets every physical controller by itself (buttons, stick, the three
+    motion readings of each report with their times, the ring's raw flex, battery, how
+    it is held and whose it is), and asks for the ring, lights and rumble. What it asked
+    for ends with its connection.
+  - In Eden, a driver of ours is the only source of controllers. The players' bindings,
+    types and "connected" in the settings are no longer read: each player's controller is
+    built from what the service says, live, and when a game takes a pair apart the left
+    Joy-Con goes with the player Eden moves it to. Eden's other controller drivers (SDL,
+    its Joy-Con driver, cemuhook) are not started; their source stays, so that the patch
+    stays small against new Eden versions.
+  - The ring is passed raw. Eden's pretend ring gets our ring's numbers in place of its
+    own (rest 3700 and a range that covers 1474 to 6217, in place of 2280 and 2500), so
+    the game calibrates against the real thing.
+  - Only the controllers the service owns can play in Eden (Joy-Cons, the Pro
+    Controller), as decision 5 of the brief has it.
+
+### Built: the service's emulator socket and Eden fed from it (2026-11-23, night)
+
+- The user, on the design: "There is no point adapting to something that expects buggy
+  linux drivers in the way". Taken as: don't plug a driver of ours into Eden's input
+  layer either (binding strings, GUIDs, its dead zones and stick filtering); write into
+  the part of Eden that is the Switch's controller for the game. They also said their
+  messages often wait in a queue and arrive outdated, so that line may predate the
+  design summary; it fits it either way.
+- **Service** (`controllers/protocol/emulator.h`, `EmulatorServer`): a `SOCK_SEQPACKET`
+  Unix socket at `/run/user/1000/tvcontrollers/emulator`. A small test client got both
+  Joy-Cons at 67 reports a second, 124 bytes each, the three readings of a report 5000 µs
+  apart, and with the ring asked for its raw value (3685 to 3696 at rest), which the
+  service stopped reading when the client left.
+- **Eden** (`apps/eden/driver/tv_controllers.*`, placed in `src/hid_core/frontend/`, and
+  `patches/tv-controllers.patch`: 43 lines in 7 files). `TvControllers` belongs to
+  `HIDCore`, connects to the socket from a thread of its own and is a friend of
+  `EmulatedController`: it sets style and connection of players 1 to 8 from the service's
+  units and writes buttons, sticks, motion, battery and the ring's force straight into
+  the state the HID services read. `ReloadFromSettings` hands over to it (the bindings
+  are emptied, so every input device is a dummy), `SetPollingMode` and `SetLedPattern`
+  go to it, and `NPad::SetNpadMode` and `MergeSingleJoyAsDualJoy` tell it when a pair is
+  taken apart or put together, so the halves follow. Motion goes in as Eden's own
+  Joy-Con driver would give it, acceleration `(y, -x, -z)` in g and rotation `(-y, x, z)`
+  in turns a second, but all three readings of a report with 5000 µs each, where that
+  driver passes one reading per report as 15000 µs. The pretend ring's constants
+  (`hid_core/hidbus/ringcon.h`: "obtained from a real ring controller", rest 2280, range
+  2500) are replaced by ours (3700, 2600), and the force is the raw value's share of
+  that range, so the game gets the raw value back.
+- First start with it: Eden's log has "Player 1 holds controller style 5: connected"
+  (two Joy-Cons), then `SetNpadJoyAssignmentModeSingle` and "The game took player 1's
+  Joy-Cons apart: the left one is now player 2"; the service's has "Eden wants the ring
+  on Joy-Con (R)" and "has a Ring-Con attached". The game went past both attachment
+  checks by itself to "Press In and Start", drawing the ring and the leg strap.
+- The user pressed in and got into the game's setup: "It was asking about being in
+  Canada or outside Canada. We are not in America. I said outside Canada and now the
+  units are all imperial." Eden's default region is USA (`region_index=1`). Set to
+  Europe (`2`) and the language to British English (`language_index=12`); the game then
+  asks "UK" or "Outside the UK", the latter being kilometres and kilograms.
+- **The service crashed** (SIGSEGV) when I killed Eden for that: dropping a client gave
+  up its ring, that announced the change to all clients, the send to the dying one
+  failed and dropped it a second time from inside the first. (My first fix, not deleting
+  the socket notifier inside its own signal, was right but not the cause: it crashed
+  again.) Now the client is taken out of the list before anything else. Checked by
+  killing a ring-reading client three times: the service stayed up.
+- A consequence seen on the way: the crash restarted the service, the user formed the
+  pair again after the game had started, and the game stayed at the leg strap screen. It
+  had asked for single Joy-Cons while nobody was connected, and Eden doesn't apply that
+  to a pair that connects later. Open: a pair formed after the game started, and units
+  that don't survive a service restart.
+- Eden's log file is written late (lines only up to 3.8 s after a minute), so it can't
+  be read for what just happened; its early lines can be missing as well.
+- Not built yet: lights and rumble from the game (the service accepts the messages and
+  ignores them), a Joy-Con held sideways in a game (its buttons are passed upright), the
+  shell's part (tile, Home, stopping: Eden doesn't end on SIGTERM while a game runs),
+  the IR camera.
+
+- The user, on the game after that: "Looks locked up." Eden was alive, on the game's
+  "Warm-up" question with the right half of the page blank; two screenshots three seconds
+  apart were identical; the thread of the first emulated core (`CPUCore_0`) and the
+  display threads (`vi`, `VSyncThread`) used no more processor time, cores 1 and 2 a
+  little, and our `TvControllers` thread kept running. Every thread waits on a futex.
+  SteamOS has gdb and eu-stack, but `ptrace_scope` is 1, so a running process can't be
+  looked into; and a core dump would go to Valve's `steamos_log_submitter` (the
+  `core_pattern`), so that wasn't provoked. Eden was restarted as a child of gdb (SIGSEGV
+  passed through, the JIT lives on it), with a watcher that interrupts it when core 0
+  stands still and has gdb print every thread's stack. Cause not known yet.
+- The capture (51 s after the restart, 70 threads): no deadlock. All four cores sit in
+  `PhysicalCore::Idle`, the HID and display services wait normally, `TvControllers` is in
+  its `poll`, and one thread is `QtSoftwareKeyboardDialog::StartInputThread`: **Eden's
+  on-screen keyboard is open.** The game asked for typed input, Eden opened a dialog
+  window of its own for it and the game waits for the answer. The window wasn't on the
+  screen because the by-hand start had only tagged the windows Eden had when it started.
+  The "Warm-up" stop was most likely the same (the next question wants a number). The
+  watcher's gdb ended that Eden with the capture. Restarted with a helper that tags every
+  window of class `eden` once a second while Eden runs. For the shell this means: every
+  window of a managed app has to be tagged, not only its largest.
+- A follow-up from the user for later: "when we have user profiles, they should pass
+  through to eden" (its user, and so the saves, follow who is using the TV). Noted in
+  `apps/eden/DEVELOPMENT.md`.
+
+### Ring Fit played (2026-11-23, late night)
+
+- With every Eden window tagged, the keyboard dialog showed and the user got through the
+  setup: "It is working. Played through the first level and finished a very short
+  session." So buttons, the leg's and the ring Joy-Con's motion, the ring's raw value
+  and the game's own calibration of it all hold up in play.
+- "It was very confusing to type with the stick directions rotated in a weird way." Eden's
+  keyboard dialog (`yuzu/applets/qt_software_keyboard.cpp`) moves by the stick's direction
+  bits as the Joy-Con has them, and Eden turns nothing for a single Joy-Con. In the ring
+  the Joy-Con sits on its rail, a quarter turned: its top to the player's left (worked
+  out from where the rail is; not checked against the user's hands). Changed: while
+  player 1's right Joy-Con has a ring attached, the dialog takes the stick as the player
+  sees it (the Joy-Con's right is up). Only the dialog: the game gets the stick as it is,
+  as on a Switch. Built and deployed; not tried yet.
+- "There is a few graphical glitches that are hard to describe. Just some random geometry
+  that shows up maybe once or twice in the first level." Not looked into. Eden's graphics
+  settings are its defaults (`gpu_accuracy=1`, `resolution_setup=3`, Vulkan).
+- `apps/eden/try.sh start|stop` now does the by-hand start that was typed out all
+  evening (transient unit from Eden's folder, the window tagger, the base layer entry),
+  until the shell starts Eden itself.
+
+### Home and a parked game (2026-11-23/24, night)
+
+- The user: "Home button needs hooking up for sure. And no idea how the emulator handles
+  persisting game state across suspends and so on. On the switch, the game can keep
+  running for a very long time. It's basically suspended in the background until you
+  bring it back."
+- Facts: Eden has no save states, so a game is only kept by keeping the process and
+  pausing it; that survives Home, other apps and the machine's sleep, not a reboot, an
+  update or a crash. Its own pause (`MainWindow::OnPauseGame`, `emu_thread->SetRunning`)
+  stops the emulated clock; freezing the process from outside (SIGSTOP, the cgroup
+  freezer) would let the host's monotonic clock run on and the game see the gap. Ring Fit
+  running: 8.0 GB resident (5.6 GB of it shared memory, the emulated machine's RAM) of
+  the machine's 15 GB, and 4.3 of 8.6 GB video memory in use. `pauseWhenInBackground`
+  exists but goes by Qt's window focus. The shell ignores controller input while it isn't
+  on screen.
+- Decided by the user: **a parked game stays until it is closed, and the TV asks when
+  another game starts** (not closed by itself); **after sleep or a dropout the Joy-Cons
+  need L+R again**, as now (not rejoining by themselves). So Eden has to cope with a pair
+  that is formed while a game runs; not built yet.
+- Built, not deployed (the deploy needs the user's go-ahead: it stops the running Eden
+  and restarts the service and the shell):
+  - **Eden** speaks MPRIS as far as the shell uses it (`apps/eden/driver/tv_player.*`:
+    `org.mpris.MediaPlayer2.eden`, `PlaybackStatus` with its change signal, `Pause`,
+    `Play`), hooked to the main window's own pause and continue, and tells the controller
+    service when a game is being played (`Playing` in the protocol).
+  - **The service** holds its virtual pads neutral while an emulator's game is being
+    played, so the Joy-Cons are the game's alone; Home still reaches the shell.
+  - **The shell**: Eden is a managed app (`eden.service`, class `eden`, app id
+    0x7E000003) with every window of its class tagged; a "Ring Fit Adventure" tile on
+    Home; leaving with Home pauses it and it stays (no quit timer); opening the tile
+    continues it; starting a Steam game from the shell with it parked asks "Close it and
+    play", "Keep it open and play" or "Cancel"; it is paused before the machine sleeps.
+- Not there: closing a parked game from its tile (only the question above closes it); a
+  Steam game started from Steam's own screens isn't asked about; an Eden started outside
+  the shell isn't shown or paused by it; the tile belongs in the Games place, which only
+  holds Steam's library so far.
+
+- Deployed with the user's go-ahead (22:11). Checked from outside first: started as
+  `eden.service`, Eden's `PlaybackStatus` went to "Playing", `Pause` made it "Paused",
+  the service logged "Eden is playing" and "Eden is not playing", the shell "is running",
+  "window … tagged with app ID 2113929219", "is playing". Stopping the unit left it
+  "failed" (killed after the stop timeout), so the unit now ends by SIGKILL and counts
+  that as clean.
+- The user then tried it, as the logs show: the tile started Eden and the shell put its
+  id first in the base layer; "Home on a Joy-Con" → "pausing eden.service", the shell's id
+  first again, "is not playing"; the tile → "continuing", playing; Home → parked again.
+  Twice round, no errors.
+- Seen in the service's log on the way: the ring stayed wanted while the game was parked.
+  Changed in `TvControllers::SetPlaying`: a paused game gives its ring up and asks for it
+  again when it carries on.
+- **A pair formed while the game runs** (needed because Joy-Cons come back needing L+R).
+  `NPad::SetNpadMode` now tells `TvControllers` what the game last asked for a player's
+  Joy-Cons, also when nobody is connected at that moment; when a whole pair is applied to
+  a player whose Joy-Cons the game wants apart, `TvControllers` has the HID service do
+  the split again (a callback the service sets, which calls `SetNpadMode` as the game's
+  own request does), and the halves follow as before. A new start forgets it. Built and
+  copied to gabecube; the parked game still runs the build before it. Not tried.
+- Root-level windows of class `eden` with a game parked: 3. (xdotool had counted 10,
+  including windows inside the main one.)
+
+- The user's go-ahead to close the parked game ("Ok. Go ahead."): `eden.service` stopped
+  and ended "inactive"; the shell logged the window gone, the service "Eden disconnected"
+  and the ring given up.
+- Two follow-ups from the user with it:
+  - "That tile should really get art from the game somehow. Especially when there are
+    more games. I wanted ring fit to work first because that's the one I play a lot. But
+    there is the whole Zelda collection." So: Switch games as a library with their own
+    art, in the Games place, not one tile on Home. Not started. Their remark on that
+    plan: "Probably a Zelda library to be honest". To ask when designing it: whether
+    that collection is only Switch games, and whether Zelda wants a place of its own.
+  - "Ringcon in the home interface: probably should be treated just like a rotated
+    joycon?" Built in the service, not deployed: a right Joy-Con knows whether it sits in
+    a Ring-Con (`JoyCon::inRing`: what its rail said last, asked while the ring is read
+    and once by a probe when a pair is formed, which switches the second processor on
+    for that moment only). A pair whose right Joy-Con is in the ring gives the virtual
+    pad that Joy-Con as held a quarter turned, its top to the player's left: the stick as
+    the player sees it on the pad's left stick, and the four buttons by the same rule as
+    every grip (printed B is on the right and is A, Y below is B, A above is X, X on the
+    left is Y). The leg's Joy-Con keeps its buttons. The game is not affected: an
+    emulator gets the Joy-Cons as they are.
+
+- Deployed with the user's go-ahead (22:23). Both Joy-Cons were ready and waiting for
+  L+R; no pair had been formed a minute later, so the probe for the ring wasn't seen yet.
+- An idea from the user, "a silly followup", for later: the Ring-Con itself as the way
+  to steer, everywhere: "Squeeze to confirm, Pull to cancel, Rotate left/right for going
+  left/right, Point up/down for up/down. And then it can apply everywhere..." It would be
+  one more way a pair with a ring feeds the virtual pad. Its cost: the ring would have to
+  be read all the time the pair is in use outside a game, which keeps the Joy-Con's
+  second processor on.
+
+- The user formed the pair: the service logged "Joy-Con (R) … sits in a Ring-Con" right
+  after "player 1 is … as a pair", so the probe works. Their verdict on the directions:
+  "It is reversed". So in the ring the Joy-Con's top points to the player's **right**,
+  not left as I had worked out from the rail: the same quarter turn as a Joy-Con held
+  sideways. Changed to that in both places: the pair's virtual pad (stick as for the
+  sideways right Joy-Con; printed X is A, A is B, Y is X, B is Y) and Eden's keyboard
+  dialog. Built and deployed (22:26; the service restarted, so L+R again). Not confirmed
+  yet.
+
+- The user on the turned grip: "All good." Seen in the service's log from their session
+  with the newer Eden: on Home, "Eden is not playing" and "Eden no longer wants the ring";
+  on opening the tile, "Eden is playing" and "Eden wants the ring" again. So a parked
+  game gives its ring up.
+- The user: "The same fix we did with the home button press affecting YouTube needs to be
+  done with the emulator. Maybe in a more general way?" That fix (commit 2edabf1) kept
+  the repeats and the release of the press that opened YouTube from its page. Here it is
+  the press on the game's tile: still down when the game carries on, so the game sees it.
+  Made a rule in place of a special case: **a press belongs to whoever had the
+  controller when it went down.** When a controller changes hands, what is held at that
+  moment stays released for the new owner until it is let go; a stick that is pushed
+  stays centred until it has been centred.
+  - TV → game: in `TvControllers` (Eden), at the moment a game is about to carry on
+    (`SetPlaying(true)`, now called before the main window resumes it).
+  - Game → TV, and at forming: in the service's `Unit`, when its virtual pad gets the
+    controller back from a game and when it is created. So the L and R that form a pair
+    no longer reach the pad as shoulder buttons either.
+  Built. Eden copied to gabecube; the service not deployed, because the user was in the
+  middle of a game ("Playing") and a restart breaks the pair up.
+
+- The user corrected their wording ("Or rather confirm/open button press on home"),
+  which is what was built, and said "Yes, deploy": the service was deployed at 22:34
+  with the game parked. They formed the pair again ("player 1 is … as a pair", "sits in a
+  Ring-Con"; Eden had reconnected). Whether Eden took the pair apart again can't be read
+  yet: its log file is written late.
+- A follow-up from the user: "'Right click'/long press on tiles should bring up a menu
+  that has 'close' and 'force close' in it." Built, the shell not deployed yet:
+  - On the Home place OK now opens a tile when it is let go; held for 0.6 s it brings up
+    the tile's menu: Open, and for a loaded app Close and Force close. `ChoiceDialog`
+    ignores the repeats of a key held from before it opened.
+  - Close ends the program its own way: YouTube's page is unloaded; Jellyfin's and
+    Eden's units are stopped (SIGTERM). Force close kills the unit's processes
+    (`ManagedApp::kill`, systemd's `KillUnit` with SIGKILL).
+  - For Close to work on Eden: Eden reacts to SIGTERM by closing, which asks "Are you
+    sure you want to close Eden?" in a dialog first (`ConfirmClose`); that hidden question
+    was why stopping it hung earlier in the evening. Our build sets
+    `confirm_before_stopping` to "never" at start, and `eden.service` goes back to the
+    ordinary stop, with a kill after 15 s. Not tried yet.
+
+- The user: "we should look into the various context menus from the browsers and apps
+  and probably turn them off". Looked: the shell's YouTube view (Qt WebEngine) had
+  nothing against the browser's own context menu, which a right click, a long touch or
+  the Menu key (a controller's Menu button is that key) brings up; now refused
+  (`onContextMenuRequested`). Jellyfin Desktop's page is a Qt WebEngine view too and
+  doesn't refuse it either (the only "context menu" in its `webview.qml` is its tray
+  icon's); whether one shows there in the TV layout wasn't tried, and turning it off is a
+  one-line patch plus a rebuild. Eden shows none over a game.
+
+- The user: "No menu in jellyfin." So Jellyfin Desktop stays as it is.
+- A bug from the user: "Sliding the joycon out of the Ringcon keeps it in the rotated
+  input mode". As built, the rail was only asked when the pair was formed. Looked for a
+  sign that costs nothing: the right Joy-Con's reports through the evening have no
+  button bit that changed when it went into or out of the ring (the "charging grip" bit,
+  0x8000, never showed), so the ordinary report doesn't tell. Changed: while a pair's
+  right Joy-Con is known to sit in a ring and is in use, the unit keeps the ring read
+  (a fourth user of it, the grip), so the missing id is noticed within 150 ms and the pad
+  goes back to the upright grip. After two minutes without any input from that Joy-Con
+  the reading stops, and its next input asks the rail again. The other direction, a
+  Joy-Con slid into the ring after the pair was formed, is still only noticed at the next
+  L+R or when a game reads the ring.
+- With that the ring's value would have gone over the session bus 66 times a second
+  whenever the ring is read; `RingFlex` is now only sent while someone asked to watch
+  (the shell's test).
+- Built; not deployed: the classifier asks for the user's go-ahead for each restart of
+  the service, and the shell's restart for the tile menu is still waiting for an answer
+  too.
+
+- With the user's "Yes": the service (22:45:25) and the shell (22:45:28) deployed. The
+  shell came up on screen, found the parked Eden ("eden.service is running", its window
+  tagged again) and left it parked. Not yet tried by the user: the tile menu, the ring
+  being slid out, the change-of-hands rule, and a pair formed again during a game.
+
+### Stick presses multiplied; a Joy-Con slid into the ring (2026-11-23, late night)
+
+- The user, back from trying: the tile menu works and Close works (Force close not
+  tried); YouTube's context menus are gone. And: "It seems after opening the game, the
+  joycon has a very high repeat rate outside of it, or somehow it produces multiple
+  events?"
+- Not the buttons: the service's log and the shell's "button down" lines agree, one per
+  press. The stick: the shell's "stick key" lines flip between a direction and none
+  every 8 ms (629 lines in a quarter of an hour, 300 of them "none"). Cause, in the
+  shell's `GamepadInput`: one stick position for all controllers. Measured with nothing
+  touched for 4 s: "TV Controller 1" (ours) and "Microsoft X-Box 360 pad 0" silent,
+  "Microsoft X-Box 360 pad 3" (another of Steam's virtual pads, presumably the Steam
+  Controller's) sending about 200 events a second on each stick axis, values of a few
+  hundred to a thousand: its noise at rest. Each of those overwrote the pushed stick,
+  the direction dropped, the next report of ours raised it again, and every rise was a
+  press. Nothing to do with the game as such; it shows whenever that controller is
+  awake. Fixed: a stick position per controller, and the one pushed furthest decides.
+- Steam's log for the same minutes, for the record: on every change of the focused
+  window Steam reloads the controllers' configuration ("OnFocusWindowChanged to game
+  window type: AppID 1040187393" for the shell, "…395" for Eden, the "Last Resort"
+  gamepad templates each time). It doesn't switch to a desktop layout.
+- The user also wants the other direction: "turning a joycon into a ringcon by sliding
+  the joycon in". Nothing in the reports says so either. Built: a pair's right Joy-Con
+  that isn't known to be in a ring and has lain on its side for a second (gravity along
+  its width, more than 0.7 g, less than 0.5 g along its length: how it sits in a ring
+  that is held up) has its rail asked, at most every six seconds, and not once the
+  Joy-Con has had no input for two minutes. With the ring found the unit keeps reading
+  it, as before.
+- Both deployed with the user's "Yes" (service 23:03:55, shell 23:03:58). The shell is
+  on screen and found the parked Eden again; both Joy-Cons are ready and wait for L+R.
+  Not tried yet.
+
+- The first real try of a pair formed again while a game is parked (the service's restart
+  at 23:03, L+R at 23:04:06, the tile at 23:04:18). The user: "Reopened the game that was
+  running in the background and it is confused about the joycons". The game showed
+  "Attachment Guide: Hold the Joy-Con (L) in your hand and press any button." Eden's log
+  has the sequence: "Player 1 holds controller style 5: connected", "Player 1's Joy-Cons
+  are taken apart again, as the game asked before", "the left one is now player 2", and
+  then "Player 2 has no controller any more". A bug of mine in `OnControllers`: the loop
+  applied each player from a copy of the seats made before it started, so player 2, who
+  had just been given the left Joy-Con by the split, was applied as empty and
+  disconnected. Fixed: each player's seat is read just before it is applied. Built and
+  copied to gabecube; the running game still has the bug, so it can't get its left
+  Joy-Con back and has to be closed and started again.
+- Worth knowing: Ring Fit has its own screen for a Joy-Con that went missing and waits
+  for a button on it, so with the fix a re-formed pair should be picked up by the game
+  itself.
+
+- The user closed that game with Force close from the tile menu, its first use: the
+  shell logged "killing eden.service", the unit ended "inactive" with result "success",
+  no Eden process was left, and the service logged "Eden disconnected".
+
+- With the fixed build the user tried the pair formed again while the game was parked:
+  "Ok. That worked." So the whole round holds: tile, Home, park, Joy-Cons away and back
+  with L+R, continue.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

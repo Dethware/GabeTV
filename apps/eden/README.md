@@ -5,8 +5,11 @@ plain folder: its binary plus the few libraries SteamOS doesn't have. It uses th
 and ffmpeg that SteamOS ships, and nothing is installed system-wide. It is built from source
 so that our own changes (`patches/`) can go on top of a pinned version.
 
-It is there for Ring Fit Adventure with the Joy-Cons and the Ring-Con, which the controller
-service (`../../controllers`) owns.
+It is there for Ring Fit Adventure with the Joy-Cons and the Ring-Con. Its controllers
+come from the TV's controller service (`../../controllers`) and from nowhere else: the
+Joy-Cons and the Pro Controller, as that service has them. Eden's own controller settings
+have no effect, and other controllers (the Steam Controller) don't play in it. Form the
+controller with L+R before the game starts. How that is built is in `DEVELOPMENT.md`.
 
 ## Build and install
 
@@ -21,6 +24,23 @@ dependencies SteamOS's repositories lack. After that it builds without.
 To build another version, remove `build/src` and `build/out` and run
 `VERSION=<tag> ./build.sh`. Another machine or folder: `TARGET=user@host FOLDER=some/folder ./deploy.sh`.
 
+## Run
+
+The TV shell starts it from the Ring Fit Adventure tile on Home (as the user service
+`eden.service`, which `./deploy.sh` installs). Home on a Joy-Con or the remote parks the
+game: it is paused and stays as it is, also through the machine's sleep, until you open the
+tile again. It is lost with a reboot; the game's own saves are not.
+
+By hand from this folder, without the shell:
+
+    ./try.sh start     # Ring Fit Adventure; another game: ./try.sh start <file on gabecube>
+    ./try.sh stop      # ends Eden and gives the screen back to the shell
+
+Form the controller first: L on the left Joy-Con and R on the right one together. While
+Eden is on screen this way, the shell's own keys and dialogs (Home, the power dialog) don't
+work over it. When the game asks for a name or a number, Eden shows its own on-screen
+keyboard; with the Joy-Con in the Ring-Con its stick moves the cursor as you see it.
+
 ## Where its data is
 
 Everything Eden keeps is in `~/apps/eden/user/` on the Steam Machine: settings, keys, the
@@ -31,4 +51,5 @@ touches what is in it. The game, keys and firmware themselves are in
 ## Patches
 
 `patches/*.patch` are applied in name order to the fetched source, once. A patch that no
-longer applies to a new version stops the build.
+longer applies to a new version stops the build. Our own source files for Eden are in
+`driver/`; `./build.sh` places them in Eden's tree.

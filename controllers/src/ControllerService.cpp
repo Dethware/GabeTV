@@ -51,7 +51,13 @@ ControllerService::ControllerService(DeviceWatcher *watcher, UnitManager *units,
     connect(calibration, &MotionCalibration::finished, this, &ControllerService::MotionCalibrated);
     connect(watcher, &DeviceWatcher::joyConAdded, this, [this](JoyCon *joyCon) {
         connect(joyCon, &JoyCon::ringChanged, this, &ControllerService::Changed);
-        connect(joyCon, &JoyCon::ringFlex, this, [this, joyCon](int raw) { emit RingFlex(joyCon->address(), raw); });
+        // Only for someone who asked to watch (the shell's test): the ring is also read for
+        // an emulator and for the grip, 66 times a second, and that needn't go over the bus.
+        connect(joyCon, &JoyCon::ringFlex, this, [this, joyCon](int raw) {
+            const QTimer *lease = m_ringLeases.value(joyCon->address());
+            if (lease && lease->isActive())
+                emit RingFlex(joyCon->address(), raw);
+        });
     });
     connect(calibration, &MotionCalibration::finished, this, &ControllerService::Changed);
     connect(units, &UnitManager::changed, this, &ControllerService::Changed);
@@ -147,7 +153,7 @@ void ControllerService::setRingWanted(const QString &address, bool wanted)
     const QList<JoyCon *> joyCons = m_watcher->joyCons();
     for (JoyCon *joyCon : joyCons) {
         if (joyCon->address() == address && joyCon->isReady())
-            joyCon->setRingWanted(wanted);
+            joyCon->setRingWanted(JoyCon::RingUser::Shell, wanted);
     }
 }
 

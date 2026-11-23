@@ -1,5 +1,9 @@
 #pragma once
 
+#include <QHash>
+
+#include <algorithm>
+#include <cstdlib>
 #include <QObject>
 #include <QPointer>
 #include <QTimer>
@@ -69,9 +73,18 @@ private:
     QTimer m_repeatTimer;
     // The sticks' positions and the direction they currently count as (0 = centred). Either
     // stick moves: the right one sits by the buttons, for using the controller in one hand.
-    int m_stickX = 0;
-    int m_stickY = 0;
-    int m_rightX = 0;
-    int m_rightY = 0;
+    // Each controller's sticks by themselves (keyed by SDL's id of it). One position for
+    // all of them made a second controller's noise at rest overwrite the stick that was
+    // being pushed, 200 times a second, and every return counted as a new press.
+    struct Sticks
+    {
+        int leftX = 0;
+        int leftY = 0;
+        int rightX = 0;
+        int rightY = 0;
+
+        int furthest() const { return std::max({std::abs(leftX), std::abs(leftY), std::abs(rightX), std::abs(rightY)}); }
+    };
+    QHash<quint32, Sticks> m_stickStates;
     int m_stickKey = 0;
 };

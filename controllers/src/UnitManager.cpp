@@ -101,6 +101,7 @@ void UnitManager::form(Unit::Kind kind, const QList<JoyCon *> &joyCons)
         qCInfo(lcUnits) << "Home on player" << unit->player();
         emit homePressed();
     });
+    unit->setHeld(m_padsHeld);
     m_units.append(unit);
     qCInfo(lcUnits).noquote() << "player" << player << "is" << names.join(QStringLiteral(" + "))
                               << (kind == Unit::Kind::Pair ? "as a pair" : kind == Unit::Kind::Sideways ? "sideways" : "");
@@ -156,4 +157,13 @@ void UnitManager::remove(JoyCon *joyCon)
         break;
     }
     emit changed();
+}
+
+void UnitManager::setPadsHeld(bool held)
+{
+    if (m_padsHeld == held)
+        return;
+    m_padsHeld = held;
+    for (Unit *unit : std::as_const(m_units))
+        unit->setHeld(held);
 }

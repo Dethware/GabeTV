@@ -31,6 +31,8 @@ public:
     void end(int player);
     // Two units trade their player numbers.
     void swap(int player, int other);
+    // See Unit::setHeld; for every controller there is and will be.
+    void setPadsHeld(bool held);
 
 signals:
     void changed();
@@ -45,5 +47,6 @@ private:
     void form(Unit::Kind kind, const QList<JoyCon *> &joyCons);
 
     QList<Unit *> m_units;
+    bool m_padsHeld = false;
     QList<JoyCon *> m_unassigned;
 };

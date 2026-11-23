@@ -36,6 +36,18 @@ for patch in "$HERE"/patches/*.patch; do
     fi
 done
 
+# Our own source files for Eden (driver/) and the controller service's side of what they
+# speak (../../controllers/protocol) go into Eden's tree; a patch hooks them in. Only
+# copied when they changed, so that nothing is rebuilt for nothing.
+place() {
+    cmp -s "$1" "$2" || install -m644 "$1" "$2"
+}
+place "$HERE/driver/tv_controllers.h" "$SRC/src/hid_core/frontend/tv_controllers.h"
+place "$HERE/driver/tv_controllers.cpp" "$SRC/src/hid_core/frontend/tv_controllers.cpp"
+place "$HERE/../../controllers/protocol/emulator.h" "$SRC/src/hid_core/frontend/tv_emulator_protocol.h"
+place "$HERE/driver/tv_player.h" "$SRC/src/yuzu/tv_player.h"
+place "$HERE/driver/tv_player.cpp" "$SRC/src/yuzu/tv_player.cpp"
+
 mkdir -p "$HERE/build/out"
 run() {
     docker run --rm "$@" -u "$(id -u):$(id -g)" -e HOME=/tmp \

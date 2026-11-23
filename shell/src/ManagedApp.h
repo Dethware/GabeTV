@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QDBusObjectPath>
+#include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QTimer>
 #include <QVariantMap>
@@ -31,6 +33,7 @@ class ManagedApp : public QObject
     // The start of its MPRIS bus name, e.g. "org.mpris.MediaPlayer2.JellyfinDesktop" (the
     // program appends its profile).
     Q_PROPERTY(QString mprisName READ mprisName WRITE setMprisName NOTIFY mprisNameChanged)
+    Q_PROPERTY(bool allWindows READ allWindows WRITE setAllWindows NOTIFY allWindowsChanged)
 
     // The service is active (or starting).
     Q_PROPERTY(bool running READ running NOTIFY runningChanged)
@@ -50,6 +53,8 @@ public:
     void setAppId(quint32 appId);
     QString mprisName() const { return m_mprisName; }
     void setMprisName(const QString &name);
+    bool allWindows() const { return m_allWindows; }
+    void setAllWindows(bool all);
 
     bool running() const { return m_running; }
     bool ready() const { return m_window != 0; }
@@ -59,14 +64,17 @@ public:
     Q_INVOKABLE void start();
     // Stop the service.
     Q_INVOKABLE void quit();
+    Q_INVOKABLE void kill();
     // Pause what it plays; nothing happens if it plays nothing.
     Q_INVOKABLE void pause();
+    Q_INVOKABLE void resume();
 
 signals:
     void unitChanged();
     void windowClassChanged();
     void appIdChanged();
     void mprisNameChanged();
+    void allWindowsChanged();
     void runningChanged();
     void readyChanged();
     void playingChanged();
@@ -89,7 +97,9 @@ private:
     // X11: look for the program's main window and tag it; a known window is checked for still
     // being there. Polled while the service runs.
     void checkWindow();
+    QList<xcb_window_t> classWindows() const;
     xcb_window_t findWindow() const;
+    void tag(xcb_window_t window);
     void setWindow(xcb_window_t window);
     // MPRIS (session bus): find the name with our prefix, follow PlaybackStatus.
     void findPlayer();
@@ -105,6 +115,9 @@ private:
     bool m_playing = false;
     // quit() was called: the service stopping is not "exited on its own".
     bool m_stopping = false;
+    bool m_allWindows = false;
+    // The windows tagged so far, when all of them are.
+    QSet<xcb_window_t> m_tagged;
     QDBusObjectPath m_unitPath;
     xcb_connection_t *m_connection = nullptr;
     xcb_window_t m_root = 0;

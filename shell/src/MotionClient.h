@@ -8,9 +8,10 @@
 #include <QtQml/qqmlregistration.h>
 
 // One pad of the motion server: its latest readings, and the orientation worked out from
-// them. Axes as the protocol has them, which are also Qt Quick 3D's for a controller
-// lying flat with its face up and its top away from the viewer: x to the right, y up out
-// of the face, z towards the viewer.
+// them. Its axes are Qt Quick 3D's for a controller lying flat with its face up and its
+// top away from the viewer: x to the right, y up out of the face, z towards the viewer.
+// At rest the acceleration is 1 g along y. (The server's packets have some of these the
+// other way round; MotionClient turns them.)
 class MotionPad : public QObject
 {
     Q_OBJECT

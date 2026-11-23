@@ -1,5 +1,6 @@
 #include "ManagedApp.h"
 
+#include <csignal>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -127,6 +128,18 @@ void ManagedApp::quit()
     QDBusConnection::sessionBus().asyncCall(call);
 }
 
+// For a program that doesn't end when asked: every process of the unit is killed.
+void ManagedApp::kill()
+{
+    if (!m_running || m_unit.isEmpty())
+        return;
+    qCInfo(lcManagedApp) << "killing" << m_unit;
+    m_stopping = true;
+    auto call = systemdCall(QStringLiteral("KillUnit"));
+    call << m_unit << QStringLiteral("all") << qint32(SIGKILL);
+    QDBusConnection::sessionBus().asyncCall(call);
+}
+
 void ManagedApp::pause()
 {
     if (m_player.isEmpty() || !m_playing)
@@ -134,6 +147,24 @@ void ManagedApp::pause()
     qCInfo(lcManagedApp) << "pausing" << m_unit;
     QDBusConnection::sessionBus().asyncCall(
         QDBusMessage::createMethodCall(m_player, MprisPath, MprisPlayer, QStringLiteral("Pause")));
+}
+
+void ManagedApp::setAllWindows(bool all)
+{
+    if (m_allWindows == all)
+        return;
+    m_allWindows = all;
+    emit allWindowsChanged();
+}
+
+// The other half of pause(): a program that was paused when it was left carries on.
+void ManagedApp::resume()
+{
+    if (m_player.isEmpty() || m_playing)
+        return;
+    qCInfo(lcManagedApp) << "continuing" << m_unit;
+    QDBusConnection::sessionBus().asyncCall(
+        QDBusMessage::createMethodCall(m_player, MprisPath, MprisPlayer, QStringLiteral("Play")));
 }
 
 void ManagedApp::watchUnit()
@@ -193,6 +224,7 @@ void ManagedApp::setRunning(bool running)
         findPlayer();
     } else {
         m_windowPoll.stop();
+        m_tagged.clear();
         setWindow(0);
         setPlayer(QString());
     }
@@ -206,6 +238,18 @@ void ManagedApp::checkWindow()
 {
     if (!m_connection)
         return;
+    // A program that opens windows as it goes (a dialog the rest of it then waits behind)
+    // has every one of them tagged, or gamescope doesn't show them.
+    if (m_allWindows) {
+        const QList<xcb_window_t> windows = classWindows();
+        for (xcb_window_t window : windows) {
+            if (!m_tagged.contains(window)) {
+                m_tagged.insert(window);
+                tag(window);
+            }
+        }
+        m_tagged.intersect(QSet<xcb_window_t>(windows.cbegin(), windows.cend()));
+    }
     if (m_window) {
         // Still there?
         auto attributes = reply(xcb_get_window_attributes_reply(
@@ -217,16 +261,16 @@ void ManagedApp::checkWindow()
     setWindow(findWindow());
 }
 
-xcb_window_t ManagedApp::findWindow() const
+// The top-level windows of the program's class.
+QList<xcb_window_t> ManagedApp::classWindows() const
 {
+    QList<xcb_window_t> windows;
     if (m_windowClass.isEmpty())
-        return 0;
+        return windows;
     auto tree = reply(xcb_query_tree_reply(m_connection, xcb_query_tree(m_connection, m_root), nullptr));
     if (!tree)
-        return 0;
+        return windows;
     const QByteArray wanted = m_windowClass.toUtf8();
-    xcb_window_t best = 0;
-    quint32 bestArea = 0;
     const xcb_window_t *children = xcb_query_tree_children(tree.get());
     for (int i = 0; i < xcb_query_tree_children_length(tree.get()); ++i) {
         // WM_CLASS is "instance\0class\0".
@@ -237,19 +281,41 @@ xcb_window_t ManagedApp::findWindow() const
             continue;
         const QByteArray value(static_cast<const char *>(xcb_get_property_value(property.get())),
                                xcb_get_property_value_length(property.get()));
-        if (!value.split('\0').contains(wanted))
-            continue;
+        if (value.split('\0').contains(wanted))
+            windows.append(children[i]);
+    }
+    return windows;
+}
+
+xcb_window_t ManagedApp::findWindow() const
+{
+    xcb_window_t best = 0;
+    quint32 bestArea = 0;
+    const QList<xcb_window_t> windows = classWindows();
+    for (xcb_window_t window : windows) {
         // The program also has tiny helper windows of the same class: take the largest.
-        auto geometry = reply(xcb_get_geometry_reply(m_connection, xcb_get_geometry(m_connection, children[i]), nullptr));
+        auto geometry = reply(xcb_get_geometry_reply(m_connection, xcb_get_geometry(m_connection, window), nullptr));
         if (!geometry)
             continue;
         const quint32 area = quint32(geometry->width) * geometry->height;
         if (area > bestArea && area > 100) {
-            best = children[i];
+            best = window;
             bestArea = area;
         }
     }
     return best;
+}
+
+void ManagedApp::tag(xcb_window_t window)
+{
+    const quint32 id = m_appId;
+    const char name[] = "STEAM_GAME";
+    auto atom = reply(xcb_intern_atom_reply(
+        m_connection, xcb_intern_atom(m_connection, 0, sizeof(name) - 1, name), nullptr));
+    if (atom) {
+        xcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, window, atom->atom, XCB_ATOM_CARDINAL, 32, 1, &id);
+        xcb_flush(m_connection);
+    }
 }
 
 void ManagedApp::setWindow(xcb_window_t window)
@@ -258,14 +324,7 @@ void ManagedApp::setWindow(xcb_window_t window)
         return;
     m_window = window;
     if (window) {
-        const quint32 id = m_appId;
-        const char name[] = "STEAM_GAME";
-        auto atom = reply(xcb_intern_atom_reply(
-            m_connection, xcb_intern_atom(m_connection, 0, sizeof(name) - 1, name), nullptr));
-        if (atom) {
-            xcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, window, atom->atom, XCB_ATOM_CARDINAL, 32, 1, &id);
-            xcb_flush(m_connection);
-        }
+        tag(window);
         qCInfo(lcManagedApp) << m_unit << "window" << Qt::hex << window << Qt::dec << "tagged with app ID" << m_appId;
     } else {
         qCInfo(lcManagedApp) << m_unit << "window gone";

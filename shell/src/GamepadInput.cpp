@@ -152,6 +152,7 @@ void GamepadInput::poll()
             }
             break;
         case SDL_EVENT_GAMEPAD_REMOVED:
+            m_stickStates.remove(event.gdevice.which);
             if (SDL_Gamepad *pad = SDL_GetGamepadFromID(event.gdevice.which)) {
                 SDL_CloseGamepad(pad);
                 --m_count;
@@ -174,14 +175,15 @@ void GamepadInput::poll()
                 release(key);
             break;
         case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+            Sticks &moved = m_stickStates[event.gaxis.which];
             if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX)
-                m_stickX = event.gaxis.value;
+                moved.leftX = event.gaxis.value;
             else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY)
-                m_stickY = event.gaxis.value;
+                moved.leftY = event.gaxis.value;
             else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTX)
-                m_rightX = event.gaxis.value;
+                moved.rightX = event.gaxis.value;
             else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
-                m_rightY = event.gaxis.value;
+                moved.rightY = event.gaxis.value;
             else
                 break;
             if (!m_sticks)
@@ -189,11 +191,17 @@ void GamepadInput::poll()
             // The virtual pad reports some stick noise at rest; ignore that for idle tracking.
             if (std::abs(event.gaxis.value) >= StickActivity)
                 emit activity();
-            // Whichever stick is pushed further decides.
-            const bool right = std::max(std::abs(m_rightX), std::abs(m_rightY))
-                               > std::max(std::abs(m_stickX), std::abs(m_stickY));
-            const int x = right ? m_rightX : m_stickX;
-            const int y = right ? m_rightY : m_stickY;
+            // Whichever stick is pushed further decides: of all controllers, then of that
+            // controller's two.
+            Sticks sticks;
+            for (const Sticks &candidate : std::as_const(m_stickStates)) {
+                if (candidate.furthest() > sticks.furthest())
+                    sticks = candidate;
+            }
+            const bool right = std::max(std::abs(sticks.rightX), std::abs(sticks.rightY))
+                               > std::max(std::abs(sticks.leftX), std::abs(sticks.leftY));
+            const int x = right ? sticks.rightX : sticks.leftX;
+            const int y = right ? sticks.rightY : sticks.leftY;
             int key = 0;
             const int threshold = m_stickKey ? StickRelease : StickPress;
             if (std::abs(x) >= std::abs(y) && std::abs(x) >= threshold)

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Copy the built Eden folder (./build.sh) to the Steam Machine and check that every library
-# it needs is there. What Eden keeps (settings, keys, system files, saves) is in the folder
+# Copy the built Eden folder (./build.sh) to the Steam Machine, check that every library it
+# needs is there, and install the user service the TV shell starts it with. What Eden keeps (settings, keys, system files, saves) is in the folder
 # user/ next to the program and is left alone.
 #
 # Usage: ./deploy.sh
@@ -23,3 +23,9 @@ ssh "$TARGET" "
     fi
     echo \"installed \$(cat '$FOLDER/VERSION') in ~/$FOLDER, all libraries found\"
 "
+
+# The service is only installed, not enabled or started: the shell starts it from its tile.
+# A running Eden keeps running; it gets the new files the next time it starts.
+rsync -a "$HERE/eden.service" "$TARGET:.config/systemd/user/"
+ssh "$TARGET" 'systemctl --user daemon-reload'
+echo "service installed"

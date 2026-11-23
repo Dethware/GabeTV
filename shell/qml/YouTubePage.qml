@@ -134,6 +134,13 @@ FocusScope {
         onSegmentsChanged: page.pushSegments()
     }
 
+    // Closed for good: the page is unloaded, and the next opening starts afresh.
+    function unload() {
+        background = false
+        playing = false
+        loader.active = false
+    }
+
     // Pause, then freeze once the page is hidden (a visible page can't be frozen).
     function suspend() {
         background = false
@@ -172,6 +179,9 @@ FocusScope {
             settings.playbackRequiresUserGesture: false
             settings.showScrollBars: false
 
+            // No browser menu (Back, Reload, View page source…): it comes up on a right
+            // click, a long touch or the Menu key, and none of it belongs on the TV.
+            onContextMenuRequested: request => request.accepted = true
             onWindowCloseRequested: page.closed()
             // A (re)loaded page starts without segments.
             onLoadingChanged: request => {

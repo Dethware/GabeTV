@@ -106,8 +106,22 @@ FocusScope {
                     }
                 }
 
-                Keys.onReturnPressed: { const index = currentIndex; dialog.close(); dialog.chosen(index) }
-                Keys.onEnterPressed: { const index = currentIndex; dialog.close(); dialog.chosen(index) }
+                // Not the repeats of a key that is still held from before the dialog opened
+                // (a long press opens the tile menu): they would pick the first answer.
+                Keys.onReturnPressed: event => {
+                    if (event.isAutoRepeat)
+                        return
+                    const index = currentIndex
+                    dialog.close()
+                    dialog.chosen(index)
+                }
+                Keys.onEnterPressed: event => {
+                    if (event.isAutoRepeat)
+                        return
+                    const index = currentIndex
+                    dialog.close()
+                    dialog.chosen(index)
+                }
             }
         }
     }

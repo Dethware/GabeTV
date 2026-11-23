@@ -231,15 +231,19 @@ void MotionServer::sendMotion(int pad, const JoyCon::Motion &sample)
             // The reading's own time, not when it is sent: see JoyCon::Motion.
             put<quint64>(data, 48, quint64(sample.time));
             // The controller's axes (x to its top, y to its left, z out of its face) as the
-            // protocol's, which follow a DualShock 4: x to the right, y out of the face, z
-            // towards the player. The reference doesn't state the directions; these are
-            // to be checked against an emulator.
-            putFloat(data, 56, -sample.accel[1]);
-            putFloat(data, 60, sample.accel[2]);
-            putFloat(data, 64, -sample.accel[0]);
-            putFloat(data, 68, -sample.gyro[1]); // pitch, about x
-            putFloat(data, 72, sample.gyro[2]); // yaw, about y
-            putFloat(data, 76, -sample.gyro[0]); // roll, about z
+            // protocol's. Its reference doesn't state the directions, so they are set by
+            // what Eden makes of them: Eden's cemuhook client (udp_client.cpp, OnPadData)
+            // must end up with what Eden's own Joy-Con driver (joycon_protocol/poller.cpp)
+            // gives for the same movement. In our axes that driver's result is
+            // acceleration (y, -x, -z) and rotation (-y, x, z) for every controller, and
+            // the client takes acceleration as (x, -z, y) and rotation as (pitch, roll,
+            // -yaw). So a controller lying face up shows -1 on the protocol's y.
+            putFloat(data, 56, sample.accel[1]);
+            putFloat(data, 60, -sample.accel[2]);
+            putFloat(data, 64, sample.accel[0]);
+            putFloat(data, 68, -sample.gyro[1]); // pitch
+            putFloat(data, 72, -sample.gyro[2]); // yaw
+            putFloat(data, 76, sample.gyro[0]); // roll
             reply(client.address, client.port, TypeData, data);
         }
         ++it;

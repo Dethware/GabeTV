@@ -42,9 +42,16 @@ This is an early version:
   `~/.config/tvcontrollers/motion.ini` on the Steam Machine.
 
 - **The Ring-Con** is recognised on a right Joy-Con and its squeeze and pull are read.
-  So far only the TV's motion test shows them; games don't get them yet.
+  The TV's motion test shows them. With the Joy-Con in the ring, a pair steers the TV
+  and ordinary programs with that Joy-Con alone, as you hold it: its stick moves as you
+  see it, and of its four buttons the right one is A and the lower one B (printed X
+  and A while it is in the ring).
+- **Switch games in Eden** (`../apps/eden`) get the Joy-Cons, the Pro Controller and the
+  Ring-Con straight from this service, each controller by itself, the way a Switch has
+  them. Ring Fit Adventure runs with the ring and the leg strap. While a game is
+  being played the controllers are the game's alone; Home still brings up the TV.
 
-Not there yet: rumble, the Ring-Con in games and the IR camera.
+Not there yet: rumble, the player lights as a game sets them, and the IR camera.
 
 ## Install
 

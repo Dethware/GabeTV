@@ -76,8 +76,18 @@ the Jellyfin tile (or the remote's Netflix button) brings it back where it was. 
 watching resumes from Jellyfin's "Continue watching". A paused film or an untouched menu gets
 the screensaver like the shell does.
 
+**Ring Fit Adventure** (the tile on Home) runs in the Switch emulator Eden with the
+Joy-Cons, the leg strap and the Ring-Con (`../apps/eden`). Form the controller first: L on
+the left Joy-Con and R on the right one together. Home on a Joy-Con or the remote parks the
+game: it is paused and stays exactly as it is, also while the machine sleeps, and its tile
+brings it back. After the Joy-Cons have been away (sleep), press L+R again. A parked game
+is lost if the machine restarts; what the game itself saved is not. Because a parked game
+takes about half the machine's memory, the TV asks before starting a Steam game next to it.
+
 A blue dot in the corner of an app's tile means the app is still loaded: opening it is
-instant and it is where you left it.
+instant and it is where you left it. Hold OK on a tile for its menu: Close ends a loaded
+app (a parked game is then gone; what the game saved itself is kept), and Force close is
+for one that doesn't react.
 
 ## Setup
 

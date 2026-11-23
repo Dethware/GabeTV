@@ -17,26 +17,32 @@ Window {
     // the screen when the remote's YouTube key opened it.
     property string youtubeReturnPage: "home"
     property bool youtubeReturnToSteam: false
-    // The managed app that has the screen in place of the shell (Jellyfin), or null.
+    // The managed app that has the screen in place of the shell (Jellyfin, a Switch game in
+    // Eden), or null.
     property ManagedApp shownApp: null
 
-    // Show a managed app, starting it if needed. The shell stays on screen until its window
-    // is there.
+    // Show a managed app, starting it if needed and continuing it if it was left paused.
+    // The shell stays on screen until its window is there.
     function openApp(app) {
-        appQuitTimer.stop()
+        if (app === jellyfin)
+            appQuitTimer.stop()
         if (youtube.playing)
             youtube.pause()
         app.start()
+        app.resume()
         shownApp = app
     }
 
-    // Back to the shell: the app pauses and stays loaded for a while.
+    // Back to the shell: the app pauses. Jellyfin stays loaded for a while; a game stays
+    // parked as it is until it is opened again or closed.
     function leaveApp() {
         if (!shownApp)
             return
-        shownApp.pause()
+        const app = shownApp
+        app.pause()
         shownApp = null
-        appQuitTimer.restart()
+        if (app === jellyfin)
+            appQuitTimer.restart()
     }
 
     function openYouTube() {
@@ -85,16 +91,55 @@ Window {
         showPage("photos")
     }
 
-    // Starting a game from the shell. With music playing in the background: ask first.
+    function openTile(appId) {
+        if (appId === "youtube")
+            openYouTube()
+        else if (appId === "jellyfin")
+            openApp(jellyfin)
+        else if (appId === "ringfit")
+            openApp(eden)
+    }
+
+    // Close ends the program the way it ends itself; force close is for one that doesn't.
+    function closeTile(appId, force) {
+        if (appId === "youtube") {
+            youtube.unload()
+        } else if (appId === "jellyfin") {
+            appQuitTimer.stop()
+            if (force)
+                jellyfin.kill()
+            else
+                jellyfin.quit()
+        } else if (appId === "ringfit") {
+            if (force)
+                eden.kill()
+            else
+                eden.quit()
+        }
+    }
+
+    // Starting a game from the shell. With a Switch game parked: ask first whether to close
+    // it (it holds half the machine's memory). With music playing in the background: ask.
     property string pendingGame
+    property string pendingGameName
 
     function launchGame(appId, name) {
+        pendingGame = appId
+        pendingGameName = name
+        if (eden.running) {
+            parkedDialog.title = qsTr("Start %1?").arg(name)
+            parkedDialog.open()
+        } else {
+            launchPendingGame()
+        }
+    }
+
+    function launchPendingGame() {
         if (youtube.background && youtube.playing) {
-            pendingGame = appId
-            gameDialog.title = qsTr("Start %1?").arg(name)
+            gameDialog.title = qsTr("Start %1?").arg(pendingGameName)
             gameDialog.open()
         } else {
-            steamLibrary.launch(appId)
+            steamLibrary.launch(pendingGame)
         }
     }
 
@@ -191,6 +236,7 @@ Window {
         onAboutToSleep: {
             youtube.pause()
             jellyfin.pause()
+            eden.pause()
         }
         // Screen off over something playing (the remote's Power): it pauses. Music goes on.
         onStateChanged: {
@@ -220,6 +266,22 @@ Window {
         onRunningChanged: {
             if (running && root.shownApp !== jellyfin)
                 appQuitTimer.restart()
+        }
+    }
+
+    // Eden with a Switch game (apps/eden), shown in place of the shell like Jellyfin. Left
+    // with Home it is paused and stays: a parked game, continued from its tile. It opens
+    // windows as it goes (its on-screen keyboard), so all of them are tagged.
+    ManagedApp {
+        id: eden
+        unit: "eden.service"
+        windowClass: "eden"
+        appId: 0x7E000003
+        mprisName: "org.mpris.MediaPlayer2.eden"
+        allWindows: true
+        onExited: {
+            if (root.shownApp === eden)
+                root.shownApp = null
         }
     }
 
@@ -356,12 +418,14 @@ Window {
 
             KeyNavigation.up: topBar
             KeyNavigation.priority: KeyNavigation.AfterItem
-            runningApps: [youtube.running ? "youtube" : "", jellyfin.running ? "jellyfin" : ""]
-            onAppOpened: appId => {
-                if (appId === "youtube")
-                    root.openYouTube()
-                else if (appId === "jellyfin")
-                    root.openApp(jellyfin)
+            runningApps: [youtube.running ? "youtube" : "", jellyfin.running ? "jellyfin" : "",
+                          eden.running ? "ringfit" : ""]
+            onAppOpened: appId => root.openTile(appId)
+            onMenuRequested: (appId, name) => {
+                tileMenu.appId = appId
+                tileMenu.title = name
+                tileMenu.loaded = runningApps.includes(appId)
+                tileMenu.open()
             }
         }
 
@@ -482,6 +546,43 @@ Window {
                 youtube.pause()
             if (index <= 1)
                 steamLibrary.launch(root.pendingGame)
+        }
+        onClosed: root.showPage(root.page)
+    }
+
+    // OK held on a tile of the Home place.
+    ChoiceDialog {
+        id: tileMenu
+
+        property string appId
+        // The app is loaded: there is something to close.
+        property bool loaded: false
+
+        anchors.fill: parent
+        choices: loaded ? [qsTr("Open"), qsTr("Close"), qsTr("Force close"), qsTr("Cancel")]
+                        : [qsTr("Open"), qsTr("Cancel")]
+
+        onChosen: index => {
+            if (index === 0)
+                root.openTile(appId)
+            else if (loaded && index <= 2)
+                root.closeTile(appId, index === 2)
+        }
+        onClosed: root.showPage(root.page)
+    }
+
+    ChoiceDialog {
+        id: parkedDialog
+
+        anchors.fill: parent
+        message: qsTr("Ring Fit Adventure is still open.")
+        choices: [qsTr("Close it and play"), qsTr("Keep it open and play"), qsTr("Cancel")]
+
+        onChosen: index => {
+            if (index === 0)
+                eden.quit()
+            if (index <= 1)
+                root.launchPendingGame()
         }
         onClosed: root.showPage(root.page)
     }

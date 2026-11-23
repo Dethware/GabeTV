@@ -27,6 +27,8 @@ constexpr int MaxFirstTries = 20;
 // How often the rail is asked what is attached, and how many reports in a row without the
 // ring's id mean it was taken off (150 ms).
 constexpr int RingLookMs = 1000;
+// How long a probe waits for the rail's answer (it came within two seconds when tried).
+constexpr int RingProbeMs = 5000;
 constexpr int RingGoneReports = 10;
 
 // CRC-8, polynomial 7, starting from 0: the second processor's checksum.
@@ -87,6 +89,9 @@ JoyCon::JoyCon(const QString &node, Side side, const QString &address, QObject *
     m_replyTimer.setSingleShot(true);
     m_replyTimer.setInterval(ReplyTimeoutMs);
     connect(&m_replyTimer, &QTimer::timeout, this, &JoyCon::replyTimedOut);
+    m_probeTimer.setSingleShot(true);
+    m_probeTimer.setInterval(RingProbeMs);
+    connect(&m_probeTimer, &QTimer::timeout, this, [this] { setRingWanted(RingUser::Probe, false); });
     m_ringTimer.setInterval(RingLookMs);
     connect(&m_ringTimer, &QTimer::timeout, this, &JoyCon::lookForRing);
     m_lightsTimer.setSingleShot(true);
@@ -230,7 +235,13 @@ void JoyCon::readMotionCalibration(quint32 address, bool user)
     });
 }
 
-void JoyCon::setRingWanted(bool wanted)
+void JoyCon::setRingWanted(RingUser who, bool wanted)
+{
+    m_ringUsers = wanted ? m_ringUsers | int(who) : m_ringUsers & ~int(who);
+    applyRingWanted(m_ringUsers != 0);
+}
+
+void JoyCon::applyRingWanted(bool wanted)
 {
     if (m_side != Side::Right || m_ringWanted == wanted)
         return;
@@ -256,6 +267,24 @@ void JoyCon::setRingWanted(bool wanted)
     }
 }
 
+void JoyCon::probeRing()
+{
+    // While the ring is read anyway, that tells.
+    if (m_side != Side::Right || m_ringUsers != 0)
+        return;
+    setRingWanted(RingUser::Probe, true);
+    m_probeTimer.start();
+}
+
+void JoyCon::setInRing(bool inRing)
+{
+    if (m_inRing == inRing)
+        return;
+    m_inRing = inRing;
+    qCInfo(lcJoyCon).noquote() << name() << m_address << (inRing ? "sits in a Ring-Con" : "is not in a Ring-Con");
+    emit inRingChanged();
+}
+
 void JoyCon::lookForRing()
 {
     send(GetExternalDevice, {}, [this](const QByteArray &data) {
@@ -263,6 +292,13 @@ void JoyCon::lookForRing()
             return;
         const quint16 device = qFromLittleEndian<quint16>(data.constData());
         qCDebug(lcJoyCon).noquote() << name() << "has on its rail:" << Qt::hex << device;
+        setInRing(device == ExternalRingCon);
+        // A probe only wanted to know.
+        if (m_ringUsers == int(RingUser::Probe)) {
+            m_probeTimer.stop();
+            setRingWanted(RingUser::Probe, false);
+            return;
+        }
         if (device != ExternalRingCon)
             return;
         m_ringTimer.stop();
@@ -278,7 +314,10 @@ void JoyCon::setRing(bool ring)
         return;
     m_ring = ring;
     m_ringSilent = 0;
+    m_ringFlex = NoRingFlex;
     qCInfo(lcJoyCon).noquote() << name() << m_address << (ring ? "has a Ring-Con attached" : "has no Ring-Con any more");
+    if (ring)
+        setInRing(true);
     emit ringChanged();
     if (!ring && m_ringWanted)
         m_ringTimer.start();
@@ -524,10 +563,14 @@ void JoyCon::handleReport(const QByteArray &report)
             // Taken off the rail, the id is gone at once; a few reports in a row, in
             // case one is ever wrong.
             m_ringSilent = railId == ExternalRingCon ? 0 : m_ringSilent + 1;
-            if (m_ringSilent >= RingGoneReports)
+            if (m_ringSilent >= RingGoneReports) {
                 setRing(false);
-            else if (railId == ExternalRingCon)
+                setInRing(false);
+            }
+            else if (railId == ExternalRingCon) {
+                m_ringFlex = railValue;
                 emit ringFlex(railValue);
+            }
         }
         m_lastMotion = samples[MotionSamples - 1];
         // A gap spoils the stretch of stillness being watched, filled in or not.
@@ -535,10 +578,17 @@ void JoyCon::handleReport(const QByteArray &report)
         emit motion(samples);
     }
 
-    const bool ours = type == InputSubcommandReply && m_waiting && report.size() > ReplyDataOffset
-                      && quint8(report[ReplyIdOffset]) == m_queue.first().id;
+    bool ours = type == InputSubcommandReply && m_waiting && report.size() > ReplyDataOffset
+                && quint8(report[ReplyIdOffset]) == m_queue.first().id;
+    // A memory read is answered with its address and length in front. They must be the
+    // ones asked for: a Joy-Con that is slow to answer (seen when the service starts with
+    // two of them already connected) answers a read after the next one has gone out, and
+    // taken for that one's answer it gave both Joy-Cons a calibration of -1 and 255.
+    if (ours && m_queue.first().id == ReadMemory
+        && report.mid(ReplyDataOffset, 5) != m_queue.first().args.left(5))
+        ours = false;
     if (type == InputSubcommandReply && !ours && report.size() > ReplyDataOffset) {
-        // Someone else's subcommand was answered: the kernel's driver also talks to the Joy-Con.
+        // A late answer to an earlier try or an earlier read.
         qCDebug(lcJoyCon).noquote() << name() << "answered a subcommand that isn't ours:" << Qt::hex
                                     << quint8(report[ReplyIdOffset]) << "ack" << quint8(report[ReplyAckOffset])
                                     << "data" << report.mid(ReplyDataOffset, 6).toHex(' ');

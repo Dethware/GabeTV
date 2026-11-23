@@ -93,8 +93,24 @@ the bus every three seconds.
   sit in other places, so a game's layout by position comes out mirrored, and an
   emulator's own mapping has to assign the four by letter. A sideways Joy-Con's stick is
   rotated with the grip (the tables and the two sign pairs are in `Unit.cpp`).
+  A pair whose right Joy-Con sits in a Ring-Con is
+  held differently again: that Joy-Con is the one in the hands, a quarter turned like a
+  sideways one (its top to the player's right), so it steers with its stick as the player sees it,
+  on the pad's left stick, and its four buttons follow the same rule (`RingMap`); the left
+  one is strapped to a leg and keeps its buttons. Whether it sits in a ring is
+  `JoyCon::inRing`: what the rail said last, asked while the ring is read, and once by
+  `probeRing()` when the pair is formed. Nothing in the ordinary report says when the
+  Joy-Con is slid out again, so while it sits in a ring and is in use the unit keeps the
+  ring read (`followRing`); after two minutes without input from that Joy-Con the
+  reading stops, and its next input asks the rail again. Nothing says
+  either when a Joy-Con is slid into a ring later; what changes is how it is held, on its
+  side. So when a pair's right Joy-Con has had gravity along its width for a second, its
+  rail is asked, at most every six seconds and only while it is in use.
   While any of its Joy-Cons is quiet the pad is neutral, so
-  nothing stays held. Home is not mapped; it becomes `homePressed()`.
+  nothing stays held. A press belongs to whoever had the controller when it went down:
+  what is held when the pad gets the controller (the unit is formed with L+R, or a game
+  lets go of it) stays released on the pad until it is let go, and a pushed stick stays
+  centred until it has been centred. Our Eden does the same in the other direction. Home is not mapped; it becomes `homePressed()`.
   Two units can trade player numbers (`tradePlayerWith`): the virtual controllers go
   with the numbers, not with the Joy-Cons, because programs take controllers in the order
   they were made. So the controller that was made first stays player 1's, whoever holds
@@ -147,11 +163,28 @@ the bus every three seconds.
   a client that takes the time between packets as the time between readings (Eden), and
   sent by a timer each they arrived out of order. Only motion, battery and identity are filled in; buttons and sticks
   go through the virtual controller. The protocol's reference doesn't say which way its
-  axes point; the mapping in `sendMotion` (x right, y out of the face, z towards the
-  player) is to be checked against an emulator. A client that stops asking is dropped
+  axes point, so the mapping in `sendMotion` is set by Eden: its cemuhook client must end
+  up with what its own Joy-Con driver gives for the same movement (the comment there has
+  both). A controller lying face up shows -1 g on the protocol's y. A client that stops asking is dropped
   after five seconds.
+- **`EmulatorServer`** is the service's second face, for an emulator of the Switch: a Unix
+  socket (`SOCK_SEQPACKET`, `$XDG_RUNTIME_DIR/tvcontrollers/emulator`) speaking
+  `protocol/emulator.h`, which is the whole contract and is also built into our Eden
+  (`../apps/eden`). Where a virtual pad is one combined controller for ordinary programs,
+  an emulator gets every physical controller by itself: on connecting, and whenever it
+  changes, the list of controllers (side, how it is held, whose it is, its partner,
+  battery, ring), and for every report an `Input` with buttons, stick, the report's three
+  motion readings with their times and the ring's raw flex. It asks for the ring with
+  `SetRing` and says with `Playing` when a game is being played: the units' virtual pads
+  are then held neutral (`UnitManager::setPadsHeld`), so that the controllers are the
+  game's alone, while Home still reaches the shell. Lights and rumble are in the protocol
+  and not acted on yet. A program that
+  disconnects is taken out of the list before anything it asked for is given up: giving
+  up a ring announces a change to every client, and that must not reach the one being
+  dropped.
 - **The Ring-Con** hangs on a right Joy-Con's rail and is read through the Joy-Con's
-  second processor, which also drives the IR camera and NFC. `JoyCon::setRingWanted(true)`
+  second processor, which also drives the IR camera and NFC. `JoyCon::setRingWanted(who, true)`
+  (the shell's test and an emulator may each want it; it is read while either does)
   switches that processor on and puts it in standby, then asks the rail every second what
   is attached (`lookForRing`); when it answers with the ring's id, the format block and
   the polling command go out (the bytes are in `JoyConProtocol.h`) and `ringChanged()`
@@ -162,9 +195,11 @@ the bus every three seconds.
   (`ringFlex`, 66 a second) and takes the ring as gone when the id was missing for ten
   reports. The flex is passed on as it comes, about 3700 at rest and 1500 to 6200 at the
   ends: the game calibrates it for the player. The second processor costs battery, so it
-  runs only while the ring is wanted; `setRingWanted(false)` switches it off.
+  runs only while the ring is wanted; when nobody wants it any more it is switched off.
 - **Stick calibration** comes from the Joy-Con's memory (subcommand `0x10`): the factory
-  values, replaced by the user's own if those are marked valid. `JoyCon::stick()` gives
+  values, replaced by the user's own if those are marked valid. An answer to a memory
+  read only counts if it repeats the address and length asked for: a slow Joy-Con
+  answers a read after the next one has gone out. `JoyCon::stick()` gives
   -1 to 1 with a 15 % dead zone.
 - **`Bluetooth`** is the bluez side, on the system D-Bus. A search sets the discovery
   filter to classic Bluetooth and starts discovery; every device object that appears
@@ -208,12 +243,15 @@ differ from the repository's.
 
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
-2. The Ring-Con for a game: its flex, raw, as an axis of a virtual device, and a unit of
-   a right Joy-Con in the ring with a left one in the leg strap, which keeps the ring
-   read for as long as it exists. Then rumble and the IR camera.
-3. Lost reports, later and not urgent: their readings are filled in on a straight line
+2. For the emulator (`EmulatorServer`): lights and rumble as the game sets them, then the
+   IR camera. Units that survive a restart of the service.
+3. An idea, not decided: the Ring-Con as the way to steer outside games too (squeeze to
+   confirm, pull to cancel, turn it left or right, point it up or down), as one more
+   mapping onto the virtual pad. It needs the ring read the whole time, which keeps the
+   Joy-Con's second processor on.
+4. Lost reports, later and not urgent: their readings are filled in on a straight line
    once the next report is there. Worth reading up on what is done elsewhere (loss
    concealment for inertial sensors) and trying prediction, so that a reader gets
    something sensible during the gap and not only after it.
-4. Motion pads for players 3 and 4 (a second server port).
-5. The Pro Controller on a USB cable.
+5. Motion pads for players 3 and 4 (a second server port).
+6. The Pro Controller on a USB cable.

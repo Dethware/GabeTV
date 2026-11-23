@@ -227,8 +227,11 @@ void MotionClient::read()
         const quint64 time = qFromLittleEndian<quint64>(data.constData() + 48);
         const quint64 elapsed = m_lastTime[index] == 0 ? 5000 : time > m_lastTime[index] ? time - m_lastTime[index] : 0;
         m_lastTime[index] = time;
-        m_pads[index]->add(QVector3D(getFloat(data, 56), getFloat(data, 60), getFloat(data, 64)),
-                           QVector3D(getFloat(data, 68), getFloat(data, 72), getFloat(data, 76)),
+        // The server's directions are the ones Eden wants (../controllers, MotionServer):
+        // gravity's pull, not the push against it, and yaw and roll the other way round.
+        // Turned here into the pad's axes (MotionPad).
+        m_pads[index]->add(-QVector3D(getFloat(data, 56), getFloat(data, 60), getFloat(data, 64)),
+                           QVector3D(getFloat(data, 68), -getFloat(data, 72), -getFloat(data, 76)),
                            qMin(elapsed, quint64(50000)) / 1e6f);
     }
 }

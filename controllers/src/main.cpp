@@ -1,6 +1,7 @@
 #include "Bluetooth.h"
 #include "ControllerService.h"
 #include "DeviceWatcher.h"
+#include "EmulatorServer.h"
 #include "MotionCalibration.h"
 #include "MotionServer.h"
 #include "UnitManager.h"
@@ -23,6 +24,9 @@ int main(int argc, char *argv[])
     MotionCalibration calibration(&watcher);
     ControllerService service(&watcher, &units, &bluetooth, &calibration);
     MotionServer motion(&units);
+    EmulatorServer emulators(&watcher, &units);
+    // While an emulator has a game being played, the controllers are the game's alone.
+    QObject::connect(&emulators, &EmulatorServer::playingChanged, &units, &UnitManager::setPadsHeld);
     // A switched-off Joy-Con leaves a dead connection that the machine keeps for 20 s, and
     // until it is gone a button press can't reconnect. Drop it at once.
     QObject::connect(&watcher, &DeviceWatcher::joyConSwitchedOff, &bluetooth, &Bluetooth::switchOff);
