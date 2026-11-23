@@ -1,11 +1,12 @@
-# Joy-Cons over Bluetooth (left 057e:2006, right 057e:2007) belong to the TV's controller
-# service alone: no access for the logged-in user (Steam, SDL programs), only for group
-# "input". Sorted after 70-steam-jupiter-input.rules and 70-uaccess.rules, which tag the
-# nodes for user access, and before 73-seat-late.rules, which applies that tag.
-# The Pro Controller (057e:2009) is left out on purpose: it is an ordinary controller.
+# Nintendo's Switch controllers over Bluetooth belong to the TV's controller service alone:
+# Joy-Cons (left 057e:2006, right 057e:2007) and the Pro Controller (057e:2009). No access
+# for the logged-in user (Steam, SDL programs), only for group "input". Sorted after
+# 70-steam-jupiter-input.rules and 70-uaccess.rules, which tag the nodes for user access,
+# and before 73-seat-late.rules, which applies that tag.
+# A Pro Controller on a USB cable is not covered: the service doesn't speak to it that way.
 
 # The raw HID node.
-SUBSYSTEM=="hidraw", KERNELS=="0005:057E:200[67].*", TAG-="uaccess", GROUP="input", MODE="0660"
+SUBSYSTEM=="hidraw", KERNELS=="0005:057E:200[679].*", TAG-="uaccess", GROUP="input", MODE="0660"
 
-# The kernel driver's input devices (buttons and stick, motion).
-SUBSYSTEM=="input", KERNEL=="event*|js*", ATTRS{id/vendor}=="057e", ATTRS{id/product}=="200[67]", TAG-="uaccess", GROUP="input", MODE="0660"
+# The generic driver's input devices for them.
+SUBSYSTEM=="input", KERNEL=="event*|js*", ATTRS{id/bustype}=="0005", ATTRS{id/vendor}=="057e", ATTRS{id/product}=="200[679]", TAG-="uaccess", GROUP="input", MODE="0660"

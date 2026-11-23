@@ -10,6 +10,7 @@ namespace JoyConProtocol {
 constexpr quint16 VendorNintendo = 0x057e;
 constexpr quint16 ProductLeft = 0x2006;
 constexpr quint16 ProductRight = 0x2007;
+constexpr quint16 ProductPro = 0x2009;
 
 // Output report 0x01: a packet counter, eight bytes of rumble data, then one subcommand
 // and its arguments.

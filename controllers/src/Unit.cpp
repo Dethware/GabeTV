@@ -14,12 +14,17 @@ struct Mapping
     quint32 pad; // VirtualPad::Button
 };
 
-// A pair, held upright: a full controller.
-constexpr Mapping PairMap[] = {
-    {B, VirtualPad::South},
-    {A, VirtualPad::East},
-    {Y, VirtualPad::West},
-    {X, VirtualPad::North},
+// The four buttons under the right thumb follow one rule in every grip, the Switch's own:
+// the one on the right is A, the lower one B, the upper one X, the left one Y. Held
+// upright that is what is printed on them; held sideways the print is turned and means
+// nothing. A confirms and B goes back, here as everywhere else.
+
+// A pair, held upright, or a Pro Controller: a full controller.
+constexpr Mapping FullMap[] = {
+    {A, VirtualPad::A},
+    {B, VirtualPad::B},
+    {X, VirtualPad::X},
+    {Y, VirtualPad::Y},
     {Up, VirtualPad::DpadUp},
     {Down, VirtualPad::DpadDown},
     {Left, VirtualPad::DpadLeft},
@@ -35,12 +40,13 @@ constexpr Mapping PairMap[] = {
 };
 
 // The right Joy-Con sideways, rail up: the stick is on the left, and the four buttons have
-// turned a quarter clockwise, so A is at the bottom, X on the right, B on the left, Y on top.
+// turned a quarter clockwise, so the one printed X is now on the right, A at the bottom,
+// Y on top and B on the left.
 constexpr Mapping RightSidewaysMap[] = {
-    {A, VirtualPad::South},
-    {X, VirtualPad::East},
-    {B, VirtualPad::West},
-    {Y, VirtualPad::North},
+    {X, VirtualPad::A},
+    {A, VirtualPad::B},
+    {Y, VirtualPad::X},
+    {B, VirtualPad::Y},
     {RightSL, VirtualPad::LeftShoulder},
     {RightSR, VirtualPad::RightShoulder},
     {Plus, VirtualPad::Start},
@@ -48,13 +54,13 @@ constexpr Mapping RightSidewaysMap[] = {
     {RightStick, VirtualPad::LeftStick},
 };
 
-// The left Joy-Con sideways, rail up: turned the other way, so Left is at the bottom, Down
-// on the right, Up on the left, Right on top.
+// The left Joy-Con sideways, rail up: turned the other way, so the arrow printed Down is
+// now on the right, Left at the bottom, Right on top and Up on the left.
 constexpr Mapping LeftSidewaysMap[] = {
-    {Left, VirtualPad::South},
-    {Down, VirtualPad::East},
-    {Up, VirtualPad::West},
-    {Right, VirtualPad::North},
+    {Down, VirtualPad::A},
+    {Left, VirtualPad::B},
+    {Right, VirtualPad::X},
+    {Up, VirtualPad::Y},
     {LeftSL, VirtualPad::LeftShoulder},
     {LeftSR, VirtualPad::RightShoulder},
     {Minus, VirtualPad::Start},
@@ -110,11 +116,18 @@ void Unit::update()
     if (m_kind == Kind::Pair) {
         const JoyCon *left = m_joyCons.at(0);
         const JoyCon *right = m_joyCons.at(1);
-        state.buttons = mapped(PairMap, left->state().buttons | right->state().buttons);
+        state.buttons = mapped(FullMap, left->state().buttons | right->state().buttons);
         state.leftX = left->stick().x;
         state.leftY = -left->stick().y;
         state.rightX = right->stick().x;
         state.rightY = -right->stick().y;
+    } else if (m_kind == Kind::Pro) {
+        const JoyCon *pro = m_joyCons.first();
+        state.buttons = mapped(FullMap, pro->state().buttons);
+        state.leftX = pro->stick(JoyCon::Side::Left).x;
+        state.leftY = -pro->stick(JoyCon::Side::Left).y;
+        state.rightX = pro->stick(JoyCon::Side::Right).x;
+        state.rightY = -pro->stick(JoyCon::Side::Right).y;
     } else {
         const JoyCon *joyCon = m_joyCons.first();
         const JoyCon::Stick stick = joyCon->stick();

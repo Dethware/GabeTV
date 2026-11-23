@@ -18,6 +18,7 @@ namespace {
 constexpr int RetryIntervalMs = 250;
 constexpr int MaxRefusals = 20;
 constexpr int MaxWaits = 20;
+constexpr quint16 BusBluetooth = 0x0005;
 
 struct HidInfo
 {
@@ -102,8 +103,18 @@ void DeviceWatcher::scan()
         if (m_joyCons.contains(node))
             continue;
         const HidInfo info = hidInfo(name);
-        const bool left = info.product == JoyConProtocol::ProductLeft;
-        if (info.vendor != JoyConProtocol::VendorNintendo || (!left && info.product != JoyConProtocol::ProductRight))
+        // Over Bluetooth only. A Pro Controller on a USB cable speaks differently and is
+        // left to Steam.
+        if (info.vendor != JoyConProtocol::VendorNintendo || info.bus != BusBluetooth)
+            continue;
+        JoyCon::Side side;
+        if (info.product == JoyConProtocol::ProductLeft)
+            side = JoyCon::Side::Left;
+        else if (info.product == JoyConProtocol::ProductRight)
+            side = JoyCon::Side::Right;
+        else if (info.product == JoyConProtocol::ProductPro)
+            side = JoyCon::Side::Both;
+        else
             continue;
 
         Pending &pending = m_pending[node];
@@ -119,7 +130,7 @@ void DeviceWatcher::scan()
             continue;
         }
 
-        auto *joyCon = new JoyCon(node, left ? JoyCon::Side::Left : JoyCon::Side::Right, info.address, this);
+        auto *joyCon = new JoyCon(node, side, info.address, this);
         if (!joyCon->open()) {
             const int error = errno;
             delete joyCon;

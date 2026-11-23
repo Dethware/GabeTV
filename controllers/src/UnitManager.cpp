@@ -37,6 +37,10 @@ void UnitManager::add(JoyCon *joyCon)
         }
         tryForm(joyCon);
     });
+    if (joyCon->side() == JoyCon::Side::Both) {
+        form(Unit::Kind::Pro, {joyCon});
+        return;
+    }
     wait(joyCon);
     emit changed();
 }
@@ -50,8 +54,13 @@ void UnitManager::wait(JoyCon *joyCon)
 
 void UnitManager::tryForm(JoyCon *joyCon)
 {
-    const bool left = joyCon->side() == JoyCon::Side::Left;
     const quint32 buttons = joyCon->state().buttons;
+    if (joyCon->side() == JoyCon::Side::Both) {
+        if ((buttons & (L | R)) == (L | R))
+            form(Unit::Kind::Pro, {joyCon});
+        return;
+    }
+    const bool left = joyCon->side() == JoyCon::Side::Left;
 
     const quint32 rail = left ? (LeftSL | LeftSR) : (RightSL | RightSR);
     if ((buttons & rail) == rail) {
@@ -62,7 +71,7 @@ void UnitManager::tryForm(JoyCon *joyCon)
     if (!(buttons & (left ? L : R)))
         return;
     for (JoyCon *other : std::as_const(m_unassigned)) {
-        if (other->side() == joyCon->side() || !(other->state().buttons & (left ? R : L)))
+        if (other->side() != (left ? JoyCon::Side::Right : JoyCon::Side::Left) || !(other->state().buttons & (left ? R : L)))
             continue;
         form(Unit::Kind::Pair, left ? QList<JoyCon *>{joyCon, other} : QList<JoyCon *>{other, joyCon});
         return;
@@ -94,8 +103,24 @@ void UnitManager::form(Unit::Kind kind, const QList<JoyCon *> &joyCons)
     });
     m_units.append(unit);
     qCInfo(lcUnits).noquote() << "player" << player << "is" << names.join(QStringLiteral(" + "))
-                              << (kind == Unit::Kind::Pair ? "as a pair" : "sideways");
+                              << (kind == Unit::Kind::Pair ? "as a pair" : kind == Unit::Kind::Sideways ? "sideways" : "");
     emit changed();
+}
+
+void UnitManager::end(int player)
+{
+    for (Unit *unit : std::as_const(m_units)) {
+        if (unit->player() != player)
+            continue;
+        qCInfo(lcUnits) << "player" << player << "ended on request";
+        m_units.removeAll(unit);
+        const QList<JoyCon *> members = unit->joyCons();
+        delete unit;
+        for (JoyCon *joyCon : members)
+            wait(joyCon);
+        emit changed();
+        return;
+    }
 }
 
 void UnitManager::remove(JoyCon *joyCon)

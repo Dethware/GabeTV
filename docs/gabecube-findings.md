@@ -1369,6 +1369,66 @@ PIN):
   in YouTube too.
 - Home on a Joy-Con: the shell's `ShellService` now listens for the service's
   `HomePressed` D-Bus signal and passes it on as the remote's Home. Built; not deployed.
+  (Deployed afterwards and confirmed by the user.)
+- Pairing from the service, through bluez's D-Bus API: `SetDiscoveryFilter` (classic
+  Bluetooth only) and `StartDiscovery`; a device named "Joy-Con…" that isn't paired gets
+  `Pair`, `Trusted = true` and `Connect`. The service registers its own agent
+  (`NoInputNoOutput`, not the default one) that says yes only for a device it is pairing.
+  First use: the left Joy-Con (70:F0:88:04:6D:7D), held in sync mode by the user, was found
+  10.7 s into the search, paired 4.4 s later and ready 0.6 s after that (firmware 4.25,
+  factory calibration centre 2009/2327). All of it as `deck`, no root, no bluetoothd
+  complaint. The search is started by hand for now:
+  `busctl --user call local.tvcontrollers /local/tvcontrollers local.tvcontrollers StartSearch`.
+- The other two Joy-Cons paired in one search (14:36): the right one 48:A5:E7:6B:35:8C
+  found 1.5 s in and paired 6.2 s later, the left one 48:A5:E7:6B:1A:56 right after it in
+  6.4 s. All four are now paired with gabecube.
+- First pairs formed by the user with L+R: player 1 is 70:F0:88:04:6D:7D (L) with
+  70:F0:88:03:DD:CE (R), player 2 is the 48:A5… two, formed three seconds after the second
+  one connected. Two virtual controllers (`TV Controller 1` and `2`), and Steam made a pad
+  for each (`Microsoft X-Box 360 pad 0` and `1`). The user's photo: one light on each of
+  the first two, two lights on each of the others.
+- The user on the pairs: A/B/X/Y "might be mapped incorrectly". They were mapped by
+  position (the Joy-Con's bottom button B as the pad's bottom button, Xbox A), so B was OK
+  in the shell and A was Back. Changed for a pair: by letter, Joy-Con A is the pad's A and
+  so on, which swaps the positions against an Xbox pad but makes A confirm and prompts
+  match the printed letters. *My reading of the report; not yet confirmed.* A sideways
+  Joy-Con stays by position (bottom button OK), which the user had called OK; a Switch
+  uses the right-hand button there.
+- **The rule, from the user with three photos** (a right Joy-Con upright, a right one
+  sideways, a left one sideways, the thumb on the right-hand button each time): "The
+  mapping of buttons is all about the orientation", that button is the same one from the
+  player's view and "should probably be whatever we call A". So in every grip the right
+  one of the four is A, the lower B, the upper X, the left Y, which is the Switch's own
+  rule. The upright pair already did that after the change above; the sideways tables are
+  changed (they had the lower button as OK), which also overrides the "stays by position"
+  above. The pad's buttons are now named A/B/X/Y in the code, by the letter programs see.
+  The user afterwards: "This works so well. I am in a Steam game, I connected a joy con,
+  and it immediately works with no issues." So a controller formed while a Steam game runs
+  is picked up by the game through Steam's pad, with no setup. The game itself only
+  looked at the first controller, which the user takes to be the game's limit.
+- **The Pro Controller joins the service**, decided by the user after this ("at this point,
+  I think we should do the pro controller too"), reversing "generic controller for now"
+  above. It speaks the same protocol, so it is a `JoyCon` with side `Both`: both sticks
+  and both calibrations, the full button map of a pair, and a unit of its own as soon as
+  it connects. The rule now covers 057e:2009 over Bluetooth (the input rule got
+  `ATTRS{id/bustype}=="0005"`, which a Joy-Con's input device shows); a Pro Controller on
+  USB is left to Steam, since over USB the protocol needs a handshake the service doesn't
+  do. The search pairs a device named "Pro Controller" as well. Built; the rule needs the
+  user's sudo, and nothing of it is tried.
+- First run with the Pro Controller (98:41:5C:39:1A:2F), after the user installed the
+  wider rule: found 1.5 s into the search, paired in 5.1 s, both factory calibrations read
+  (left centre 1980/1931, right 2005/2048), "ready, firmware 4.33 battery 3 of 4", and at
+  once "player 1 is Pro Controller" with `TV Controller 1`. Its node is `root:input 660`
+  on `hid-generic`; Steam's log has only our virtual pad ("045e 028e, Xbox 360
+  Controller"), not the Pro Controller. The user: "Pro controller seems good", and the
+  shell's power menu entry that turns controllers off (it disconnects Bluetooth gamepads
+  through bluez) worked on these controllers too.
+- The service also got `EndUnit(player)`: ends a controller, its Joy-Cons stay connected
+  and wait again. Built, not tried.
+- The user also: it "felt a bit slow when the second set of joycons was pairing", while
+  the first pair was in use. *Inferred, not measured:* the search (Bluetooth inquiry)
+  takes radio time from the connected Joy-Cons. Nothing changed for it; a search is short
+  and only runs when asked for.
 - The first connection ended after 5 s (Steam: "Controller device closed after hid_read
   failure"), with nothing in the kernel log. The Joy-Con then reconnected by itself on a
   button press and stayed for the 45 s watched. A sleeping Joy-Con can't be connected from

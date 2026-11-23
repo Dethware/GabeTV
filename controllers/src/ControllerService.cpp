@@ -24,7 +24,9 @@ QJsonObject describe(const JoyCon *joyCon)
     return {
         {QStringLiteral("address"), joyCon->address()},
         {QStringLiteral("name"), joyCon->name()},
-        {QStringLiteral("side"), joyCon->side() == JoyCon::Side::Left ? QStringLiteral("left") : QStringLiteral("right")},
+        {QStringLiteral("side"), joyCon->side() == JoyCon::Side::Left    ? QStringLiteral("left")
+                                 : joyCon->side() == JoyCon::Side::Right ? QStringLiteral("right")
+                                                                         : QStringLiteral("both")},
         {QStringLiteral("battery"), joyCon->state().battery},
         {QStringLiteral("charging"), joyCon->state().charging},
     };
@@ -38,6 +40,7 @@ ControllerService::ControllerService(UnitManager *units, Bluetooth *bluetooth, Q
     , m_bluetooth(bluetooth)
 {
     connect(units, &UnitManager::changed, this, &ControllerService::Changed);
+    connect(bluetooth, &Bluetooth::searchingChanged, this, &ControllerService::Changed);
     connect(units, &UnitManager::homePressed, this, &ControllerService::HomePressed);
     m_retry.setInterval(RetryIntervalMs);
     connect(&m_retry, &QTimer::timeout, this, &ControllerService::connectToBus);
@@ -72,7 +75,9 @@ QString ControllerService::Describe() const
             members.append(describe(joyCon));
         units.append(QJsonObject{
             {QStringLiteral("player"), unit->player()},
-            {QStringLiteral("kind"), unit->kind() == Unit::Kind::Pair ? QStringLiteral("pair") : QStringLiteral("sideways")},
+            {QStringLiteral("kind"), unit->kind() == Unit::Kind::Pair       ? QStringLiteral("pair")
+                                     : unit->kind() == Unit::Kind::Sideways ? QStringLiteral("sideways")
+                                                                            : QStringLiteral("pro")},
             {QStringLiteral("joyCons"), members},
         });
     }
@@ -101,6 +106,11 @@ void ControllerService::StopSearch()
 void ControllerService::SwitchOff(const QString &address)
 {
     m_bluetooth->switchOff(address);
+}
+
+void ControllerService::EndUnit(int player)
+{
+    m_units->end(player);
 }
 
 void ControllerService::Forget(const QString &address)

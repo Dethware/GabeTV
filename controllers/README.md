@@ -1,13 +1,13 @@
 # TV controller service
 
-The part of the TV that owns the Nintendo Joy-Cons. It is meant to do what a Switch does
-with them: pair them, let two form one controller, show the player number on their lights,
-watch their batteries, and bring up the TV's home screen when Home is pressed. Games, Steam
-and the emulator don't see the Joy-Cons themselves; they see controllers this service makes.
+The part of the TV that owns Nintendo's Switch controllers: the Joy-Cons and the Pro
+Controller. It is meant to do what a Switch does with them: pair them, let two Joy-Cons
+form one controller, show the player number on their lights, watch their batteries, and
+bring up the TV's home screen when Home is pressed. Games, Steam and the emulator don't
+see these controllers themselves; they see controllers this service makes.
 
-The Pro Controller is not handled here. It works as an ordinary controller through Steam.
-Installing this service switches off the kernel's own driver for Nintendo controllers,
-which the Pro Controller used as well; Steam has its own support for it.
+A Pro Controller on a USB cable is the exception: the service only handles Bluetooth, and
+on a cable Steam handles it as an ordinary controller.
 
 ## What it does today
 
@@ -21,13 +21,17 @@ This is an early version:
   becomes a controller held sideways, rail up. Its lights show the player number.
 - **Press L on a left Joy-Con and R on a right one together** and the two become one full
   controller.
+- **A Pro Controller** is a controller as soon as it connects.
+- In every grip, of the four buttons under your right thumb the one on the right is A
+  (OK) and the lower one is B (Back), as on a Switch.
 - Games and Steam see each of these as an ordinary controller. Home is kept back for the
   TV: it brings up the TV's home screen, like Home on the remote.
 - When a Joy-Con is switched off, it can be woken again after about five seconds. One that
   is carried out of reach keeps its connection for up to 20 seconds and carries on when it
   is back.
 
-Not there yet: pairing from the TV's own screens, motion, rumble and the Ring-Con.
+Not there yet: a screen in the TV's interface for pairing and for the controllers, motion,
+rumble and the Ring-Con.
 
 ## Install
 
@@ -52,9 +56,15 @@ Joy-Cons are then visible to Steam again from their next connection.
 
 ## Pairing a Joy-Con
 
-For now through Steam's Bluetooth settings or `bluetoothctl`: hold the small sync button on
-the Joy-Con's rail until the lights sweep, then pair it. Once paired, pressing any button
-on the Joy-Con connects it.
+The service pairs Joy-Cons itself; Steam's Bluetooth settings are not needed. Until the TV
+has a screen for it, start a search on the Steam Machine:
+
+    busctl --user call local.tvcontrollers /local/tvcontrollers local.tvcontrollers StartSearch
+
+Then hold the small sync button until the lights sweep: on a Joy-Con it is on the rail,
+on a Pro Controller on the top edge next to the USB socket. After a few
+seconds all four lights flash: it is paired and connected. The search ends by itself after
+two minutes. Once paired, pressing any button on a Joy-Con connects it.
 
 ## If Joy-Cons show up in Steam again
 

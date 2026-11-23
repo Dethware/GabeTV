@@ -19,13 +19,12 @@ struct Key
     quint16 code;
 };
 
-// xpad's codes. Its BTN_X is the west button and BTN_Y the north one, whatever the
-// kernel's BTN_NORTH and BTN_WEST aliases say.
+// xpad's codes, letter for letter.
 constexpr Key Keys[] = {
-    {VirtualPad::South, BTN_A},
-    {VirtualPad::East, BTN_B},
-    {VirtualPad::West, BTN_X},
-    {VirtualPad::North, BTN_Y},
+    {VirtualPad::A, BTN_A},
+    {VirtualPad::B, BTN_B},
+    {VirtualPad::X, BTN_X},
+    {VirtualPad::Y, BTN_Y},
     {VirtualPad::LeftShoulder, BTN_TL},
     {VirtualPad::RightShoulder, BTN_TR},
     {VirtualPad::Select, BTN_SELECT},

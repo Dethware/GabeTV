@@ -13,6 +13,8 @@ class JoyCon;
 // is held:
 //   SL+SR on one Joy-Con          that Joy-Con alone, sideways;
 //   L on a left and R on a right   those two as a pair.
+// A Pro Controller can only be held one way, so it is a controller as soon as it connects
+// (and again with L+R, after its unit was ended).
 // A unit gets the lowest free player number, 1 to 4, shown on its lights. When one of its
 // Joy-Cons leaves, the unit ends and the other one waits again.
 class UnitManager : public QObject
@@ -25,6 +27,8 @@ public:
     QList<Unit *> units() const { return m_units; }
     // Connected Joy-Cons that belong to no unit yet.
     QList<JoyCon *> unassigned() const { return m_unassigned; }
+    // Ends a unit; its Joy-Cons stay connected and wait again.
+    void end(int player);
 
 signals:
     void changed();

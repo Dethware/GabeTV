@@ -7,7 +7,8 @@
 // what Steam, the emulator and every other program get instead of the Joy-Cons. One per
 // unit. It presents itself as an Xbox 360 pad (same id, buttons and axes as the kernel's
 // xpad driver gives one), because every program knows that layout without being told.
-// Buttons are named by position, not by letter. The pad declares a guide button, since
+// Its four letter buttons are named by the letter programs see, not by where an Xbox pad
+// has them: A is what confirms, B what goes back. The pad declares a guide button, since
 // leaving it out would shift the numbering of the stick buttons, but never presses it:
 // Home stays with the shell.
 class VirtualPad : public QObject
@@ -16,10 +17,10 @@ class VirtualPad : public QObject
 
 public:
     enum Button : quint32 {
-        South = 1u << 0,
-        East = 1u << 1,
-        West = 1u << 2,
-        North = 1u << 3,
+        A = 1u << 0,
+        B = 1u << 1,
+        X = 1u << 2,
+        Y = 1u << 3,
         LeftShoulder = 1u << 4,
         RightShoulder = 1u << 5,
         Select = 1u << 6,

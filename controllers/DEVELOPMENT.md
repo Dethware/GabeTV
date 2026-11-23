@@ -1,6 +1,8 @@
 # TV controller service: development
 
-`tvcontrollers` is the only program that talks to the Joy-Cons. The decision behind it
+`tvcontrollers` is the only program that talks to the Joy-Cons and, over Bluetooth, the
+Pro Controller (called "a Joy-Con" below where the difference doesn't matter: it speaks
+the same protocol and is handled by the same `JoyCon` class, as side `Both`). The decision behind it
 ("we override everything") and the measurements are in the log,
 `docs/gabecube-findings.md`, under "Joy-Con".
 
@@ -27,8 +29,8 @@ the kernel's `hid_nintendo` binds it and makes two input devices next to the hid
 SteamOS opens all hidraw nodes to the logged-in user, and Steam and every SDL program then
 talk to the Joy-Con too. Two files stop that:
 
-- **`system/72-tv-joycon.rules`** removes the user-access tag from a Joy-Con's hidraw and
-  input nodes and gives them to group `input`, which the `deck` user is not in. The service
+- **`system/72-tv-joycon.rules`** removes the user-access tag from the hidraw and input
+  nodes of a Joy-Con or Pro Controller connected over Bluetooth and gives them to group `input`, which the `deck` user is not in. The service
   is a system unit that runs as `deck` with `SupplementaryGroups=input`, so it is the only
   process that can open them. The file must sort after `70-steam-jupiter-input.rules` and
   `70-uaccess.rules`, which set the tag, and before `73-seat-late.rules`, which applies it.
@@ -39,7 +41,8 @@ talk to the Joy-Con too. Two files stop that:
   its input devices appear, so its writes landed on top of the service's, and the service's
   traffic made its rate limiter give up (`joycon_enforce_subcmd_rate: exceeded max
   attempts`). The kernel offers no way to switch a driver off for some devices only, so
-  this also takes it off the Pro Controller, which Steam reads through hidraw itself.
+  this also takes it off a Pro Controller on a USB cable, which the service leaves to
+  Steam; Steam reads it through hidraw itself.
   `DeviceWatcher` still copes with the driver being back (it waits for its input devices
   and logs a warning), in case an update drops the file.
 
@@ -75,14 +78,21 @@ the bus every three seconds.
   battery from a switch-off.
 - **`UnitManager`** holds the connected Joy-Cons that are in no unit (their lights flash)
   and forms units from them on the Switch's own gestures: SL+SR on one Joy-Con makes it a
-  sideways controller, L on a left one together with R on a right one makes a pair. A unit
-  gets the lowest free player number, 1 to 4. When a Joy-Con leaves, its unit ends and a
+  sideways controller, L on a left one together with R on a right one makes a pair. A Pro
+  Controller is a unit of its own as soon as it connects, and again with L+R after its unit
+  was ended. A unit gets the lowest free player number, 1 to 4. When a Joy-Con leaves, its unit ends and a
   partner goes back to waiting.
 - **`Unit`** is one controller as a player holds it. It shows the player number on the
-  lights (one to four lit) and turns its Joy-Cons' state into one `VirtualPad` state, by
-  button position: a pair maps like a full controller; a sideways Joy-Con is turned a
-  quarter, so its four buttons and its stick are rotated (the tables and the two sign
-  pairs are in `Unit.cpp`). While any of its Joy-Cons is quiet the pad is neutral, so
+  lights (one to four lit) and turns its Joy-Cons' state into one `VirtualPad` state. The
+  four buttons under the right thumb follow the Switch's rule in every grip: the one on
+  the right is A, the lower one B, the upper one X, the left one Y. Upright that is the
+  print; sideways the Joy-Con is turned a quarter and the print means nothing (on a right
+  Joy-Con the button printed X is then A). The pad's A, B, X and Y are the letters
+  programs see: A confirms, B goes back, also in the shell. On an Xbox pad those letters
+  sit in other places, so a game's layout by position comes out mirrored, and an
+  emulator's own mapping has to assign the four by letter. A sideways Joy-Con's stick is
+  rotated with the grip (the tables and the two sign pairs are in `Unit.cpp`).
+  While any of its Joy-Cons is quiet the pad is neutral, so
   nothing stays held. Home is not mapped; it becomes `homePressed()`.
 - **`VirtualPad`** is the uinput controller games see. It presents itself as an Xbox 360
   pad (USB id 045e:028e, the kernel `xpad` driver's buttons and axes), the layout every
@@ -92,15 +102,20 @@ the bus every three seconds.
 - **Stick calibration** comes from the Joy-Con's memory (subcommand `0x10`): the factory
   values, replaced by the user's own if those are marked valid. `JoyCon::stick()` gives
   -1 to 1 with a 15 % dead zone.
-- **`Bluetooth`** asks bluez to search, pair, disconnect and forget. Disconnecting works;
-  the rest is outline. It also logs bluez's connect and
-  disconnect events, with the reason, for every Joy-Con the service has seen.
+- **`Bluetooth`** is the bluez side, on the system D-Bus. A search sets the discovery
+  filter to classic Bluetooth and starts discovery; every device object that appears
+  (`InterfacesAdded`), gets its name late (`PropertiesChanged`) or is already known
+  (`GetManagedObjects`) is considered, and one named "Joy-Con…" that isn't paired is
+  paired, trusted and connected. A search ends by itself after two minutes. `PairingAgent`
+  is the service's own bluez agent (`NoInputNoOutput`): a Joy-Con pairs without a code, and
+  the agent agrees only for a device the service is pairing. `Bluetooth` also disconnects
+  and forgets a device, and logs bluez's connect and disconnect events, with the reason,
+  for every Joy-Con the service has seen.
 - **`ControllerService`** is the shell's view: `Describe()` (JSON), `Changed`,
   `HomePressed`, and the search and switch-off calls. The shell's `ShellService` listens
   for `HomePressed` and treats it as Home on the remote.
 
-Still outline only: searching, pairing and forgetting in `Bluetooth` (marked `SCAFFOLD`
-in the file). The pair has not been tried: only one Joy-Con is paired with the machine.
+Not tried yet: forgetting a Joy-Con.
 
 ## Build, deploy, debug
 
@@ -123,7 +138,9 @@ differ from the repository's.
 
 ## Next
 
-1. `Bluetooth` search and pairing, and a controllers screen in the shell (pair, order,
-   battery, switch off, and why a Joy-Con left: switched off, battery empty, out of reach).
+1. A controllers screen in the shell (search and pair, order, battery, switch off, forget,
+   and why a Joy-Con left: switched off, battery empty, out of reach). Until then a search
+   is started by hand: `busctl --user call local.tvcontrollers /local/tvcontrollers
+   local.tvcontrollers StartSearch`.
 2. A way to end a unit without switching a Joy-Con off.
 3. Motion, rumble, then the Ring-Con.

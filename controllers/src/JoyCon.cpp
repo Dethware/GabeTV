@@ -100,9 +100,14 @@ bool JoyCon::open()
             m_firmware = QStringLiteral("%1.%2").arg(quint8(data[0])).arg(quint8(data[1]), 2, 10, QLatin1Char('0'));
     });
     // The factory's stick calibration, then the user's own if there is one.
-    const bool left = m_side == Side::Left;
-    readCalibration(left ? FactoryLeftStick : FactoryRightStick, false);
-    readCalibration(left ? UserLeftStick : UserRightStick, true);
+    if (m_side != Side::Right) {
+        readCalibration(FactoryLeftStick, false, Side::Left);
+        readCalibration(UserLeftStick, true, Side::Left);
+    }
+    if (m_side != Side::Left) {
+        readCalibration(FactoryRightStick, false, Side::Right);
+        readCalibration(UserRightStick, true, Side::Right);
+    }
     // A Joy-Con starts in the simple mode, which only reports button changes.
     send(SetInputMode, QByteArray(1, char(InputFull)), [this](const QByteArray &) {
         qCInfo(lcJoyCon).noquote() << name() << m_address << "ready, firmware" << m_firmware << "battery"
@@ -113,7 +118,20 @@ bool JoyCon::open()
     return true;
 }
 
-void JoyCon::readCalibration(quint32 address, bool user)
+QString JoyCon::name() const
+{
+    switch (m_side) {
+    case Side::Left:
+        return QStringLiteral("Joy-Con (L)");
+    case Side::Right:
+        return QStringLiteral("Joy-Con (R)");
+    case Side::Both:
+        break;
+    }
+    return QStringLiteral("Pro Controller");
+}
+
+void JoyCon::readCalibration(quint32 address, bool user, Side which)
 {
     // The user's calibration has two magic bytes in front.
     const int size = StickCalibrationSize + (user ? 2 : 0);
@@ -121,7 +139,7 @@ void JoyCon::readCalibration(quint32 address, bool user)
     for (int i = 0; i < 4; ++i)
         args.append(char(address >> (8 * i)));
     args.append(char(size));
-    send(ReadMemory, args, [this, size, user](const QByteArray &reply) {
+    send(ReadMemory, args, [this, size, user, which](const QByteArray &reply) {
         // The reply repeats the address and the length before the data.
         QByteArray data = reply.mid(5, size);
         if (data.size() < size)
@@ -139,21 +157,23 @@ void JoyCon::readCalibration(quint32 address, bool user)
             pairs[i][0] = b(0) | ((b(1) & 0x0f) << 8);
             pairs[i][1] = (b(1) >> 4) | (b(2) << 4);
         }
-        const bool left = m_side == Side::Left;
+        const bool left = which == Side::Left;
         const int *above = pairs[left ? 0 : 2];
         const int *center = pairs[left ? 1 : 0];
         const int *below = pairs[left ? 2 : 1];
-        m_calibration = {center[0], center[1], below[0], below[1], above[0], above[1]};
-        qCDebug(lcJoyCon).noquote() << name() << (user ? "user" : "factory") << "stick calibration: centre" << center[0]
+        (left ? m_leftCalibration : m_rightCalibration) = {center[0], center[1], below[0], below[1], above[0], above[1]};
+        qCDebug(lcJoyCon).noquote() << name() << (user ? "user" : "factory") << (left ? "left" : "right")
+                                    << "stick calibration: centre" << center[0]
                                     << center[1] << "below" << below[0] << below[1] << "above" << above[0] << above[1];
     });
 }
 
-JoyCon::Stick JoyCon::stick() const
+JoyCon::Stick JoyCon::stick(Side which) const
 {
-    const Calibration &c = m_calibration;
-    const double x = axis(m_state.stickX, c.centerX, c.belowX, c.aboveX);
-    const double y = axis(m_state.stickY, c.centerY, c.belowY, c.aboveY);
+    const bool left = which == Side::Left;
+    const Calibration &c = left ? m_leftCalibration : m_rightCalibration;
+    const double x = axis(left ? m_state.leftX : m_state.rightX, c.centerX, c.belowX, c.aboveX);
+    const double y = axis(left ? m_state.leftY : m_state.rightY, c.centerY, c.belowY, c.aboveY);
     const double length = std::hypot(x, y);
     if (length < DeadZone)
         return {};
@@ -240,7 +260,8 @@ void JoyCon::handleReport(const QByteArray &report)
     state.charging = battery & 1;
     state.buttons = quint8(report[ButtonsOffset]) | (quint8(report[ButtonsOffset + 1]) << 8)
                     | (quint8(report[ButtonsOffset + 2]) << 16);
-    unpackStick(report, m_side == Side::Left ? LeftStickOffset : RightStickOffset, state.stickX, state.stickY);
+    unpackStick(report, LeftStickOffset, state.leftX, state.leftY);
+    unpackStick(report, RightStickOffset, state.rightX, state.rightY);
 
     if (state != m_state) {
         const quint32 before = m_state.buttons;

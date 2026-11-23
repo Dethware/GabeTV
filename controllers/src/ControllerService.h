@@ -30,6 +30,8 @@ public slots:
     Q_SCRIPTABLE void StartSearch();
     Q_SCRIPTABLE void StopSearch();
     Q_SCRIPTABLE void SwitchOff(const QString &address);
+    // Ends the controller with this player number; its Joy-Cons stay connected.
+    Q_SCRIPTABLE void EndUnit(int player);
     Q_SCRIPTABLE void Forget(const QString &address);
 
 signals:

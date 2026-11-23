@@ -1,5 +1,5 @@
 [Unit]
-Description=TV controller service (Joy-Cons)
+Description=TV controller service (Joy-Cons, Pro Controller)
 After=bluetooth.service
 
 [Service]

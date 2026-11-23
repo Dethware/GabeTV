@@ -12,7 +12,8 @@
 
 class QSocketNotifier;
 
-// One physical Joy-Con, reached through its raw HID node. This is the only place that
+// One physical controller, reached through its raw HID node: a Joy-Con, or a Pro
+// Controller, which speaks the same protocol and is both halves in one piece. This is the only place that
 // reads from or writes to a Joy-Con: it keeps the last known buttons, stick and battery,
 // and sends subcommands (lights now; motion, rumble and the Ring-Con later) one at a time,
 // each waiting for its reply.
@@ -21,13 +22,18 @@ class JoyCon : public QObject
     Q_OBJECT
 
 public:
-    enum class Side { Left, Right };
+    // Which half of a controller it is. Both: a Pro Controller, the two halves in one
+    // piece, speaking the same protocol.
+    enum class Side { Left, Right, Both };
 
     struct State
     {
         quint32 buttons = 0; // JoyConProtocol::Button bits
-        quint16 stickX = 0; // 12 bits, uncalibrated
-        quint16 stickY = 0;
+        // 12 bits, uncalibrated. A Joy-Con only has the stick of its side.
+        quint16 leftX = 0;
+        quint16 leftY = 0;
+        quint16 rightX = 0;
+        quint16 rightY = 0;
         int battery = 0; // 0 (empty) to 4 (full)
         bool charging = false;
 
@@ -50,14 +56,17 @@ public:
 
     QString node() const { return m_node; }
     Side side() const { return m_side; }
-    QString name() const { return m_side == Side::Left ? QStringLiteral("Joy-Con (L)") : QStringLiteral("Joy-Con (R)"); }
+    QString name() const;
     // The Bluetooth address, the Joy-Con's identity across connections.
     QString address() const { return m_address; }
     QString firmware() const { return m_firmware; }
     bool isReady() const { return m_ready; }
     bool isQuiet() const { return m_quiet; }
     const State &state() const { return m_state; }
-    Stick stick() const;
+    // A Joy-Con's own stick.
+    Stick stick() const { return stick(m_side == Side::Right ? Side::Right : Side::Left); }
+    // The left or the right stick.
+    Stick stick(Side which) const;
 
     // The four player lights: bit 0 is the first. A light in `flashing` flashes.
     void setPlayerLights(quint8 lit, quint8 flashing = 0);
@@ -95,7 +104,7 @@ private:
     void replyTimedOut();
     void applyLights();
     void checkLights();
-    void readCalibration(quint32 address, bool user);
+    void readCalibration(quint32 address, bool user, Side which);
 
     // The stick's raw values at rest and how far it reaches from there in each direction.
     struct Calibration
@@ -122,7 +131,8 @@ private:
     bool m_ready = false;
     // It has answered something: its node is alive.
     bool m_answered = false;
-    Calibration m_calibration;
+    Calibration m_leftCalibration;
+    Calibration m_rightCalibration;
     // The lights as they should be, checked against the Joy-Con a moment after setting them.
     quint8 m_lights = 0;
     int m_lightChecks = 0;
