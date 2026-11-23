@@ -1435,6 +1435,30 @@ PIN):
   focus is in that list. Also: a settings line that only opens something (the album
   picker) no longer shows the ‹ › of a value that can be stepped. Deployed; the user:
   "Yes, better". Whether "Change grip" was tried is not known.
+- The user on the list: its first line was "Player 2", the second "Player 1"; the number
+  could be drawn like the light pattern on the controller; and players should be
+  reassignable without unbinding everything and redoing it in order. They pointed to
+  Nintendo's own screens as "a lot more visual"
+  (https://www.nintendo.com/sg/support/switch/controller/index.html; the page is mostly
+  screenshots; its text says the order on a Switch is the order in which the controllers
+  are pressed on "Change Grip/Order", and that the grip is chosen with L/R or SL/SR).
+  Changed: the service lists units in player order and can make two trade numbers
+  (`SwapPlayers`); the shell's line shows four lights as the controller does, and Left and
+  Right trade places with the neighbour. When two units trade, their virtual controllers
+  are exchanged too. *Assumed, not checked:* that Steam orders controllers by when they
+  appeared, so that the first virtual controller is the game's first controller. Built;
+  not deployed.
+- Deployed. The user: it swaps, but the selection should follow the moving controller, the
+  rate is far too high, and they had in mind "a handle you have to grab (separate
+  focusable control per row)" that then moves up or down until the move is ended, with
+  both confirm and cancel leaving it where it ended up, "because it is easy to mess up the
+  input of a d-pad or stick and reassign players unintentionally". Causes of the first
+  two: the list reset its own index to the first line on every model change and that was
+  taken for a selection; and a held Left or Right repeated, each repeat a swap. Rebuilt
+  that way: a line has a handle (the lights) and a body; Left goes to the handle, OK grabs
+  it, Up and Down move one step per press, OK or Back lets go. Built; not deployed.
+  Deployed afterwards; the user: "This is much better. Could be iterated on if this
+  becomes a bigger project, but for my use, it is perfect already."
 - The service also got `EndUnit(player)`: ends a controller, its Joy-Cons stay connected
   and wait again. Built, not tried.
 - The user also: it "felt a bit slow when the second set of joycons was pairing", while
@@ -1450,6 +1474,46 @@ PIN):
 - bluez shows `WakeAllowed: yes` for it. Not tested: whether a button press on a paired
   Joy-Con wakes the suspended machine. It connects by calling the machine (classic
   Bluetooth), unlike the remote's advertising, so it may.
+
+## What the emulators expect from controllers (looked up 2026-11-23)
+
+The user wants motion, the Ring-Con and the IR camera verified on our side first, with a
+test screen, before any emulator is involved; stick calibration is left for much later.
+Their question before designing it: what do the emulators expect? From Eden's source
+(GitHub mirror `eden-emulator/mirror`, read through a fetch; files named below), nothing
+run:
+
+- **Motion:** `src/input_common/drivers/udp_client.cpp` is a client of the cemuhook (DSU)
+  UDP protocol. Servers come from the setting `udp_input_servers` (`host:port`, comma
+  separated); it asks each for pads 0 to 3 and subscribes to their data every 3 s. Per
+  pad it takes gyro pitch, roll and yaw (multiplied by 1/312), the accelerometer, two
+  touch points, sticks, 16 buttons and the battery. A controller's motion is bound with a
+  string like `motion:0,pad:0,port:26760,guid:…7f000001,engine:cemuhookudp`
+  (`docs/user/GyroControls.md`, a Steam Deck guide; port 26760 on localhost). Community
+  notes say Eden samples motion at a fixed 200 Hz and that an irregular stream feels
+  stuck. Whether it also takes SDL's sensors on Linux was not confirmed.
+- **Ring-Con:** `src/yuzu/configuration/configure_ringcon.cpp` treats the ring sensor as a
+  bindable analog input: any device's axis (`axis_x`, `invert_x`) or two buttons
+  (`analog_from_button`), with a `deadzone` (default 0.15). The expected range isn't
+  stated there. Separately it can use a real Ring-Con through its own "Direct Joycon
+  driver", which needs the Joy-Con itself and so isn't for us.
+  `src/input_common/helpers/joycon_protocol/ringcon.cpp` gives that driver's steps, as
+  facts for our own: full 60 Hz reports; MCU on; MCU mode standby; "get external device
+  info" repeated until the device is the Ring-Con (up to 42 tries); "set external format
+  config" with a fixed 37-byte block; "enable external polling" with `04 01 01 02`. Where
+  the flex value sits in the report is in a file not read yet.
+- **IR camera:** `configure_camera.cpp` and `src/input_common/drivers/camera.cpp`: Eden
+  takes IR images from a PC camera through Qt Multimedia (the device id is the setting
+  `ir_sensor_device`), resampled to 320x240, 160x120, 80x60, 40x30 or 20x15 at one byte a
+  pixel, handed in through `SetCameraData(width, height, pixels)`. No path for a real
+  Joy-Con camera in those two files.
+- **Ryujinx:** not looked up today. From memory, not checked: motion through cemuhook as
+  well, no Ring-Con (a third-party port adds Eden's), no IR camera.
+
+What follows for the service: motion can go out as a cemuhook server, a standard several
+emulators read, with no patch; the ring's flex as an ordinary axis of a virtual device,
+bound in Eden's ring settings, with no patch; the IR camera needs either a camera device
+Eden can open or a small patch at `SetCameraData`.
 
 ## Waydroid prerequisites
 

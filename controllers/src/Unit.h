@@ -29,12 +29,17 @@ public:
     QList<JoyCon *> joyCons() const { return m_joyCons; }
     // 1 to 4, shown on the player lights.
     int player() const { return m_player; }
+    // The two units trade player numbers. Their virtual controllers go with the numbers:
+    // programs see the controllers in the order they were made, so the first one stays
+    // player 1's, whoever that now is.
+    void tradePlayerWith(Unit *other);
 
 signals:
     void homePressed();
 
 private:
     void update();
+    void showPlayer();
 
     Kind m_kind;
     QList<JoyCon *> m_joyCons;

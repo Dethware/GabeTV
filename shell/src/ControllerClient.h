@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE void switchOff(const QString &address);
     // Ends the controller with this player number; its Joy-Cons stay connected.
     Q_INVOKABLE void endUnit(int player);
+    // The controllers with these two player numbers trade them.
+    Q_INVOKABLE void swapPlayers(int player, int other);
 
 public slots:
     // The service announces changes of the units itself; battery levels only come with a
@@ -50,6 +52,8 @@ private:
     void call(const QString &method, const QVariantList &arguments = {});
 
     bool m_available = false;
+    // What the service said last, to tell a real change from a repeated answer.
+    QString m_described;
     bool m_searching = false;
     QVariantList m_units;
     QVariantList m_waiting;

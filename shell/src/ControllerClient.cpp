@@ -34,8 +34,12 @@ void ControllerClient::refresh()
         const bool available = !reply.isError();
         if (available != m_available)
             qCInfo(lcControllers) << (available ? "the controller service is there" : "the controller service doesn't answer");
-        const QVariantMap all = available ? QJsonDocument::fromJson(reply.value().toUtf8()).object().toVariantMap()
-                                          : QVariantMap();
+        const QString described = available ? reply.value() : QString();
+        // Asked every few seconds for the battery levels; mostly nothing is new.
+        if (available == m_available && described == m_described)
+            return;
+        m_described = described;
+        const QVariantMap all = QJsonDocument::fromJson(described.toUtf8()).object().toVariantMap();
         m_available = available;
         m_searching = all.value(QStringLiteral("searching")).toBool();
         m_units = all.value(QStringLiteral("units")).toList();
@@ -64,6 +68,11 @@ void ControllerClient::stopSearch()
 void ControllerClient::switchOff(const QString &address)
 {
     call(QStringLiteral("SwitchOff"), {address});
+}
+
+void ControllerClient::swapPlayers(int player, int other)
+{
+    call(QStringLiteral("SwapPlayers"), {player, other});
 }
 
 void ControllerClient::endUnit(int player)

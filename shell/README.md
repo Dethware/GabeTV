@@ -117,8 +117,14 @@ controller service is installed (`../controllers`). Go into the list with Right 
 while you are in it, the TV looks for new ones. Hold a controller's small sync button
 until its lights sweep, and it is added. Then show how you hold it: L and R on two Joy-Cons make them one
 controller, SL and SR on one make it a controller held sideways; a Pro Controller needs
-nothing. The list shows each controller with its player number and battery. OK on a line
-offers Change grip (the Joy-Cons wait to be regrouped) and Switch off. Controllers in use
+nothing. The list shows each controller with its player number, drawn as the lights on
+the controller show it (one to four lit; flashing while it waits), and its battery. OK on
+a line offers Change grip (the Joy-Cons wait to be regrouped) and Switch off.
+
+To change who is which player, go Left onto a controller's lights and press OK to grab it.
+Up and Down then move it, one step a press, and OK or Back lets go where it is. It takes
+that grab on purpose, so that a stray push of a stick doesn't reassign the players. Back
+returns to the categories. Controllers in use
 can feel sluggish while you are in the list, because the search shares their radio.
 
 For the skipping, the shell asks the SponsorBlock service (sponsor.ajay.app) about each video

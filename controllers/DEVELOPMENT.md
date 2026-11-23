@@ -94,6 +94,10 @@ the bus every three seconds.
   rotated with the grip (the tables and the two sign pairs are in `Unit.cpp`).
   While any of its Joy-Cons is quiet the pad is neutral, so
   nothing stays held. Home is not mapped; it becomes `homePressed()`.
+  Two units can trade player numbers (`tradePlayerWith`): the virtual controllers go
+  with the numbers, not with the Joy-Cons, because programs take controllers in the order
+  they were made. So the controller that was made first stays player 1's, whoever holds
+  that number.
 - **`VirtualPad`** is the uinput controller games see. It presents itself as an Xbox 360
   pad (USB id 045e:028e, the kernel `xpad` driver's buttons and axes), the layout every
   program knows without a mapping. It declares the guide button, because leaving it out
@@ -111,8 +115,8 @@ the bus every three seconds.
   the agent agrees only for a device the service is pairing. `Bluetooth` also disconnects
   and forgets a device, and logs bluez's connect and disconnect events, with the reason,
   for every Joy-Con the service has seen.
-- **`ControllerService`** is the shell's view: `Describe()` (JSON), `Changed`,
-  `HomePressed`, and the search and switch-off calls. The shell's `ShellService` listens
+- **`ControllerService`** is the shell's view: `Describe()` (JSON, units in player order),
+  `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit` and `SwapPlayers`. The shell's `ShellService` listens
   for `HomePressed` and treats it as Home on the remote.
 
 Not tried yet: forgetting a Joy-Con.

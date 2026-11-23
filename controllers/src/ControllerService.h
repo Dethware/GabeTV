@@ -32,6 +32,8 @@ public slots:
     Q_SCRIPTABLE void SwitchOff(const QString &address);
     // Ends the controller with this player number; its Joy-Cons stay connected.
     Q_SCRIPTABLE void EndUnit(int player);
+    // The controllers with these two player numbers trade them.
+    Q_SCRIPTABLE void SwapPlayers(int player, int other);
     Q_SCRIPTABLE void Forget(const QString &address);
 
 signals:

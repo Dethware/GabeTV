@@ -231,7 +231,5 @@ FocusScope {
         controllers: page.controllers
         awake: page.idle.state === IdleController.Active
         overlay: page
-
-        onLeftPressed: categories.forceActiveFocus()
     }
 }

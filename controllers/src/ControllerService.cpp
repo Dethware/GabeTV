@@ -67,8 +67,9 @@ void ControllerService::connectToBus()
 QString ControllerService::Describe() const
 {
     QJsonArray units;
-    const QList<Unit *> formed = m_units->units();
-    for (const Unit *unit : formed) {
+    QList<Unit *> formed = m_units->units();
+    std::sort(formed.begin(), formed.end(), [](const Unit *a, const Unit *b) { return a->player() < b->player(); });
+    for (const Unit *unit : std::as_const(formed)) {
         QJsonArray members;
         const QList<JoyCon *> joyCons = unit->joyCons();
         for (const JoyCon *joyCon : joyCons)
@@ -106,6 +107,11 @@ void ControllerService::StopSearch()
 void ControllerService::SwitchOff(const QString &address)
 {
     m_bluetooth->switchOff(address);
+}
+
+void ControllerService::SwapPlayers(int player, int other)
+{
+    m_units->swap(player, other);
 }
 
 void ControllerService::EndUnit(int player)

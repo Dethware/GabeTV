@@ -279,6 +279,21 @@ search takes radio time from the controllers in use, so passing over the categor
 start one. Forming units is not done here: the gestures (L+R, SL+SR) are the service's,
 and the pane shows the result.
 
+A line is a `ControllerRow` in two parts: the handle (`PlayerLights`: four lights, as many
+lit as the player number, all flashing for a waiting Joy-Con) and the body (what the
+controller is made of, the batteries). The list is in player order (the service sorts).
+The focus stays on the `ListView`; which line and which part is selected is the pane's
+state (`selectedAddress`, `onHandle`, `holding`), and the rows draw it. The selection is
+kept by the address of a line's first Joy-Con, because the model is rebuilt whenever
+something changes and a controller that moves has to keep the selection.
+
+Reordering needs a deliberate grab, since a stray push of a d-pad or stick must not
+reassign players: Left goes onto the handle, OK holds it, Up and Down call `swapPlayers`
+with the neighbour (key repeats ignored, and no second move until the list has changed),
+OK or Back lets go, and it stays where it is. `ControllerClient` only announces a change
+when the service's answer differs from the last one, so the five-second battery refresh
+doesn't rebuild the list.
+
 In `SettingsPage`, an option without a `change` function is a button (the screensaver's
 album picker): its value is shown without the ‹ › that mean "Left and Right change this".
 

@@ -29,6 +29,8 @@ public:
     QList<JoyCon *> unassigned() const { return m_unassigned; }
     // Ends a unit; its Joy-Cons stay connected and wait again.
     void end(int player);
+    // Two units trade their player numbers.
+    void swap(int player, int other);
 
 signals:
     void changed();

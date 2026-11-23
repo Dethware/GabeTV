@@ -97,13 +97,29 @@ void UnitManager::form(Unit::Kind kind, const QList<JoyCon *> &joyCons)
         names.append(joyCon->name());
     }
     auto *unit = new Unit(kind, joyCons, player, this);
-    connect(unit, &Unit::homePressed, this, [this, player] {
-        qCInfo(lcUnits) << "Home on player" << player;
+    connect(unit, &Unit::homePressed, this, [this, unit] {
+        qCInfo(lcUnits) << "Home on player" << unit->player();
         emit homePressed();
     });
     m_units.append(unit);
     qCInfo(lcUnits).noquote() << "player" << player << "is" << names.join(QStringLiteral(" + "))
                               << (kind == Unit::Kind::Pair ? "as a pair" : kind == Unit::Kind::Sideways ? "sideways" : "");
+    emit changed();
+}
+
+void UnitManager::swap(int player, int other)
+{
+    const auto find = [this](int number) {
+        const auto it = std::find_if(m_units.cbegin(), m_units.cend(),
+                                     [number](const Unit *unit) { return unit->player() == number; });
+        return it == m_units.cend() ? nullptr : *it;
+    };
+    Unit *first = find(player);
+    Unit *second = find(other);
+    if (!first || !second || first == second)
+        return;
+    first->tradePlayerWith(second);
+    qCInfo(lcUnits) << "players" << player << "and" << other << "traded places";
     emit changed();
 }
 

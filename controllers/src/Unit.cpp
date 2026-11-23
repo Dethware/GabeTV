@@ -89,9 +89,8 @@ Unit::Unit(Kind kind, const QList<JoyCon *> &joyCons, int player, QObject *paren
     , m_pad(new VirtualPad(QStringLiteral("TV Controller %1").arg(player), this))
 {
     m_pad->create();
+    showPlayer();
     for (JoyCon *joyCon : m_joyCons) {
-        // The player's number on the lights, as a Switch shows it: 1 to 4 lights from the left.
-        joyCon->setPlayerLights(quint8((1 << player) - 1));
         connect(joyCon, &JoyCon::buttonsChanged, this, [this](quint32 pressed) {
             if (pressed & Home)
                 emit homePressed();
@@ -100,6 +99,25 @@ Unit::Unit(Kind kind, const QList<JoyCon *> &joyCons, int player, QObject *paren
         connect(joyCon, &JoyCon::quietChanged, this, &Unit::update);
     }
     update();
+}
+
+// The player's number on the lights, as a Switch shows it: 1 to 4 lights from the left.
+void Unit::showPlayer()
+{
+    for (JoyCon *joyCon : std::as_const(m_joyCons))
+        joyCon->setPlayerLights(quint8((1 << m_player) - 1));
+}
+
+void Unit::tradePlayerWith(Unit *other)
+{
+    std::swap(m_player, other->m_player);
+    std::swap(m_pad, other->m_pad);
+    m_pad->setParent(this);
+    other->m_pad->setParent(other);
+    for (Unit *unit : {this, other}) {
+        unit->showPlayer();
+        unit->update();
+    }
 }
 
 void Unit::update()

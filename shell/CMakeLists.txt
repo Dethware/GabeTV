@@ -57,6 +57,8 @@ set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS Phot
 set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
 set_source_files_properties(qml/ControllersPane.qml PROPERTIES QT_RESOURCE_ALIAS ControllersPane.qml)
+set_source_files_properties(qml/ControllerRow.qml PROPERTIES QT_RESOURCE_ALIAS ControllerRow.qml)
+set_source_files_properties(qml/PlayerLights.qml PROPERTIES QT_RESOURCE_ALIAS PlayerLights.qml)
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
@@ -93,6 +95,8 @@ qt_add_qml_module(tvshell
         qml/ScreensaverLayer.qml
         qml/AlbumPicker.qml
         qml/ControllersPane.qml
+        qml/ControllerRow.qml
+        qml/PlayerLights.qml
         qml/PhotoBackdrop.qml
         qml/PhotoInfo.qml
         qml/FitGrid.qml
