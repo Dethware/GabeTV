@@ -58,6 +58,8 @@ set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIA
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
 set_source_files_properties(qml/ControllersPane.qml PROPERTIES QT_RESOURCE_ALIAS ControllersPane.qml)
 set_source_files_properties(qml/ControllerRow.qml PROPERTIES QT_RESOURCE_ALIAS ControllerRow.qml)
+set_source_files_properties(qml/ControllerTest.qml PROPERTIES QT_RESOURCE_ALIAS ControllerTest.qml)
+set_source_files_properties(qml/ControllerModel.qml PROPERTIES QT_RESOURCE_ALIAS ControllerModel.qml)
 set_source_files_properties(qml/PlayerLights.qml PROPERTIES QT_RESOURCE_ALIAS PlayerLights.qml)
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
@@ -96,6 +98,8 @@ qt_add_qml_module(tvshell
         qml/AlbumPicker.qml
         qml/ControllersPane.qml
         qml/ControllerRow.qml
+        qml/ControllerTest.qml
+        qml/ControllerModel.qml
         qml/PlayerLights.qml
         qml/PhotoBackdrop.qml
         qml/PhotoInfo.qml
@@ -152,6 +156,8 @@ qt_add_qml_module(tvshell
         src/ManagedApp.h
         src/ControllerClient.cpp
         src/ControllerClient.h
+        src/MotionClient.cpp
+        src/MotionClient.h
         src/ShellService.cpp
         src/ShellService.h
         src/WebKeys.cpp

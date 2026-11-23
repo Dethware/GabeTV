@@ -1,8 +1,8 @@
 # steamos-3.9
 
 Toolchain matching gabecube's SteamOS 3.9.5 (build 20261023.100): glibc 2.43, GCC 16.1.1,
-Qt 6.11.1 (base, declarative, multimedia with the ffmpeg backend, shadertools, tools,
-webengine), SDL3 3.4.12, CMake 4.4, Ninja.
+Qt 6.11.1 (base, declarative, multimedia with the ffmpeg backend, quick3d, shadertools,
+tools, webengine), SDL3 3.4.12, CMake 4.4, Ninja.
 
 SteamOS itself can't build anything: no compiler, no CMake, and `/usr/include` is stripped.
 
@@ -37,3 +37,4 @@ toolchain. The built image is kept in `../archive/steamos-3.9.tar.zst` (the late
 |-------|----------|----------|
 | 2026-11-21 | `sha256:7cbeb46d87c3108aa06aa38d6fb15f7d2ad7f6c34fc266bd2ea608363a28442d` | `verify.sh`: 221 shared packages, all versions equal to gabecube (3.9.5, 20261023.100). A Qt Quick test program built in it (`--network none`, as the user) needs only `GLIBC_2.34` and `Qt_6.11`, and ran on gabecube under gamescope (X11, shown via the base layer). |
 | 2026-11-21, evening | `sha256:0be5c6bb862126e566599763a30b74d9e31145696821f71fda03dbca0a992b8f` | Added `qt6-multimedia` (video). `verify.sh`: 343 shared packages, all versions equal to gabecube (3.9.5, 20261023.100). This is the archived one. |
+| 2026-11-23 | `sha256:363170e06ba7a74df17e26d63882ffb6cecf281dce86eceff462f1ef73a82109` | Added `qt6-quick3d` (the controller test's 3D view) as one layer on the image then tagged `dev` (`sha256:29dcac0c…`, which already had `qt6-webengine`), installed from the package lists inside that image, so nothing else changed version. `verify.sh`: 360 shared packages, all versions equal to gabecube (which reports 3.9.6, 20261112.101). Not archived. |

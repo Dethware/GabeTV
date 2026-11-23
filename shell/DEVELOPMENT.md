@@ -294,6 +294,35 @@ OK or Back lets go, and it stays where it is. `ControllerClient` only announces 
 when the service's answer differs from the last one, so the five-second battery refresh
 doesn't rebuild the list.
 
+The motion test (`qml/ControllerTest.qml`, `qml/ControllerModel.qml`,
+`src/MotionClient.*`) reads motion the way an emulator does: `MotionClient` is a client of
+the controller service's cemuhook server on localhost:26760 (subscribing every second,
+since the server drops a silent client), so the test also tests that server. Each
+`MotionPad` keeps the latest acceleration and rotation and an orientation: the gyroscope's
+turn is added up reading by reading, and while the acceleration is close to 1 g the tilt
+is pulled 1 % of the way towards what gravity says. The turn about the vertical has no
+such anchor and drifts; `recenter()` drops it. It also gives the push (the acceleration
+turned into the room's frame with gravity taken out, shown as a bar), limited to `reach`.
+The `position` it gives is that push as a displacement, so far for each g, not a place.
+(Adding the push up to a speed and a place was tried in several forms and dropped: from
+this sensor alone every small error keeps growing; see the log.) `recenter()` takes the
+controller as level and pointing away, from the accelerometer's average over half a
+second. Three readouts check the sensor itself: `strength` (1 g at rest), `turned` (360
+after a full turn on the table) and the reports lost on the radio since
+recentring (from the service's `lostReports`, fetched every second while the test is
+open; the service fills their readings in). The screen's two actions, Recenter and Calibrate, wait
+0.9 s before acting, because pressing OK on the controller itself shakes it; Calibrate
+asks the service (`ControllerClient::calibrateMotion`), which measures at rest and corrects
+what it passes on from then on. At a wall only the place is held; the speed is kept, because the hand is
+still moving and its slowing down has to come off that speed (set to zero at the wall, a
+long move ended in travel backwards). `ControllerTest` draws a wire box that stays
+put and moves the shape inside it by that position. Readings arrive 200 times a second and are
+passed on to QML 60 times. The protocol's axes for a controller lying flat, face up, top
+away from the viewer are Qt Quick 3D's (x right, y up, z towards the viewer), so the
+orientation goes straight onto `ControllerModel`, a few boxes and cylinders in that pose.
+Qt Quick 3D is only imported in QML, not linked; SteamOS ships it and the toolchain image
+has it since the motion test.
+
 In `SettingsPage`, an option without a `change` function is a button (the screensaver's
 album picker): its value is shown without the ‹ › that mean "Left and Right change this".
 

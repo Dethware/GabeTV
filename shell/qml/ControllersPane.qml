@@ -50,6 +50,9 @@ FocusScope {
     // The line the dialog is about.
     property var chosenRow: null
 
+    // The motion test of this unit was asked for.
+    signal testRequested(var unit)
+
     function select(index) {
         if (index < 0 || index >= rows.length)
             return
@@ -87,8 +90,13 @@ FocusScope {
         // A Pro Controller has one grip; only Joy-Cons can be regrouped.
         const regroup = row.unit !== null && row.unit.kind !== "pro"
         actions.title = row.joyCons.map(joyCon => joyCon.name).join(" + ")
-        actions.choices = regroup ? [qsTr("Change grip"), qsTr("Switch off"), qsTr("Cancel")]
-                                  : [qsTr("Switch off"), qsTr("Cancel")]
+        const choices = []
+        if (row.unit !== null)
+            choices.push(qsTr("Motion test"))
+        if (regroup)
+            choices.push(qsTr("Change grip"))
+        choices.push(qsTr("Switch off"), qsTr("Cancel"))
+        actions.choices = choices
         actions.open()
     }
 
@@ -273,7 +281,11 @@ FocusScope {
         onChosen: index => {
             const row = pane.chosenRow
             const choice = choices[index]
-            if (choice === qsTr("Change grip")) {
+            // The dialog has closed by now (it closes first, then says what was chosen),
+            // and the list has the focus back; the test takes it from there.
+            if (choice === qsTr("Motion test")) {
+                pane.testRequested(row.unit)
+            } else if (choice === qsTr("Change grip")) {
                 pane.controllers.endUnit(row.unit.player)
             } else if (choice === qsTr("Switch off")) {
                 for (const joyCon of row.joyCons)

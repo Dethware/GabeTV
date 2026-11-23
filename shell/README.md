@@ -119,7 +119,15 @@ until its lights sweep, and it is added. Then show how you hold it: L and R on t
 controller, SL and SR on one make it a controller held sideways; a Pro Controller needs
 nothing. The list shows each controller with its player number, drawn as the lights on
 the controller show it (one to four lit; flashing while it waits), and its battery. OK on
-a line offers Change grip (the Joy-Cons wait to be regrouped) and Switch off.
+a line offers Motion test, Change grip (the Joy-Cons wait to be regrouped) and Switch off.
+
+The motion test draws the controller in 3D inside a box. It turns as you turn it, and
+pushing or shaking it pushes the shape off the middle by as much. A bar shows how hard;
+the sensor's readings are below. Left and Right pick one of two actions, OK runs it:
+Recenter lines the picture up with the controller as it lies, and Calibrate measures the
+controller's sensors at rest (lay it on a table and leave it alone for a few seconds) and
+corrects its motion from then on, for games too. Lay the controller flat, face up, its top away from you, and press OK to
+line the picture up; OK again any time it has drifted round. For players 1 and 2.
 
 To change who is which player, go Left onto a controller's lights and press OK to grab it.
 Up and Down then move it, one step a press, and OK or Back lets go where it is. It takes

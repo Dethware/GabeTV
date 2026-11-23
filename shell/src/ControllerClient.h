@@ -39,6 +39,9 @@ public:
     Q_INVOKABLE void endUnit(int player);
     // The controllers with these two player numbers trade them.
     Q_INVOKABLE void swapPlayers(int player, int other);
+    // Has the service measure this controller's motion sensors at rest (two seconds; it
+    // must lie still). motionCalibrated says how it went.
+    Q_INVOKABLE void calibrateMotion(const QString &address);
 
 public slots:
     // The service announces changes of the units itself; battery levels only come with a
@@ -47,6 +50,11 @@ public slots:
 
 signals:
     void changed();
+    // strength: the g it showed at rest before the correction; drift: degrees a second.
+    void motionCalibrated(const QString &address, bool ok, double strength, double drift);
+
+private slots:
+    void onMotionCalibrated(const QString &address, bool ok, double strength, double drift);
 
 private:
     void call(const QString &method, const QVariantList &arguments = {});

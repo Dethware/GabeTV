@@ -21,6 +21,8 @@ ControllerClient::ControllerClient(QObject *parent)
     : QObject(parent)
 {
     QDBusConnection::sessionBus().connect(Service, Path, Service, QStringLiteral("Changed"), this, SLOT(refresh()));
+    QDBusConnection::sessionBus().connect(Service, Path, Service, QStringLiteral("MotionCalibrated"), this,
+                                          SLOT(onMotionCalibrated(QString,bool,double,double)));
     refresh();
 }
 
@@ -68,6 +70,16 @@ void ControllerClient::stopSearch()
 void ControllerClient::switchOff(const QString &address)
 {
     call(QStringLiteral("SwitchOff"), {address});
+}
+
+void ControllerClient::calibrateMotion(const QString &address)
+{
+    call(QStringLiteral("CalibrateMotion"), {address});
+}
+
+void ControllerClient::onMotionCalibrated(const QString &address, bool ok, double strength, double drift)
+{
+    emit motionCalibrated(address, ok, strength, drift);
 }
 
 void ControllerClient::swapPlayers(int player, int other)

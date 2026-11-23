@@ -231,5 +231,19 @@ FocusScope {
         controllers: page.controllers
         awake: page.idle.state === IdleController.Active
         overlay: page
+
+        onTestRequested: unit => controllerTest.open(unit)
     }
+
+    ControllerTest {
+        id: controllerTest
+
+        anchors.fill: parent
+        controllers: page.controllers
+
+        onClosed: controllersPane.forceActiveFocus()
+    }
+
+    // Left with Home while the test was open: it doesn't stay open behind.
+    onVisibleChanged: if (!visible) controllerTest.close()
 }
