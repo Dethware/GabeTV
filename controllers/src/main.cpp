@@ -1,6 +1,8 @@
 #include "Bluetooth.h"
 #include "ControllerService.h"
 #include "DeviceWatcher.h"
+#include "MotionCalibration.h"
+#include "MotionServer.h"
 #include "UnitManager.h"
 
 #include <QCoreApplication>
@@ -18,7 +20,9 @@ int main(int argc, char *argv[])
     DeviceWatcher watcher;
     UnitManager units(&watcher);
     Bluetooth bluetooth;
-    ControllerService service(&units, &bluetooth);
+    MotionCalibration calibration(&watcher);
+    ControllerService service(&units, &bluetooth, &calibration);
+    MotionServer motion(&units);
     // A switched-off Joy-Con leaves a dead connection that the machine keeps for 20 s, and
     // until it is gone a button press can't reconnect. Drop it at once.
     QObject::connect(&watcher, &DeviceWatcher::joyConSwitchedOff, &bluetooth, &Bluetooth::switchOff);

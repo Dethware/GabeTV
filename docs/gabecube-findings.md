@@ -1515,6 +1515,251 @@ emulators read, with no patch; the ring's flex as an ordinary axis of a virtual 
 bound in Eden's ring settings, with no patch; the IR camera needs either a camera device
 Eden can open or a small patch at `SetCameraData`.
 
+Agreed with the user on that basis: motion first, then the Ring-Con, then the IR camera
+as a bonus (they rarely use it; their side thought: IR lights in the room to help
+positioning); a 3D view on the test screen; the Ring-Con and the leg strap are at hand.
+
+- Motion built into the service (2026-11-23): calibration read, sensor on, three readings
+  a report converted to g and degrees a second, and served by a cemuhook server on
+  localhost:26760 with each Joy-Con as its own pad. First run, the Pro Controller lying
+  still, read by a small test client for 6 s: 1200 packets, 200 a second, gap median
+  5.2 ms, 95 % under 5.7 ms, longest 20.3 ms, no bad checksum; acceleration
+  (-0.03, +1.00, +0.20) g, length 1.02; rotation (-0.2, -0.1, -0.3) degrees a second. Its
+  factory calibration: accelerometer origin 26/204/197, sensitivity 16384; gyroscope
+  origin -10/5/2, sensitivity 15335.
+- gabecube had gone to sleep before the deploy (unreachable, then "resumed" at 17:08:03).
+  The kernel log at the resume has Bluetooth connection lines and the Pro Controller was
+  connected at once; whether it was what woke the machine isn't established.
+- The motion test screen written in the shell: a "Motion test" action on a controller in
+  Settings → Controllers, a client of the service's cemuhook server, with a 3D shape per
+  Joy-Con (Qt Quick 3D) and the readings. The toolchain image got `qt6-quick3d` 6.11.1-1,
+  the version on gabecube, as one layer on the existing image (`verify.sh`: 360 shared
+  packages equal; gabecube now reports SteamOS 3.9.6, build 20261112.101). Which way the
+  model turns depends on the axis mapping, which is a guess until seen. Built; not
+  deployed.
+- **The controllers wake the machine.** The user, asked what woke it at 17:08: "Both the
+  joycons and the pro controller can wake it". So a button on a paired Joy-Con or Pro
+  Controller brings gabecube out of sleep, which the remote can't do (its Bluetooth is
+  low energy and advertises all the time; these are classic Bluetooth and call the
+  machine). bluez had them as `WakeAllowed: yes` from pairing; nothing was set up for
+  it.
+- The motion test on the TV, the user: "Yep. Seems to be right" (the shape follows the
+  controller, so the axis mapping holds as far as the eye can tell; they tried the right
+  Joy-Cons, whose sensor is mounted the other way round and turned in software, and the
+  Pro Controller; the left ones not yet), and
+  "It's hard to judge the pull": the acceleration was three numbers. Added: the push
+  (acceleration with gravity taken out, in the room's frame) as an arrow from the shape
+  and as a bar from 0 to 4 g with a mark at the strongest lately. Deployed.
+- The user on that: the arrow is drawn inside the Pro Controller's shape and mostly
+  hidden; and "I was just trying two joycons and they suddenly disconnected". From the
+  logs:
+  - A bug of mine in the dialog: `ChoiceDialog` closes first and reports the choice
+    after, and the pane remembered "Motion test" in the choice handler to act on it in the
+    close handler. So the test opened one dialog late: nothing on choosing it, then on the
+    next dialog's close, whatever was chosen there. At 17:28:47.99 the dialog on the Pro
+    Controller's line was closed with "Switch off" (a stick push down, then A, in the
+    shell's log): the Pro Controller was disconnected as asked, and the stale request
+    opened the pair's motion test at the same moment.
+  - The left Joy-Con 48:A5:E7:6B:1A:56 then dropped by itself at 17:29:07.27: bluez's
+    reason `org.bluez.Reason.Unknown, Unspecified`, its last report 196 ms earlier, no
+    request from the service and no key in the shell for 19 s before. Cause not known. Its
+    pair ended with it, as designed, and the right Joy-Con went back to waiting, still
+    connected; to the user that is both gone.
+  - "cannot search: Operation already in progress" several times: a search asked for
+    right after a stop, while bluez was still ending the last one.
+  Changed: the test opens straight from the choice; the arrow starts outside the shape and
+  the camera stands further back; a refused search start is tried again for 3 s. The user
+  also saw the test always open for the same set of controllers whatever line was chosen:
+  the same late request, which carried the unit of the choice before. Deployed.
+- The user's design for showing movement, in place of the arrow: "Let the controller move
+  in a bounding box and move the center of the bounding box to the position of the
+  controller. The bounding box doesn't move relative to the screen. You just see the
+  motion of the controller represented on screen." Built that way: a wire box fixed in
+  the view; the shape's place inside it is the push (gravity removed, room's axes) added
+  up twice and held by a critically damped spring back to the middle (4 rad/s), limited
+  to 0.3 m each way. An accelerometer alone can't give a place, only movement: the spring
+  keeps what a hand does within about a second and drops the drift. The arrow is gone;
+  the push bar stays. Deployed. The user: "The easing is too aggressive I think. It's fine
+  if they bump into the edges of the bounding box." Changed: the spring from 4 to
+  1.2 rad/s, and, so that a push that doesn't go away can't park the shape at a wall,
+  the push's own 1.5 s average is taken out before adding up. Deployed. The user allowed
+  further tuning of this screen to be deployed without asking each time ("no need to ask
+  for now").
+- The user on the result: it shows the force as movement; moved quickly from one point to
+  another, "the force affects its speed and its speed over time affects its position",
+  but on screen the shape "kinda snaps back" when the controller stops. Cause: the spring
+  was critically damped, so it also braked the speed all the time (2.4 a second); the
+  speed was gone before the hand slowed down, and the slowing-down then drove the shape
+  backwards. Rebuilt as they describe: push → speed → place, with the speed fading only
+  slowly (3 s). What keeps it from running away is stillness: when the controller turns
+  under 12°/s and its push hasn't changed by 0.06 g for 0.12 s, the speed is set to zero
+  and the push still measured is learned as error and taken out from then on. The shape
+  drifts back to the middle over about 6 s (the box following the controller). Deployed.
+  The user: "Let's just turn off the easing altogether. The recenter button should be
+  fine." Done: no drift back to the middle and no fading of the speed; the shape stays
+  where a movement left it, up to the walls, and OK puts it back. The correction at
+  stillness stays, since it doesn't move the shape, only stops it. Deployed.
+- The user's test that found the real fault: moved quickly up by about a metre, the shape
+  starts up, "but then moves back down when I stop moving it. The stopping force makes it
+  travel backwards instead of stop." The box is 0.3 m each way; the shape reached the wall
+  early in the move and the code set its speed to zero there, so the hand's slowing down
+  was taken off zero and became travel the other way. The earlier "snap back" was at
+  least partly this too, not only the spring. Changed: at a wall only the place is held,
+  the speed is kept. Stillness must now last 0.25 s (was 0.12 s), so that the calm middle
+  of a long smooth move is less likely to be taken for rest. Deployed.
+- The user, after asking to see the code: in a 1 g world, a controller at rest that shows
+  1 g on one axis and something on another doesn't add up; what does the Switch do for
+  games, or does each calibrate; how does the measured force relate to orientation; and
+  the stillness test is most likely upsetting slow movements. Measured at rest, all three
+  lying on the table (4 s each, 200 readings a second):
+
+  | Controller | Protocol x, y, z (g) | Length | Factory accelerometer origin (x, y, z) |
+  |---|---|---|---|
+  | Joy-Con (L) 48:A5…1A:56 | +0.01, +1.07, -0.07 | 1.07 | -140, -29, 770 |
+  | Joy-Con (R) 48:A5…35:8C | -0.02, +1.03, -0.06 | 1.03 | 105, -42, 526 |
+  | Pro Controller | -0.01, +1.00, +0.19 | 1.02 | 26, 204, 197 |
+
+  (sensitivity 16384 on every axis; gyroscope sensitivity 15335; rotation at rest within
+  0.3°/s.) So the strength at rest is up to 7 % over 1 g, most where the z origin is
+  largest; with the origin left out of the divisor (reading / 4096) the same readings
+  would be 1.02, 1.00 and about 1.01. The Pro Controller's 0.19 on z is tilt: it doesn't
+  lie flat.
+- How others convert, read from their source (Eden's `joycon_protocol` and the kernel's
+  `hid-nintendo.c`): both leave the accelerometer's origin out of the reading and put it
+  in the divisor, g = reading × 4 / (sensitivity − origin), as the service does; both
+  subtract the gyroscope's origin. They differ on the gyroscope's scale: Eden uses
+  936 / (sensitivity − origin) degrees a second per count (0.0610 at 15335; then divides
+  by 360), the kernel a fixed 14.247 counts per degree a second (0.0702; its comment cites
+  a 15 % STMicro correction). The service has Eden's. Eden uses one of a report's three
+  readings, the kernel all three, 5 ms apart. The kernel turns only the right Joy-Con's y
+  and z, as the service does.
+- Changed in the test screen (shell only): the stillness test is gone, so the place is
+  purely push → speed → place; recentring with the controller lying still now also takes
+  the accelerometer's reading as 1 g and the gyroscope's as zero for that controller; two
+  checks are shown: "Strength" (should be 1 g at rest) and "Turned" (degrees about the
+  vertical since recentring; a full turn flat on the table should read 360, which would
+  settle whose gyroscope scale is right). Deployed.
+- The user: errors add up quickly; the Pro Controller at rest drifts on screen, "every
+  time I reset it with A, it seems to drift in a different direction". *Inferred:*
+  recentring took one reading for level and for 1 g; its noise sets the level a fraction
+  of a degree off in a random direction, that much gravity counts as a sideways push
+  until the tilt correction has caught up (about half a second), and the speed gained
+  meanwhile is kept for good, since nothing brakes it any more. Changed: recentring uses
+  the sensors' average over about half a second. Deployed. A constant drift from the
+  remaining error is expected all the same; that is what position from this sensor is.
+- The user: the drift is very small when recentring with the remote (so pressing A on the
+  controller itself shook it); "It seems it just isn't meant to be precise at all. You
+  couldn't use it for VR tracking". **Decided by them:** forget tracking position and
+  speed; show the acceleration as displacement inside the cube; and have a motion
+  calibration like the Switch's: catch the worst drift by recording what a controller
+  reports at rest on a table, per controller, and use that to correct what is reported to
+  games. Controllers are told apart by Bluetooth address.
+- Built that way. Service: `CalibrateMotion(address)` measures two seconds at rest,
+  refuses if it moved, and stores the strength at rest and the gyroscope's reading in
+  `~/.config/tvcontrollers/motion.ini`; every reading is corrected by them before it goes
+  anywhere. Shell: the shape's place in the box is the push times 0.15 m a g; the test
+  screen has Recenter and Calibrate, each acting 0.9 s after the press. First run, on the
+  Pro Controller lying still: "at rest it showed 1.01882 g and turned 0.356388 degrees a
+  second"; read back through the motion server afterwards: length 1.00 g, rotation
+  0.0/0.0/0.0. Deployed. Still open: whose gyroscope scale is right (the full-turn check
+  has not been done).
+- The full-turn check, by the user: both Joy-Cons turned 360° on the table, and "Turned"
+  was off and different every time; they asked whether precision is lost, the value being
+  shown as a whole number. It was rounded only for showing. The fault was in the time
+  between readings:
+  - The server stamped each packet with the time it was sent, in whole milliseconds, and
+    sent a report's second and third reading by a timer each. Two packets in the same
+    millisecond had equal stamps, which the test screen took as "no time known" and
+    counted as 5 ms: time added that never passed, by an amount that depended on the
+    radio's jitter.
+  - Measured after stamping readings with their own time: of 3998 steps, 3021 exactly
+    5 ms, but the shortest -25 ms and the longest +15 ms. The timers delivered readings
+    out of order whenever several reports arrived at once.
+  Changed: `JoyCon` gives every reading its own time, 5 ms after the one before across
+  reports (the arrival is only used to notice lost reports, a jump over 30 ms, and to
+  nudge the clock by 1 % of its gap to ours); the server sends that time and sends the
+  readings from a queue, one every 5 ms in order, two at a time when behind. Measured
+  then, 20 s on the Pro Controller: every step between 4.989 and 5.158 ms, none out of
+  order, 19.987 s of readings in 19.996 s. "Turned" shows one decimal. Deployed; the
+  full turn not yet repeated.
+- The user with a jig (two Joy-Cons either side of a remote on a mat, as a fixed starting
+  point): the scale seems correct, so the 936/(sensitivity − origin) figure stays; the
+  result depends on how fast they are turned; and at rest they slowly accumulate rotation
+  although calibrated (48:A5…1A:56 at 1.0717 g, 48:A5…35:8C at 1.0319 g, the Pro at
+  1.0187 g, gyroscope errors of about 0.2°/s each, all from 18:53–18:54). After turning
+  them: it could be missed readings indeed.
+- Lost reports weren't accounted for: the clock above only jumped on a gap over 30 ms, and
+  one lost report is 15 ms; it also jumped backwards on arrival jitter (steps of -25 to
+  -39 ms and +35 to +110 ms seen with three controllers connected). The report's second
+  byte is a timer of the controller's own. Measured over 2000 reports each: Pro Controller
+  3: 1997, 6: 2; Joy-Con (L) 2: 13, 3: 1979, 4: 2, 5: 3, 6: 2; Joy-Con (R) 2: 14, 3: 1975,
+  4: 2, 5: 3, 6: 4, 13: 1. So it counts one per reading (5 ms), three per report, and 6
+  means one report lost. Changed: a report's readings follow the last ones by 5 ms plus
+  15 ms for every report the timer says is missing (our own clock only for silences over
+  a second, since the timer wraps at 1.28 s); the count of lost reports is logged when a
+  controller leaves. Measured then, 25 s on the Pro Controller: 5000 of 5000 steps exactly
+  5 ms, 25.000 s of readings in 25.001 s. The test screen counts missed readings
+  ("Missed") from steps longer than 5 ms. Deployed.
+- The user with the counter: "The right joycon is missing a lot of measurements. And it's
+  the one that ends up more wrong." So the turn error follows the lost readings. Measured
+  right after, all three lying untouched for 30 s: 6000 readings each (Pro Controller,
+  Joy-Con (L) 48:A5…1A:56, Joy-Con (R) 48:A5…35:8C) and none lost. *Inferred:* the losses
+  come with handling: the hand around the Joy-Con, or its turning relative to the machine,
+  weakens the link. At the time: the three controllers and the remote connected, the
+  soundbar not; Wi-Fi on 5180 MHz at -40 dBm; the Steam Controller's puck plugged in.
+  Why the right one more than the left is not known.
+- The user: "I'm not even touching it and the number goes up every once in a while." A
+  second 30 s run again lost nothing, but 150 s did: Pro Controller 30001 readings, none
+  lost; Joy-Con (L) 29472 readings, 528 lost (1.76 %) in 138 gaps; Joy-Con (R) 29958
+  readings, 33 lost (0.11 %) in 10 gaps; never more than two reports in a row. So the
+  Joy-Cons lose reports in spells even lying still, the Pro Controller doesn't, and which
+  Joy-Con is worse changes. No search was running (`Discovering: no`). The machine leads
+  all three links (`hcitool con`: `lm CENTRAL`), so it isn't a scatternet; link policy
+  `RSWITCH HOLD SNIFF`. *Inferred:* the Joy-Cons' own weak radio in this spot; nothing
+  found in software that causes it.
+- The user moved the jig to the floor, "much closer to the machine". 150 s from 19:28:05:
+  Pro Controller none lost, Joy-Con (L) none, Joy-Con (R) 459 lost (1.53 %) in 151 gaps.
+  90 s from 19:31:08: none lost on any. So it isn't distance: it comes in spells of
+  minutes, about one lost report a second, on one Joy-Con at a time (the left one at
+  19:24–19:27 on the table, the right one at 19:28–19:30 on the floor), and never on the
+  Pro Controller. No search ran in that time and the shell's test screen was closed
+  (the only motion clients in the service's log were the measurements). That regularity
+  doesn't look like a weak signal; cause not known.
+- Correction, from the user: during those runs they were "alternating between them and
+  turning them". So the Joy-Con losing reports was the one in the hand being turned, the
+  one lying still lost none, and about one lost report a second is about one per turn.
+  That is consistent with the first reading after all: the link fades at some angle of
+  the Joy-Con (its antenna, the hand around it), once a turn. It also means the "at rest"
+  figures of the 150 s runs above were not at rest. The Pro Controller, lying still
+  throughout, says nothing either way. The user also notes the Steam Controller's puck is
+  built into the machine (the USB device 28de:1305), a possible source of interference on
+  2.4 GHz; not tested.
+- A seven-minute watch in ten-second steps while the user handled the Joy-Cons in turn:
+  mostly nothing lost, then windows with 249 and 324 readings lost of 2000 (12 % and
+  16 %) on the one in the hand; the Pro Controller none.
+- The user asked whether "bridging" meant filling in the missing reports by
+  interpolation. It didn't: the next readings only got a later time. Now it does: when
+  the report after a gap arrives, the missing readings are filled in on a straight line
+  between the last reading before and the first after, and sent in order, for gaps up to
+  8 reports (120 ms). The count of lost reports goes out with `Describe` and the test
+  screen shows it ("Lost reports", since recentring).
+- The gyroscope's creep. Noise lying still, in 1 s windows (30 s each): the spread of the
+  worst gyroscope axis 0.18 to 0.31°/s on all three controllers, the acceleration's
+  strength 0.002 to 0.003 g; the gyroscope's mean up to 0.03°/s on two and 0.08 to
+  0.09°/s on the right Joy-Con, 40 minutes after its calibration. Built in the service:
+  after a full second in which no gyroscope axis varied by more than 0.6°/s, the strength
+  by no more than 0.01 g and the mean stayed under 1°/s, the correction moves a fifth of
+  the way towards what the gyroscope shows. Not while held (a hand shakes far more), and
+  switched off during a calibration. It swallows a turn slower than 1°/s made by
+  something steadier than a hand. After the deploy, Pro Controller at rest: mean 0.00 to
+  0.01°/s. Not yet seen on a Joy-Con (none was connected), and the fill-in not yet seen
+  with a real gap.
+- The user, with the Joy-Cons at rest after that: "a tiny amount of jitter, but it seems
+  good. Fine for an exercise game, not usable for hitting targets on the moon with
+  lasers." On lost reports: interpolation for now, and a pin in it: there are probably
+  better ways someone has patented or written up, worth some research or some prediction
+  of the missing readings later; minor, but interesting.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

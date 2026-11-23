@@ -5,6 +5,7 @@
 #include <QTimer>
 
 class Bluetooth;
+class MotionCalibration;
 class UnitManager;
 
 // What the shell sees of the service, on the session bus:
@@ -23,7 +24,8 @@ class ControllerService : public QObject
     Q_CLASSINFO("D-Bus Interface", "local.tvcontrollers")
 
 public:
-    ControllerService(UnitManager *units, Bluetooth *bluetooth, QObject *parent = nullptr);
+    ControllerService(UnitManager *units, Bluetooth *bluetooth, MotionCalibration *calibration,
+                      QObject *parent = nullptr);
 
 public slots:
     Q_SCRIPTABLE QString Describe() const;
@@ -34,16 +36,22 @@ public slots:
     Q_SCRIPTABLE void EndUnit(int player);
     // The controllers with these two player numbers trade them.
     Q_SCRIPTABLE void SwapPlayers(int player, int other);
+    // Measures this controller's motion sensors at rest for two seconds; it must lie
+    // still on a table. MotionCalibrated says how it went.
+    Q_SCRIPTABLE void CalibrateMotion(const QString &address);
     Q_SCRIPTABLE void Forget(const QString &address);
 
 signals:
     Q_SCRIPTABLE void Changed();
     Q_SCRIPTABLE void HomePressed();
+    // strength: g shown at rest before the correction; drift: degrees a second.
+    Q_SCRIPTABLE void MotionCalibrated(const QString &address, bool ok, double strength, double drift);
 
 private:
     void connectToBus();
 
     UnitManager *m_units;
     Bluetooth *m_bluetooth;
+    MotionCalibration *m_calibration;
     QTimer m_retry;
 };

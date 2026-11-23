@@ -30,7 +30,18 @@ This is an early version:
   is carried out of reach keeps its connection for up to 20 seconds and carries on when it
   is back.
 
-Not there yet: motion, rumble and the Ring-Con.
+- A button on a paired Joy-Con or Pro Controller wakes the machine from sleep.
+- **Motion** (tilting and turning a controller) is offered to emulators the way they
+  expect it from outside: as a cemuhook (DSU) server on this machine, port 26760. Pad 0
+  is player 1's left Joy-Con or only controller, pad 1 player 1's right Joy-Con, pads 2
+  and 3 the same for player 2.
+
+- **Motion calibration**: the TV's motion test (Settings → Controllers → a controller →
+  Motion test → Calibrate) measures a controller lying still on a table and corrects its
+  motion from then on, for games too. It is remembered per controller, in
+  `~/.config/tvcontrollers/motion.ini` on the Steam Machine.
+
+Not there yet: rumble, the Ring-Con and the IR camera.
 
 ## Install
 

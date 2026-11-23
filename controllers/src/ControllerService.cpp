@@ -2,6 +2,7 @@
 
 #include "Bluetooth.h"
 #include "JoyCon.h"
+#include "MotionCalibration.h"
 #include "Unit.h"
 #include "UnitManager.h"
 
@@ -19,9 +20,11 @@ namespace {
 const QString BusName = QStringLiteral("tvcontrollers");
 constexpr int RetryIntervalMs = 3000;
 
-QJsonObject describe(const JoyCon *joyCon)
+QJsonObject describe(const JoyCon *joyCon, const MotionCalibration *calibration)
 {
     return {
+        {QStringLiteral("motionCalibrated"), calibration->isCalibrated(joyCon->address())},
+        {QStringLiteral("lostReports"), joyCon->lostReports()},
         {QStringLiteral("address"), joyCon->address()},
         {QStringLiteral("name"), joyCon->name()},
         {QStringLiteral("side"), joyCon->side() == JoyCon::Side::Left    ? QStringLiteral("left")
@@ -34,11 +37,15 @@ QJsonObject describe(const JoyCon *joyCon)
 
 } // namespace
 
-ControllerService::ControllerService(UnitManager *units, Bluetooth *bluetooth, QObject *parent)
+ControllerService::ControllerService(UnitManager *units, Bluetooth *bluetooth, MotionCalibration *calibration,
+                                     QObject *parent)
     : QObject(parent)
     , m_units(units)
     , m_bluetooth(bluetooth)
+    , m_calibration(calibration)
 {
+    connect(calibration, &MotionCalibration::finished, this, &ControllerService::MotionCalibrated);
+    connect(calibration, &MotionCalibration::finished, this, &ControllerService::Changed);
     connect(units, &UnitManager::changed, this, &ControllerService::Changed);
     connect(bluetooth, &Bluetooth::searchingChanged, this, &ControllerService::Changed);
     connect(units, &UnitManager::homePressed, this, &ControllerService::HomePressed);
@@ -73,7 +80,7 @@ QString ControllerService::Describe() const
         QJsonArray members;
         const QList<JoyCon *> joyCons = unit->joyCons();
         for (const JoyCon *joyCon : joyCons)
-            members.append(describe(joyCon));
+            members.append(describe(joyCon, m_calibration));
         units.append(QJsonObject{
             {QStringLiteral("player"), unit->player()},
             {QStringLiteral("kind"), unit->kind() == Unit::Kind::Pair       ? QStringLiteral("pair")
@@ -85,7 +92,7 @@ QString ControllerService::Describe() const
     QJsonArray unassigned;
     const QList<JoyCon *> waiting = m_units->unassigned();
     for (const JoyCon *joyCon : waiting)
-        unassigned.append(describe(joyCon));
+        unassigned.append(describe(joyCon, m_calibration));
     const QJsonObject all{
         {QStringLiteral("units"), units},
         {QStringLiteral("unassigned"), unassigned},
@@ -107,6 +114,11 @@ void ControllerService::StopSearch()
 void ControllerService::SwitchOff(const QString &address)
 {
     m_bluetooth->switchOff(address);
+}
+
+void ControllerService::CalibrateMotion(const QString &address)
+{
+    m_calibration->calibrate(address);
 }
 
 void ControllerService::SwapPlayers(int player, int other)

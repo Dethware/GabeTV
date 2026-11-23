@@ -53,6 +53,17 @@ constexpr quint32 UserRightStick = 0x801b;
 constexpr quint8 UserCalibrationMagic[2] = {0xb2, 0xa1};
 constexpr int StickCalibrationSize = 9;
 
+// Motion: a full report carries three samples, 5 ms apart, each six 16-bit values (little
+// endian): the accelerometer's x, y, z, then the gyroscope's. The calibration is twelve
+// such values: the accelerometer's origin and sensitivity, then the gyroscope's.
+constexpr int MotionOffset = 13;
+constexpr int MotionSampleSize = 12;
+constexpr int MotionSamples = 3;
+constexpr int MotionIntervalUs = 5000;
+constexpr quint32 FactoryMotion = 0x6020;
+constexpr quint32 UserMotion = 0x8026;
+constexpr int MotionCalibrationSize = 24;
+
 // The buttons as one value: byte 3 of the report in bits 0-7 (the right Joy-Con's), byte 4
 // in bits 8-15 (shared), byte 5 in bits 16-23 (the left Joy-Con's).
 enum Button : quint32 {

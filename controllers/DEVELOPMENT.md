@@ -16,6 +16,7 @@ the same protocol and is handled by the same `JoyCon` class, as side `Both`). Th
 | Protocol: reports, subcommands | `JoyCon`, `JoyConProtocol.h` | read and write on the hidraw node |
 | Which Joy-Cons are one controller | `UnitManager`, `Unit` | |
 | What games see | `VirtualPad` | uinput |
+| Motion for emulators | `MotionServer` | cemuhook (DSU) over UDP, localhost |
 | What the shell sees | `ControllerService` | session D-Bus, `local.tvcontrollers` |
 
 Each layer rests on a basic Linux interface (bluez's D-Bus API, udev permissions, hidraw,
@@ -103,6 +104,52 @@ the bus every three seconds.
   program knows without a mapping. It declares the guide button, because leaving it out
   would renumber the stick buttons for programs that count them, and never presses it.
   Steam wraps it like any controller, and the shell reads Steam's pad.
+- **Motion.** `JoyCon` reads the sensor's calibration from the controller's memory (factory
+  at `0x6020`, the user's at `0x8026` if marked valid), switches the sensor on (subcommand
+  `0x40`), and turns the three readings of each full report into `Motion` values:
+  acceleration in g (reading × 4 / (sensitivity − origin)) and rotation in degrees a
+  second ((reading − origin) × 936 / (sensitivity − origin)). The axes are the same for
+  every controller held upright: x to its top, y to its left, z out of its face; a right
+  Joy-Con's y and z are turned, because its sensor is mounted the other way round.
+- **`MotionCalibration`** is the service's own motion calibration, like a Switch's
+  "calibrate motion controls". The calibration stored in a controller leaves the strength
+  at rest up to 7 % off 1 g (measured: 1.07, 1.03 and 1.02 on three controllers; Eden and
+  the kernel driver convert the same way and would show the same), and the gyroscope
+  shows a few tenths of a degree a second at rest. `calibrate(address)` measures a
+  controller for two seconds as it lies still (it refuses if the readings varied by more
+  than 4°/s or 0.05 g, or make no sense) and keeps what the sensors showed, by Bluetooth
+  address, in `~/.config/tvcontrollers/motion.ini`. `JoyCon` applies it to every reading
+  (`RestCorrection`): acceleration divided by the strength at rest, the gyroscope's
+  reading at rest taken off. The gyroscope's part then follows the error as it creeps
+  (`JoyCon::trackRest`): after a full second at rest (no axis varying by more than
+  0.6°/s, the strength by more than 0.01 g, the mean under 1°/s; lying still it measures
+  0.3°/s and 0.003 g at most) the correction moves a fifth of the way to what the
+  gyroscope shows. A hand shakes far more than that, so it isn't followed while held; a
+  turn slower than 1°/s by something steadier than a hand is swallowed. In memory only;
+  the stored values change only by calibrating. So everything downstream, `MotionServer` and with it the
+  emulator, gets the corrected motion. One posture gives a scale for the accelerometer,
+  not an offset per axis.
+- **`MotionServer`** serves that motion as a cemuhook (DSU) server on localhost port
+  26760, the way Eden and other emulators take motion from outside
+  (https://v1993.github.io/cemuhook-protocol/). Each Joy-Con is a pad of its own, since a
+  pair has two sensors: pads 0 and 1 are player 1's left (or only) and right, pads 2 and 3
+  player 2's; players 3 and 4 aren't served yet. Every reading carries its own time
+  (`JoyCon::Motion::time`), and that is the packet's timestamp, so a client can add up
+  rotation exactly: 5 ms after the reading before, plus 15 ms for every report lost in
+  between. Lost reports are told by the report's own timer (its second byte), which
+  counts one per reading, so 3 from one report to the next and 6 across a lost one; when
+  a report arrives says little, the radio delivers them unevenly. Their readings are
+  filled in (up to 8 reports in a row) on a straight line between the readings either
+  side of the gap and sent first, so the stream is complete; `lostReports` in `Describe`
+  says how many. The readings go out
+  from a queue, one every 5 ms and in order, two at a time when a burst from the radio
+  has built up a backlog: sent as they arrive they would come in bursts, which matters to
+  a client that takes the time between packets as the time between readings (Eden), and
+  sent by a timer each they arrived out of order. Only motion, battery and identity are filled in; buttons and sticks
+  go through the virtual controller. The protocol's reference doesn't say which way its
+  axes point; the mapping in `sendMotion` (x right, y out of the face, z towards the
+  player) is to be checked against an emulator. A client that stops asking is dropped
+  after five seconds.
 - **Stick calibration** comes from the Joy-Con's memory (subcommand `0x10`): the factory
   values, replaced by the user's own if those are marked valid. `JoyCon::stick()` gives
   -1 to 1 with a 15 % dead zone.
@@ -116,7 +163,8 @@ the bus every three seconds.
   and forgets a device, and logs bluez's connect and disconnect events, with the reason,
   for every Joy-Con the service has seen.
 - **`ControllerService`** is the shell's view: `Describe()` (JSON, units in player order),
-  `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit` and `SwapPlayers`. The shell's `ShellService` listens
+  `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit`, `SwapPlayers`, and
+  `CalibrateMotion` with its answer `MotionCalibrated`. The shell's `ShellService` listens
   for `HomePressed` and treats it as Home on the remote.
 
 Not tried yet: forgetting a Joy-Con.
@@ -144,5 +192,10 @@ differ from the repository's.
 
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
-2. Motion, rumble, then the Ring-Con.
-3. The Pro Controller on a USB cable.
+2. The Ring-Con (its flex as an axis of a virtual device), rumble, then the IR camera.
+3. Lost reports, later and not urgent: their readings are filled in on a straight line
+   once the next report is there. Worth reading up on what is done elsewhere (loss
+   concealment for inertial sensors) and trying prediction, so that a reader gets
+   something sensible during the gap and not only after it.
+4. Motion pads for players 3 and 4 (a second server port).
+5. The Pro Controller on a USB cable.

@@ -73,6 +73,7 @@ private:
     void pairingDone(const QString &path, const QString &name, const QString &error);
 
     bool m_searching = false;
+    int m_startTries = 0;
     QTimer m_searchTimeout;
     QSet<QString> m_followed; // object paths
     QSet<QString> m_pairing; // object paths

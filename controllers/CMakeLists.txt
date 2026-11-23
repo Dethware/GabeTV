@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pinned to what SteamOS 3.9.5 ships (see toolchains/steamos-3.9).
-find_package(Qt6 6.11 REQUIRED COMPONENTS Core DBus)
+find_package(Qt6 6.11 REQUIRED COMPONENTS Core DBus Network)
 
 qt_standard_project_setup(REQUIRES 6.11)
 
@@ -24,6 +24,10 @@ qt_add_executable(tvcontrollers
     src/JoyCon.cpp
     src/JoyCon.h
     src/JoyConProtocol.h
+    src/MotionCalibration.cpp
+    src/MotionCalibration.h
+    src/MotionServer.cpp
+    src/MotionServer.h
     src/Unit.cpp
     src/Unit.h
     src/UnitManager.cpp
@@ -36,4 +40,5 @@ target_link_libraries(tvcontrollers
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Network
 )

@@ -23,6 +23,8 @@ const QString AgentPath = QStringLiteral("/local/tvcontrollers/agent");
 constexpr int SearchTimeoutMs = 120000;
 // Pairing waits for the Joy-Con; bluez gives up by itself well inside this.
 constexpr int PairTimeoutMs = 60000;
+constexpr int StartRetryMs = 500;
+constexpr int MaxStartTries = 6;
 
 // bluez names a device's object after its adapter and address.
 QString devicePath(const QString &address)
@@ -105,10 +107,21 @@ void Bluetooth::startSearch()
          {QVariantMap{{QStringLiteral("Transport"), QStringLiteral("bredr")}}});
     call(this, AdapterPath, AdapterInterface, QStringLiteral("StartDiscovery"), {}, [this](const QString &error) {
         if (!error.isEmpty()) {
+            // Asked again right after a stop, bluez is still ending the last search: once
+            // more in a moment, if a search is still wanted then.
+            if (m_searchTimeout.isActive() && ++m_startTries <= MaxStartTries) {
+                QTimer::singleShot(StartRetryMs, this, [this] {
+                    if (m_searchTimeout.isActive() && !m_searching)
+                        startSearch();
+                });
+                return;
+            }
             qCWarning(lcBluetooth).noquote() << "cannot search:" << error;
             m_searchTimeout.stop();
+            m_startTries = 0;
             return;
         }
+        m_startTries = 0;
         qCInfo(lcBluetooth) << "searching for Joy-Cons in sync mode";
         setSearching(true);
         // One that bluez has already seen doesn't get announced again.
@@ -135,6 +148,7 @@ void Bluetooth::startSearch()
 void Bluetooth::stopSearch()
 {
     m_searchTimeout.stop();
+    m_startTries = 0;
     if (!m_searching)
         return;
     call(this, AdapterPath, AdapterInterface, QStringLiteral("StopDiscovery"), {}, [](const QString &) {});

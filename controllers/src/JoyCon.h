@@ -40,6 +40,41 @@ public:
         bool operator==(const State &) const = default;
     };
 
+    // One reading of the motion sensor, calibrated: acceleration in g (at rest it shows
+    // 1 g pointing away from the ground), rotation in degrees a second. The axes are the
+    // same for every controller, as it is held upright: x towards its top (the shoulder
+    // buttons), y to its left, z out of its face.
+    struct Motion
+    {
+        float accel[3] = {};
+        float gyro[3] = {};
+        // When it was taken, in microseconds on a clock of this controller's own: exactly
+        // 5 ms after the reading before, unless reports were lost in between. To be used
+        // for the time between readings; when a reading arrives says little about that.
+        qint64 time = 0;
+    };
+    // The three readings of one report, oldest first, 5 ms apart.
+    using MotionReport = std::array<Motion, 3>;
+
+    // What this controller's sensors showed lying still, as a correction on top of its
+    // stored calibration (MotionCalibration): the acceleration is multiplied, so that rest
+    // is 1 g, and the gyroscope's reading at rest is taken off.
+    struct RestCorrection
+    {
+        float accelScale = 1.0f;
+        float gyro[3] = {};
+    };
+    void setRestCorrection(const RestCorrection &correction) { m_restCorrection = correction; }
+    // Whether the gyroscope's part of that correction follows its error while the
+    // controller is at rest. Off while the error itself is being measured.
+    void setRestTracking(bool tracking)
+    {
+        m_restTracking = tracking;
+        m_restWindow = {};
+    }
+    // Reports lost on the radio since it connected; their readings were filled in.
+    int lostReports() const { return m_lostReports; }
+
     // The stick's position: -1 to 1, right and up positive, calibrated, with a dead zone.
     struct Stick
     {
@@ -82,6 +117,8 @@ signals:
     // out of reach and may come back. Which one can't be told, so the connection is left
     // alone; Bluetooth's own timeout ends it if the Joy-Con stays away.
     void quietChanged();
+    // Every 15 ms while it is connected.
+    void motion(const JoyCon::MotionReport &samples);
     // It went quiet from a perfectly regular stream of reports: that is what a Joy-Con
     // being switched off looks like (it says nothing when it does). One that drifts out
     // of reach has late and missing reports first.
@@ -105,6 +142,8 @@ private:
     void applyLights();
     void checkLights();
     void readCalibration(quint32 address, bool user, Side which);
+    void readMotionCalibration(quint32 address, bool user);
+    void trackRest(const MotionReport &samples, bool gap);
 
     // The stick's raw values at rest and how far it reaches from there in each direction.
     struct Calibration
@@ -131,6 +170,37 @@ private:
     bool m_ready = false;
     // It has answered something: its node is alive.
     bool m_answered = false;
+    // The sensors' readings at rest and at a known acceleration or rotation; the defaults
+    // are the nominal ones.
+    struct StoredMotionCalibration
+    {
+        int accelOrigin[3] = {0, 0, 0};
+        int accelSensitivity[3] = {16384, 16384, 16384};
+        int gyroOrigin[3] = {0, 0, 0};
+        int gyroSensitivity[3] = {13371, 13371, 13371};
+    };
+    StoredMotionCalibration m_motionCalibration;
+    RestCorrection m_restCorrection;
+    bool m_restTracking = true;
+    // The stretch being watched for stillness: each gyroscope axis' lowest, highest and
+    // sum, and the acceleration's strength, lowest and highest.
+    struct RestWindow
+    {
+        int count = 0;
+        float low[3] = {};
+        float high[3] = {};
+        double sum[3] = {};
+        float strengthLow = 0;
+        float strengthHigh = 0;
+    };
+    RestWindow m_restWindow;
+    Motion m_lastMotion;
+    // The time of the last motion reading (Motion::time), and the clock it is held to.
+    qint64 m_motionTime = 0;
+    int m_lastTimer = 0;
+    qint64 m_lastArrived = 0;
+    int m_lostReports = 0;
+    QElapsedTimer m_motionClock;
     Calibration m_leftCalibration;
     Calibration m_rightCalibration;
     // The lights as they should be, checked against the Joy-Con a moment after setting them.

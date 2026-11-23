@@ -3,6 +3,7 @@
 #include "JoyConProtocol.h"
 
 #include <QLoggingCategory>
+#include <QtEndian>
 #include <QSocketNotifier>
 
 #include <algorithm>
@@ -23,6 +24,14 @@ constexpr int MaxTries = 3;
 // The first subcommand after a connection: a Joy-Con takes a while to answer anything
 // (the node is there before the connection is fully up), so this one is patient: 5 s.
 constexpr int MaxFirstTries = 20;
+// Up to this many lost reports in a row are filled in (120 ms).
+constexpr int MostFilledReports = 8;
+// Following the gyroscope's error at rest: see trackRest().
+constexpr int RestWindowReadings = 200;
+constexpr float RestTurningSpread = 0.6f; // degrees a second, lowest to highest
+constexpr float RestStrengthSpread = 0.01f; // g
+constexpr float RestTurningMost = 1.0f; // degrees a second
+constexpr float RestFollow = 0.2f; // of the way, each second at rest
 // The lights are read back this long after setting them, and set again if they differ.
 constexpr int LightsCheckMs = 400;
 // Full reports come every 15 ms; the worst gaps measured on a weak link were 150 ms. This
@@ -108,6 +117,9 @@ bool JoyCon::open()
         readCalibration(FactoryRightStick, false, Side::Right);
         readCalibration(UserRightStick, true, Side::Right);
     }
+    readMotionCalibration(FactoryMotion, false);
+    readMotionCalibration(UserMotion, true);
+    send(EnableMotion, QByteArray(1, char(0x01)));
     // A Joy-Con starts in the simple mode, which only reports button changes.
     send(SetInputMode, QByteArray(1, char(InputFull)), [this](const QByteArray &) {
         qCInfo(lcJoyCon).noquote() << name() << m_address << "ready, firmware" << m_firmware << "battery"
@@ -168,6 +180,83 @@ void JoyCon::readCalibration(quint32 address, bool user, Side which)
     });
 }
 
+void JoyCon::readMotionCalibration(quint32 address, bool user)
+{
+    const int size = MotionCalibrationSize + (user ? 2 : 0);
+    QByteArray args;
+    for (int i = 0; i < 4; ++i)
+        args.append(char(address >> (8 * i)));
+    args.append(char(size));
+    send(ReadMemory, args, [this, size, user](const QByteArray &reply) {
+        QByteArray data = reply.mid(5, size);
+        if (data.size() < size)
+            return;
+        if (user) {
+            if (quint8(data[0]) != UserCalibrationMagic[0] || quint8(data[1]) != UserCalibrationMagic[1])
+                return;
+            data = data.mid(2);
+        }
+        const auto value = [&](int index) { return int(qFromLittleEndian<qint16>(data.constData() + 2 * index)); };
+        StoredMotionCalibration &c = m_motionCalibration;
+        for (int axis = 0; axis < 3; ++axis) {
+            c.accelOrigin[axis] = value(axis);
+            c.accelSensitivity[axis] = value(3 + axis);
+            c.gyroOrigin[axis] = value(6 + axis);
+            c.gyroSensitivity[axis] = value(9 + axis);
+        }
+        qCDebug(lcJoyCon).noquote() << name() << (user ? "user" : "factory") << "motion calibration: accelerometer origin"
+                                    << c.accelOrigin[0] << c.accelOrigin[1] << c.accelOrigin[2] << "sensitivity"
+                                    << c.accelSensitivity[0] << c.accelSensitivity[1] << c.accelSensitivity[2]
+                                    << "gyroscope origin" << c.gyroOrigin[0] << c.gyroOrigin[1] << c.gyroOrigin[2]
+                                    << "sensitivity" << c.gyroSensitivity[0] << c.gyroSensitivity[1] << c.gyroSensitivity[2];
+    });
+}
+
+// Follows the gyroscope's error as it creeps (it does, by a tenth of a degree a second or
+// so as the controller warms up), the way a Switch does: while the controller is at rest,
+// what the gyroscope still shows is error, and the correction is moved towards it.
+//
+// At rest means a full second in which no gyroscope axis varied by more than 0.6°/s, the
+// acceleration's strength by no more than 0.01 g, and the gyroscope's mean stayed under
+// 1°/s. Measured lying still: 0.18 to 0.31°/s and 0.002 to 0.003 g. A hand holding it
+// shakes it far beyond that, so it is not followed while held. What this does swallow is
+// a turn slower than 1°/s made by something steadier than a hand; that is the price.
+void JoyCon::trackRest(const MotionReport &samples, bool gap)
+{
+    if (!m_restTracking)
+        return;
+    if (gap)
+        m_restWindow = {};
+    RestWindow &w = m_restWindow;
+    for (const Motion &sample : samples) {
+        const float strength = std::hypot(sample.accel[0], sample.accel[1], sample.accel[2]);
+        for (int axis = 0; axis < 3; ++axis) {
+            if (w.count == 0)
+                w.low[axis] = w.high[axis] = sample.gyro[axis];
+            w.low[axis] = qMin(w.low[axis], sample.gyro[axis]);
+            w.high[axis] = qMax(w.high[axis], sample.gyro[axis]);
+            w.sum[axis] += sample.gyro[axis];
+        }
+        if (w.count == 0)
+            w.strengthLow = w.strengthHigh = strength;
+        w.strengthLow = qMin(w.strengthLow, strength);
+        w.strengthHigh = qMax(w.strengthHigh, strength);
+        ++w.count;
+    }
+    if (w.count < RestWindowReadings)
+        return;
+    bool still = w.strengthHigh - w.strengthLow <= RestStrengthSpread;
+    for (int axis = 0; axis < 3; ++axis) {
+        still = still && w.high[axis] - w.low[axis] <= RestTurningSpread
+                && std::abs(w.sum[axis] / w.count) <= RestTurningMost;
+    }
+    if (still) {
+        for (int axis = 0; axis < 3; ++axis)
+            m_restCorrection.gyro[axis] += float(w.sum[axis] / w.count) * RestFollow;
+    }
+    m_restWindow = {};
+}
+
 JoyCon::Stick JoyCon::stick(Side which) const
 {
     const bool left = which == Side::Left;
@@ -224,6 +313,8 @@ void JoyCon::readReports()
         if (size < 0 && (errno == EAGAIN || errno == EINTR))
             return;
         // The node is gone: the Joy-Con disconnected.
+        if (m_lostReports > 0)
+            qCInfo(lcJoyCon).noquote() << name() << m_address << "had" << m_lostReports << "reports lost on the radio";
         qCInfo(lcJoyCon).noquote() << name() << m_address << "lost:" << (size < 0 ? std::strerror(errno) : "end of file")
                                    << (m_sinceReport.isValid() ? QStringLiteral("- last report %1 ms ago").arg(m_sinceReport.elapsed())
                                                                : QString());
@@ -269,6 +360,83 @@ void JoyCon::handleReport(const QByteArray &report)
         if (state.buttons != before)
             emit buttonsChanged(state.buttons & ~before, before & ~state.buttons);
         emit stateChanged();
+    }
+
+    if (type == InputFull && m_ready && report.size() >= MotionOffset + MotionSamples * MotionSampleSize) {
+        const StoredMotionCalibration &c = m_motionCalibration;
+        // The sensor in a right Joy-Con is mounted the other way round: its y and z point
+        // the opposite way, so they are turned to match the others.
+        const float flip = m_side == Side::Right ? -1.0f : 1.0f;
+        const float sign[3] = {1.0f, flip, flip};
+        MotionReport samples;
+        // The readings' times. The controller takes a reading every 5 ms and sends three
+        // in a report, so each is 5 ms after the one before, across reports too. When a
+        // report arrives says little about that: the radio delivers them unevenly. What
+        // says how many reports were lost is the report's own timer (its second byte),
+        // which counts those 5 ms: 3 from one report to the next (measured: 2 to 4), 6 if
+        // one is missing between them, and so on. It wraps every 1.28 s; a silence longer
+        // than a second is taken from our own clock instead.
+        if (!m_motionClock.isValid())
+            m_motionClock.start();
+        // A second ahead, so that the very first readings' times, set back from the
+        // arrival, aren't negative.
+        const qint64 arrived = m_motionClock.nsecsElapsed() / 1000 + 1000000;
+        const int timer = quint8(report[1]);
+        qint64 first;
+        int lost = 0;
+        const qint64 before = m_motionTime;
+        if (m_motionTime == 0) {
+            first = arrived - (MotionSamples - 1) * MotionIntervalUs;
+        } else {
+            const qint64 reportUs = MotionSamples * MotionIntervalUs;
+            qint64 reports = qMax(1, qRound(((timer - m_lastTimer) & 0xff) / double(MotionSamples)));
+            if (arrived - m_lastArrived > 1000000)
+                reports = qMax<qint64>(1, (arrived - m_lastArrived + reportUs / 2) / reportUs);
+            lost = int(reports - 1);
+            m_lostReports += lost;
+            first = m_motionTime + MotionIntervalUs + (reports - 1) * reportUs;
+        }
+        m_lastTimer = timer;
+        m_lastArrived = arrived;
+        m_motionTime = first + (MotionSamples - 1) * MotionIntervalUs;
+        for (int n = 0; n < MotionSamples; ++n) {
+            samples[n].time = first + n * MotionIntervalUs;
+            const char *raw = report.constData() + MotionOffset + n * MotionSampleSize;
+            for (int axis = 0; axis < 3; ++axis) {
+                const int accel = qFromLittleEndian<qint16>(raw + 2 * axis);
+                const int gyro = qFromLittleEndian<qint16>(raw + 6 + 2 * axis);
+                // The sensitivity is the reading at 4 g, and at 936 degrees a second.
+                const int accelSpan = c.accelSensitivity[axis] - c.accelOrigin[axis];
+                const int gyroSpan = c.gyroSensitivity[axis] - c.gyroOrigin[axis];
+                samples[n].accel[axis] = accelSpan != 0 ? sign[axis] * accel * 4.0f / accelSpan : 0.0f;
+                samples[n].gyro[axis] = gyroSpan != 0 ? sign[axis] * (gyro - c.gyroOrigin[axis]) * 936.0f / gyroSpan : 0.0f;
+                samples[n].accel[axis] *= m_restCorrection.accelScale;
+                samples[n].gyro[axis] -= m_restCorrection.gyro[axis];
+            }
+        }
+        // The readings of lost reports, filled in on a straight line from the last reading
+        // before the gap to the first after it, so that whoever adds the motion up gets a
+        // complete stream. They go out now, late but in order. Not for a long silence:
+        // nothing sensible can be said about that.
+        if (lost > 0 && lost <= MostFilledReports) {
+            const int missing = lost * MotionSamples;
+            MotionReport filled;
+            for (int j = 0; j < missing; ++j) {
+                const float share = float(j + 1) / float(missing + 1);
+                Motion &reading = filled[j % MotionSamples];
+                reading.time = before + (j + 1) * MotionIntervalUs;
+                for (int axis = 0; axis < 3; ++axis) {
+                    reading.accel[axis] = m_lastMotion.accel[axis] + (samples[0].accel[axis] - m_lastMotion.accel[axis]) * share;
+                    reading.gyro[axis] = m_lastMotion.gyro[axis] + (samples[0].gyro[axis] - m_lastMotion.gyro[axis]) * share;
+                }
+                if (j % MotionSamples == MotionSamples - 1)
+                    emit motion(filled);
+            }
+        }
+        m_lastMotion = samples[MotionSamples - 1];
+        // A gap spoils the stretch of stillness being watched, filled in or not.
+        trackRest(samples, lost > 0);
+        emit motion(samples);
     }
 
     const bool ours = type == InputSubcommandReply && m_waiting && report.size() > ReplyDataOffset
