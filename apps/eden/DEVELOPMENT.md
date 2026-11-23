@@ -122,7 +122,7 @@ for `user/`.
    and one unit per game in place of `eden.service` naming Ring Fit.
 5. A Joy-Con held sideways in a game (its buttons and stick are passed as held upright).
 6. User profiles pass through to Eden (its user, and with it the saves, follows who is
-   using the TV), once the TV has them: a system of its own, see the brief (`CLAUDE.md`).
+   using the TV), once the TV has them: a system of its own, see `../../DEVELOPMENT.md`.
 
 Not pursued: the stray geometry the user saw once or twice in Ring Fit's first level
 ("very minor"), which is Eden's rendering; and the player lights as the game sets them. A

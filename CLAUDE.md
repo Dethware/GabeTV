@@ -1,103 +1,37 @@
-# TV OS on the Steam Machine — project brief
+# GabeTV: working on this project
 
-A custom TV experience on a Valve Steam Machine, replacing a Google TV dongle, an HDMI switch and (eventually) a Nintendo Switch. This file carries over the context and decisions from a planning conversation.
+A TV experience of our own on a Valve Steam Machine (`gabecube`), published as
+https://github.com/Dethware/GabeTV. The repository is public: nothing private goes into
+it (keys, tokens, addresses of people's accounts). What it is and does:
+`README.md`. How the parts fit, the decisions, the hardware and what is planned:
+`DEVELOPMENT.md`. This file is only about how to work on it.
 
 ## Working style
 
 - The system's constraints are still being discovered. **Ask questions and discuss design decisions before writing larger amounts of code.** Don't fill gaps with assumptions.
 - Prefer reasoning the design upfront, then a **scaffold** (a file layout resembling the end result) or one clear example to follow, then the implementation.
 - After a stretch of building by trying things on the device, go over the code for refactoring and architecture before building further on it.
-- Documentation (the split is in the global `~/.claude/CLAUDE.md`): users read `shell/README.md`, developers `shell/DEVELOPMENT.md`; dated findings and decisions go in the log, `docs/gabecube-findings.md`.
 
-## Hardware and setup
+## Where things are written down
 
-### Current setup (what's connected today)
-- **Display:** an older AMH 40" 4K monitor, 60 Hz only, plain HDMI with no smart features. The backlight is failing.
-- **Routing:** a cheap HDMI switch between the monitor and three sources: the Steam Machine, a Google TV dongle and a Nintendo Switch dock.
-- **Audio:** the Philips HTL3310 soundbar on an **analog** stereo cable. It's slow to wake on signal.
-- No usable HDMI-CEC/eARC chain today. Anything display-related (refresh rates, VRR, HDR, CEC) can't be tested until the new TV is installed.
+The split between the kinds of document is in the global `~/.claude/CLAUDE.md`.
 
-### Target setup (TV ordered, being installed)
-Everything below describes the target unless noted.
+- For users: `README.md` at the top, and one in each part (`shell/`, `controllers/`, `apps/eden/`, `apps/jellyfin-desktop/`, `toolchains/`, `system/steam-ui-watchdog/`).
+- For developers: `DEVELOPMENT.md` at the top for what spans the parts (how they fit, constraints, decisions, hardware, apps, plans, open questions, ideas), and one in `shell/`, `controllers/` and `apps/eden/` for how each works inside.
+- The log: `docs/gabecube-findings.md`. Dated findings, measurements, decisions and rejected alternatives go there; keep it updated as tests run. The first reconnaissance of the machine (how Gaming Mode starts, what persists, focus control, Waydroid's prerequisites) is at its start.
 
-- **Steam Machine**, hostname `gabecube`, stock SteamOS. Reachable with `ssh deck@gabecube`.
-  - HDMI: HDMI 2.1 VRR works per Valve, output currently capped at 4K120. An update for 4K144 (FRL) / 4K240 (DSC) has been announced; check the SteamOS changelog.
-  - HDMI-CEC on the Steam Machine is unreliable (spurious wake-from-sleep). Don't depend on it. The Steam Controller can wake the machine.
-- **TV:** LG OLED G6 55" (`OLED55G64LW`), wall-mounted, **kept offline**. The Wi-Fi/Bluetooth module may be physically removed later, which means IR-only remote. Should boot to the last HDMI input.
-- **Audio:** Philips HTL3310 soundbar on the TV's HDMI eARC port (Dolby Digital / LPCM 2ch).
-- **Input:** Steam Controller, plus the **Google TV dongle's remote, paired to the Steam Machine over Bluetooth** (navigation keys). Its IR side keeps controlling the TV directly (power, volume). The TV stays a dumb display. Fallbacks: HDMI-CEC passthrough, or a USB IR receiver (FLIRC-style). Keyboard and mouse optional.
-- The HDMI switch, Google TV dongle and Switch dock go away. The Steam Machine becomes the only source.
-- The Steam Machine itself, its SteamOS install and SSH access are already in place, so software work can start now on the current monitor.
+## Rules that follow from the decisions
 
-## Decisions so far
+The reasons are in `DEVELOPMENT.md`; these are the ones to keep in mind while working.
 
-1. **Base: stock SteamOS for now**, because it gets new features first (HDMI 2.1, drivers). We may revisit a fully custom base in about a year.
-   - Constraint: read-only root with A/B updates. Everything we build must live in `/home`, Flatpak, user systemd units, or (if verified to persist) `/etc`.
-2. **Shell architecture: our own window inside the stock Gaming Mode session.** Steam keeps running as usual for games, downloads, Steam Input and its menus. Our shell is an X11 client on gamescope's `:0` that we start ourselves (user systemd unit). It tags its window with `STEAM_GAME=<id>` and takes the screen by putting `<id>` first in `GAMESCOPECTRL_BASELAYER_APPID`. Games launch via `steam://rungameid/...`. Steam rewrites that property on game launch/exit and Steam restarts, so the shell re-claims it whenever no game is in the list. Controller input comes from Steam's virtual Xbox pad. Tested; see `docs/gabecube-findings.md`.
-   - UI toolkit: **Qt/QML, no web stack, using SteamOS's own Qt** (relying on Qt's ABI compatibility). Target version pinned at what SteamOS 3.9.5 ships: **Qt 6.11.1**. SteamOS carries the full KDE Plasma desktop, so most Qt modules are there (incl. declarative, multimedia + ffmpeg, imageformats, svg, quick3d, websockets, connectivity, virtualkeyboard, shadertools). Anything missing gets vendored. The shell is a C++ binary in `/home`, started by a user systemd unit.
-   - Rejected for now: running our shell as a non-Steam shortcut (slow start, Steam's controller prompt, Steam treats it as a running game). Native Wayland would need `--expose-wayland` and has no real app ID.
-3. **The UI concept is "places", not shelves.** It's a spatial library with stable positions that never auto-reorder, and it unifies every source (Steam, emulators, media apps, photos). It must be fully navigable with a d-pad or TV remote, with no mouse or keyboard needed.
-4. **No Steam startup movies or Steam screensaver.** Our shell owns idle behavior: screensaver (Immich photos), dimming, screen off.
-5. **The device you pick up suggests what you want to do.** Not a rule, but it guides the design:
-   - the remote → the TV (shell, media): its Home brings back the shell;
-   - the Steam Controller → Steam games: its Steam buttons open Steam's own screens; no controller way back to the shell is needed for now (Steam keeps the controller while its UI has focus anyway);
-   - Nintendo controllers (Joy-Con) → Nintendo games (Ryujinx/Eden);
-   - a Joy-Con attached to the Ring-Con → Ring Fit Adventure.
-   So the shell may later react to which device wakes up or connects, e.g. offer Ring Fit when a Ring-Con shows up.
+- Stock SteamOS, read-only root: everything we build lives in `/home`, in user systemd units, or in `/etc` with an entry in the update keep-list. Programs are plain folders, never Flatpak or similar.
+- Build in the toolchain images (`toolchains/`), against SteamOS's own Qt. The shell's interface is Qt/QML, no web stack.
+- Every screen must work with a d-pad or a TV remote alone. Places have stable positions and never reorder by themselves.
+- The Nintendo controllers belong to our controller service and nothing else. Don't build on Steam's Joy-Con support, `joycond`, SDL's Joy-Con driver or an emulator's own driver; patch the emulator to fit instead.
+- Mind licenses: yuzu/Suyu/Eden code is GPL-3. What links into Eden is GPL-3; don't copy its code into the other parts.
 
-## Apps and the plan for each
+## On the machine
 
-| Need | Current thinking | Notes |
-|---|---|---|
-| Jellyfin | Must be remote-friendly. Test Jellyfin Media Player TV mode and the web client's TV layout. The Android TV app works but needs configuration. | No desktop-isms allowed. |
-| YouTube | Wants the TV-style UI with multiple accounts and remote navigation. **Test `youtube.com/tv` in a browser kiosk first** (the same leanback UI smart TVs use). | Android route possible but see Waydroid caveats. |
-| Symfonium | Android-only → **Waydroid**. | Paid app, uses Google Play licensing, so it needs GApps and a registered device. Server type still to confirm. |
-| Immich photos | **Build natively** in the shell: photo viewer and screensaver via the Immich API (albums, memories, random). Photos place exists (albums, grid, viewer). | The shell uses a **dedicated TV account** on photos.peterix.cz that sees the albums shared with it; it owns no photos, so Immich's memories stay empty until the TV knows about people (their own accounts). On OLED: dim or switch off after idle; never a static image for hours. The current Android TV app's screensaver is broken. |
-| Ring Fit Adventure | Ryujinx 1.3.3 runs the dump. On gabecube the dump, keys and firmware are in `~/Games/Emulators/Switch/`; no emulator is installed there yet. | Ring-Con support is uncertain in Ryujinx; Eden (yuzu lineage) has it. |
-
-### Waydroid caveats
-- It needs binder in the kernel. Existing SteamOS install scripts often modify the read-only rootfs and break on updates. Check the kernel config first.
-- Waydroid is regular Android, not Android TV, so the TV versions of apps may not appear or behave correctly.
-
-## Joy-Con / Ring-Con
-
-- **Decision: we override everything.** One service of ours is the only thing that talks to a Joy-Con (or the Pro Controller), and it does what a Switch does with them: pairing, forming two into one unit, player lights, battery, the Ring-Con, Home (which brings up the shell). Steam, the emulator and everything else see only the virtual controllers the service makes. Don't build on Steam's Joy-Con support, `joycond`, SDL's Joy-Con driver or an emulator's own driver: each does it its own way, and glue between them breaks with a random update. The emulator may be patched to fit.
-- The controllers there are: two pairs of Joy-Cons, a Pro Controller and the Ring-Con. The service owns the Pro Controller too, over Bluetooth; on a USB cable it is left to Steam.
-- A button on a paired Joy-Con or Pro Controller wakes the machine from sleep (the remote can't; see the log).
-- The service is `controllers/` (`tvcontrollers`): users read `controllers/README.md`, developers `controllers/DEVELOPMENT.md`.
-- The service speaks the Joy-Con protocol over `hidraw`. References: **SwitchKit** (https://github.com/Meorge/SwitchKit), which supports Joy-Con, Pro Controller and the Ring-Con, and dekuNukem's Nintendo_Switch_Reverse_Engineering.
-- The kernel's `hid_nintendo` and Steam both take a Joy-Con the moment it connects; how they are kept out, and what was measured, is in the log (`docs/gabecube-findings.md`, "Joy-Con").
-- Mind licenses: yuzu/Suyu/Eden code is GPL-3.
-
-## First task: reconnaissance on `gabecube`
-
-Findings so far are in `docs/gabecube-findings.md`. Keep that file updated as tests run.
-
-Map how the Gaming Mode session starts and what we can change without touching read-only parts:
-
-```bash
-cat /etc/os-release; uname -r
-steamos-readonly status 2>&1
-ls -la /usr/share/wayland-sessions/ /etc/sddm.conf.d/ 2>&1
-cat /usr/share/wayland-sessions/*.desktop
-cat /etc/sddm.conf.d/* 2>&1
-which gamescope-session steamos-session-select 2>&1
-zcat /proc/config.gz 2>/dev/null | grep -iE 'binder|ashmem'; lsmod | grep -iE 'binder|ashmem'
-```
-
-Questions to answer:
-- Where are the session definition and autologin configured, and does `/etc` persist across SteamOS updates?
-- Can a custom session be registered without modifying `/usr`?
-- How does Steam behave when it isn't gamescope's main client? Launching games, focus, overlays, Steam Input.
-- Is Waydroid viable without rootfs changes?
-
-## Open questions
-
-- User profiles: decided that the TV gets them, as a system of its own to be built from the ground up. They apply to photos (each person's own Immich photos and memories; today it only has the TV account's shared albums), YouTube, Eden (its user and saves) and probably some of the settings. How they work is open.
-- Which server does Symfonium talk to (Navidrome, Jellyfin, other)?
-- Idle/power policy: screensaver → dim → off. How do we turn the TV off without relying on the Steam Machine's CEC?
-
-## Ideas drawer (not now)
-
-- Spotify-Connect-like "move playback between devices" on an open stack, with desktop, Android and TV clients. Prior art to study: Music Assistant (Home Assistant ecosystem).
-- Receiving from phones with an open protocol (stretch goal). Google Cast itself needs device keys, so it's out. **Wanted: an FCast receiver** (https://fcast.org/, an open casting protocol). Other candidates: YouTube's own "link with TV code" and DIAL for YouTube, AirPlay (UxPlay), DLNA/UPnP rendering, Spotify Connect (librespot).
+- `ssh deck@gabecube`. The user runs anything that needs sudo.
+- Deploying restarts the shell or the controller service, and restarting that service ends the formed controllers (L+R again): ask before each deploy.
+- Secrets stay on gabecube (the Immich key in `~/.config/tvshell/immich.conf`): never print them or pass them through the conversation.

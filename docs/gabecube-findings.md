@@ -2378,6 +2378,30 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   nobody will really notice anyway", and "we don't worry about the controller LEDs in
   Ring Fit". Left as they are; off the list.
 
+- The user asked for "a short and sweet top level README.md" and noted that parts of
+  `CLAUDE.md` "sound like a README", some "a little bit outdated", some that "probably
+  should live elsewhere". Done as: a top-level `README.md` (what it is, what is where,
+  how it is built); a top-level `DEVELOPMENT.md` that takes the brief's decisions,
+  hardware, apps table, Waydroid caveats, open questions and ideas, brought up to date
+  (Eden in place of "no emulator installed", the apps as they are now, the Steam Machine
+  as the only source); and `CLAUDE.md` cut down to how to work on the project, with
+  pointers. The brief's "first task: reconnaissance" section is gone: it was done on the
+  first day and its answers are at the start of this log. The protocol references moved
+  to `controllers/DEVELOPMENT.md`. Three working rules that had only been said in
+  conversation are now in `CLAUDE.md`: ask before each deploy, the user runs sudo,
+  secrets stay on gabecube.
+
+- The setup as of 2026-11-23, from the user: "Current setup is the old monitor via DP +
+  bluetooth to the soundbar. The soundbar goes to sleep when idle and doesn't wake with
+  the machine automatically. It's all temporary". (The brief had said HDMI and an analog
+  cable.) `DEVELOPMENT.md` says so now.
+
+- The project has a name: the user called the repository GabeTV
+  (https://github.com/Dethware/GabeTV; "GabeTV for the gabecube"). It is public. The
+  top-level documents carry the name; the programs keep theirs (`tvshell`,
+  `tvcontrollers`). The local checkout's remote still says `Dethware/SteamTV`, the name
+  before; GitHub redirects it.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

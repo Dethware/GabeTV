@@ -6,6 +6,11 @@ the same protocol and is handled by the same `JoyCon` class, as side `Both`). Th
 ("we override everything") and the measurements are in the log,
 `docs/gabecube-findings.md`, under "Joy-Con".
 
+The Joy-Con protocol is spoken over `hidraw`. References for it: SwitchKit
+(https://github.com/Meorge/SwitchKit), which covers Joy-Con, Pro Controller and Ring-Con,
+and dekuNukem's Nintendo_Switch_Reverse_Engineering. Eden's own Joy-Con driver was read for
+facts as well; it is GPL-3, so none of its code is in here.
+
 ## The layers
 
 | Layer | Who | Through |
