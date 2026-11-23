@@ -1099,6 +1099,149 @@ intended column.
   newest photo in 2026 and 4 in 2025.
 - The screensaver's album picker in Settings lists the albums in the same new order.
 
+## Joy-Con: who takes it when it connects (2026-11-23)
+
+Start of the Nintendo controller work. The Switch, its dock, the dongle and the HDMI switch
+are disconnected; the Joy-Cons sit on a standalone charger.
+
+What the system has, before any controller:
+
+- Kernel 7.2.7-valve2: `CONFIG_HID_NINTENDO=m`, `CONFIG_NINTENDO_FF=y`, `CONFIG_HIDRAW=y`,
+  `CONFIG_UHID=m`, `CONFIG_HID_BPF=y`. `hid_nintendo` is loaded at boot on purpose:
+  `/usr/lib/modules-load.d/hid-preload.conf` lists it and `hid_playstation` "so they have
+  first claim", against a race that makes Steam fall back to evdev instead of hidraw.
+- Every hidraw node is open to the `deck` user: `70-steam-jupiter-input.rules` has
+  `KERNEL=="hidraw*", TAG+="uaccess"`. `60-steam-input.rules` names the Pro Controller
+  (057e:2009) but no Joy-Con; it doesn't matter because of the blanket rule. A program of
+  ours needs no udev rule and no root.
+- `/etc/udev/rules.d` (empty) and `/etc/modprobe.d` exist, so a rule or a blacklist of our
+  own has a place, with sudo.
+- No `joycond`. `hidapi` 0.15.0, SDL 3.4.12 and `sdl2-compat`, bluez 5.87, `inputplumber`
+  0.78.0 installed but inactive.
+- Bluetooth adapter: Valve's own (USB 28de:1401, `btusb`), central and peripheral roles.
+- No emulator is installed on gabecube. Under `~/Games/Emulators/Switch/`: `ringfit/ROM.xci`
+  (3.3 GB, with the card's ID and certificate files), `keys/22.5.0`, `firmware/Firmware.22.5.0.zip`
+  and `sdcard/Nintendo` (43 GB). The brief says Ryujinx 1.3.3 runs the dump; no Ryujinx
+  is on this machine now, and where that test ran isn't recorded.
+
+The right Joy-Con (057e:2007), paired from the command line (sync button held, then
+`bluetoothctl --agent=NoInputNoOutput pair`, `trust`, `connect`; classic Bluetooth HID, no
+PIN):
+
+- **Three programs take it at the same moment**, within two seconds of the connection:
+  1. The kernel's `nintendo` driver binds it: reads the calibration, sets the player 1 light,
+     and creates two input devices, `Joy-Con (R)` (buttons and stick, with a `js` node) and
+     `Joy-Con (R) (IMU)` (motion), plus `hidraw5`.
+  2. Steam opens `hidraw5` with its own driver ("Controller using HIDAPI driver … Nintendo
+     Controller subtype 2"), loads its `controller_switch_joycon_right` layout and adds one
+     more virtual `Microsoft X-Box 360 pad`.
+  3. Our shell opens the kernel's `Joy-Con (R)` event device as a gamepad ("gamepad added:
+     Nintendo Switch Joy-Con (R)"), next to Steam's virtual pad. Not yet checked on screen:
+     whether a Joy-Con button then reaches the shell twice.
+- In the shell (the user, Joy-Con alone, Steam Controller off): "dead zone issues" and a
+  "weird" button mapping. What the shell has open then: `Microsoft X-Box 360 pad 0` (Steam's
+  virtual pad, here made for the Joy-Con) and the kernel's `Joy-Con (R)`. The kernel device
+  has the stick as the *right* stick (`ABS_RX`/`ABS_RY`, flat 500) and no left one; Steam's
+  SDL mapping for the same Joy-Con is `leftx:a0,lefty:a1` with its own button order, the
+  layout for a Joy-Con held sideways. *Inferred, not measured:* one push of the stick
+  reaches the shell as two sticks that disagree about the direction, and one button as two
+  different buttons; `GamepadInput` keeps one set of stick values for all pads. The user
+  also saw Home act as the Steam button (Steam's mapping has `guide:b5`) and A/B/X/Y
+  "behave strangely". Changed: the shell opens only Steam's virtual pads (28de:11ff), so a
+  Joy-Con works in the shell the way Steam maps it, held sideways.
+- Home on the Joy-Con is Steam's button (it opens Steam's menu); the user wants it to be
+  ours. Found, nothing tested: no setting that rebinds it (`controller_guide_button_focus_steam`
+  in `steamui.so` is the desktop client's "Guide button focuses Steam"). `steamclient.so`
+  has the strings `controller_blacklist` and `SDL_GAMECONTROLLER_IGNORE_DEVICES`, two
+  possible ways to make Steam ignore a controller altogether; `config.vdf` has no
+  `controller_blacklist` entry now and Steam's environment has no such variable. Steam's
+  environment can be extended without root by a drop-in for the user units (see the session
+  notes above). The kernel's `Joy-Con (R)` device reports Home itself (`BTN_MODE` is in its
+  key bitmap), whoever else reads the controller.
+- `controller_blacklist`, from Steam's community forums (no Valve documentation): a line in
+  Steam's `config/config.vdf`, `"controller_blacklist" "57e/2006,57e/2007"` (hex, no
+  leading zeros, commas), edited while Steam is stopped or Steam overwrites it. One report
+  there says a blacklisted controller then doesn't work in games outside Steam while Steam
+  runs. Untested here.
+- Talking to the Joy-Con ourselves works next to the kernel driver and Steam, as `deck`,
+  over `/dev/hidraw5` (plain read and write, Python): 68 input reports a second (type
+  `0x30`), battery full, device info by subcommand `0x02` (firmware 4.25, "Joy-Con (R)"),
+  and the player light moved to 2 and back by subcommand `0x30`, each acknowledged. Neither
+  Steam nor the kernel logged anything about it. `/dev/uinput` is open to `deck` as well,
+  so a program of ours can make virtual controllers.
+- Direction set by the user: full control of the Joy-Cons is ours, "what a Switch would
+  normally do with them", including forming two into one unit; Home on a Joy-Con brings
+  up the shell; the emulator may be customised for it; perhaps shown to Steam as virtual
+  devices. Their experience of Joy-Cons on Linux: a poor stack and no UX to speak of.
+- What exists elsewhere today (looked up, nothing tried):
+  - Steam combines two Joy-Cons itself. This Steam has the setting ("Combine Pairs of
+    Nintendo Joy-Con Controllers" in Settings → Controller, "Combine Joy-Con Pairs" in the
+    quick access menu), a `controller_switch_joycon_pair` layout and gyro options per
+    Joy-Con. The ArchWiki says it makes `joycond` unnecessary, and that `joycond`'s udev
+    rule stops Steam's own driver.
+  - SDL's own Joy-Con driver (hidraw) combines a pair into one controller by default
+    (`SDL_JOYSTICK_HIDAPI_COMBINE_JOY_CONS`, since SDL 3.2), has a vertical mode for a
+    single one, motion and the Home light. Any SDL program that may open the hidraw node
+    gets that, emulators included.
+  - Ring-Con: a third-party project ported "the Ring-Con input logic used by Eden" into
+    Ryujinx because the original Ryujinx has none; a yuzu-derived fork carries a
+    `joycon_protocol/ringcon.cpp`. So Eden reads a real Ring-Con itself. Whether Ryubing
+    does was not found.
+  - `joycond` (pairs through the kernel driver's devices, shoulder buttons pressed together)
+    still exists; no change this year found. Linux 7.4 has a driver for Switch 2
+    controllers (USB only), from Valve; gabecube runs 7.2.7.
+  - InputPlumber on gabecube ships a mapping for the Pro Controller only
+    (`60-switch_pro.yaml`) and isn't running.
+- **Decided by the user: "We override everything."** Their reading of the above: everyone
+  does it their own way, there is no single cohesive solution, and glue between other
+  people's pieces breaks with a random update. So one service of ours is the only thing
+  that talks to a Joy-Con; Steam, the emulator and every other program get virtual
+  controllers that the service makes. Not chosen: Steam's pair setting plus Eden's own
+  Ring-Con driver; Steam's `controller_blacklist` as the way to keep Steam out (a setting
+  of Steam's that Steam may change).
+- The user's controllers: two pairs of Joy-Cons, a Pro Controller, the Ring-Con. Decided by
+  the user for the Pro Controller (057e:2009, same protocol): for now it is handled as a
+  generic controller, since its form factor isn't unusual; anything special it needs is
+  done later. So it stays with Steam, and the rule and the service cover Joy-Cons only.
+- How to keep everyone else out, proposed and not yet tested: a udev rule of ours takes the
+  user-access tag off a Joy-Con's hidraw and input nodes and gives them to group `input`
+  (which exists, and `deck` is not in it); the service runs as a system unit as `deck` with
+  that one extra group. Steam and SDL programs run as `deck` without it and can't open the
+  nodes. It needs root once. `/etc/systemd/system/*.service` is on SteamOS's default keep
+  list; the rule needs an entry in `/etc/atomic-update.conf.d/` like the remote's. Rule order
+  on this system: `70-steam-jupiter-input.rules` and `70-uaccess.rules` set the tag,
+  `73-seat-late.rules` applies it, so ours sorts at 72.
+- **The rule hides the Joy-Con.** Installed by the user as
+  `/etc/udev/rules.d/72-tv-joycon.rules` (Joy-Cons 057e:2006 and 2007 over Bluetooth:
+  `TAG-="uaccess"`, group `input`, mode 0660, for the hidraw node and the kernel driver's
+  input nodes). After the next reconnect: all four nodes `root:input 660` with no ACL for
+  `deck`, opening them as `deck` fails, nothing holds them, Steam's controller log has no
+  line for the connection and Steam made no virtual pad, and the shell logged no gamepad.
+  The kernel driver still binds and the Joy-Con stays connected. The rule is not yet on the
+  update keep list.
+- **And the extra group gets in.** The same Python test, run by the user as
+  `systemd-run --uid=deck --gid=deck -p SupplementaryGroups=input`: 67 reports a second,
+  device info, and the player light moved to 2 and back, all acknowledged. So a system
+  unit with `User=deck` and `SupplementaryGroups=input` is all the service needs; being
+  `deck`, it can also be restarted without root by ending its process (`Restart=always`).
+- The weak link shows again with nobody but the kernel driver reading: "compensating for 7
+  dropped IMU reports", `delta=135 avg_delta=14`, 70 to 100 such lines a minute around 13:00.
+  The user: the Joy-Con was in another room earlier, later "a few meters" away. Measured
+  after that, three windows of 40 s: 1, 2 and 1 late-packet lines, worst gap about 100 ms.
+  The middle window had the switched-off Bluetooth mouse blocked, to rule out the
+  background search for it; no difference. Wi-Fi is on 5 GHz and the soundbar wasn't
+  connected over Bluetooth. *Inferred:* the bad numbers, the -86 dBm and probably the first
+  dropped connection were distance and walls, not the machine.
+- The first connection ended after 5 s (Steam: "Controller device closed after hid_read
+  failure"), with nothing in the kernel log. The Joy-Con then reconnected by itself on a
+  button press and stayed for the 45 s watched. A sleeping Joy-Con can't be connected from
+  the machine (`br-connection-create-socket`); it connects when a button is pressed.
+- The radio link is weak where the Joy-Con was: RSSI -86 dBm when found, and the kernel
+  driver logs late motion packets (`delta=89 avg_delta=14`, up to 150 ms against 14 ms).
+- bluez shows `WakeAllowed: yes` for it. Not tested: whether a button press on a paired
+  Joy-Con wakes the suspended machine. It connects by calling the machine (classic
+  Bluetooth), unlike the remote's advertising, so it may.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

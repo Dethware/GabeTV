@@ -65,7 +65,10 @@ inhibitor lock so logind doesn't suspend on Power itself.
 
 The remote and keyboards arrive as normal key events. The controller is read through SDL3
 from Steam's virtual Xbox pad (`SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1`, evdev
-only, no hidapi) and turned into key events sent to the window: A = Return, B/Back = Back,
+only, no hidapi) and turned into key events sent to the window. Only Steam's virtual pads
+(USB id 28de:11ff) are opened: Steam makes one for every controller, and a controller the
+kernel also shows as a gamepad (a Joy-Con, through `hid_nintendo`) would otherwise be read
+twice, in two layouts. A = Return, B/Back = Back,
 Start = Menu, d-pad and both sticks = arrows with repeat (whichever stick is pushed further
 decides; the right one is there for one-handed use, next to the buttons); LB/RB are a signal
 (`shoulderPressed`), not keys. Only while the shell is on screen and active, since the same

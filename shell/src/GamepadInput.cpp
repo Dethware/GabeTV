@@ -43,6 +43,12 @@ int keyForButton(int button)
     }
 }
 
+// Steam's virtual pads all have this USB id, whatever the controller behind them.
+bool isSteamVirtualPad(SDL_JoystickID id)
+{
+    return SDL_GetGamepadVendorForID(id) == 0x28de && SDL_GetGamepadProductForID(id) == 0x11ff;
+}
+
 bool isDirection(int key)
 {
     return key == Qt::Key_Up || key == Qt::Key_Down || key == Qt::Key_Left || key == Qt::Key_Right;
@@ -131,6 +137,14 @@ void GamepadInput::poll()
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
         case SDL_EVENT_GAMEPAD_ADDED:
+            // Steam makes a virtual pad for every controller it knows. A controller that the
+            // kernel also shows as a gamepad (a Joy-Con) would otherwise be read twice, in
+            // two different layouts.
+            if (!isSteamVirtualPad(event.gdevice.which)) {
+                qCInfo(lcGamepad) << "gamepad ignored, not one of Steam's:"
+                                  << SDL_GetGamepadNameForID(event.gdevice.which);
+                break;
+            }
             if (SDL_Gamepad *pad = SDL_OpenGamepad(event.gdevice.which)) {
                 qCInfo(lcGamepad) << "gamepad added:" << SDL_GetGamepadName(pad);
                 ++m_count;

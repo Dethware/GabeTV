@@ -52,16 +52,18 @@ Everything below describes the target unless noted.
 | YouTube | Wants the TV-style UI with multiple accounts and remote navigation. **Test `youtube.com/tv` in a browser kiosk first** (the same leanback UI smart TVs use). | Android route possible but see Waydroid caveats. |
 | Symfonium | Android-only → **Waydroid**. | Paid app, uses Google Play licensing, so it needs GApps and a registered device. Server type still to confirm. |
 | Immich photos | **Build natively** in the shell: photo viewer and screensaver via the Immich API (albums, memories, random). Photos place exists (albums, grid, viewer). | The shell uses a **dedicated TV account** on photos.peterix.cz that sees the albums shared with it; it owns no photos, so Immich's memories stay empty until the TV knows about people (their own accounts). On OLED: dim or switch off after idle; never a static image for hours. The current Android TV app's screensaver is broken. |
-| Ring Fit Adventure | Ryujinx 1.3.3 runs the dump (`~/Games/switch/ringfit/`). | Ring-Con support is uncertain in Ryujinx; Eden (yuzu lineage) has it. |
+| Ring Fit Adventure | Ryujinx 1.3.3 runs the dump. On gabecube the dump, keys and firmware are in `~/Games/Emulators/Switch/`; no emulator is installed there yet. | Ring-Con support is uncertain in Ryujinx; Eden (yuzu lineage) has it. |
 
 ### Waydroid caveats
 - It needs binder in the kernel. Existing SteamOS install scripts often modify the read-only rootfs and break on updates. Check the kernel config first.
 - Waydroid is regular Android, not Android TV, so the TV versions of apps may not appear or behave correctly.
 
-## Joy-Con / Ring-Con (later)
+## Joy-Con / Ring-Con
 
-- Plan: a small userspace program over `hidraw` using hidapi (cross-platform). Starting point: **SwitchKit** (https://github.com/Meorge/SwitchKit), which supports Joy-Con, Pro Controller and the Ring-Con. Also see dekuNukem's Nintendo_Switch_Reverse_Engineering.
-- The kernel's `hid_nintendo` grabs the Joy-Cons. Either blacklist it or take over only while a Ring-Con game runs. Steam Input also grabs controllers, so disable it per game where needed.
+- **Decision: we override everything.** One service of ours is the only thing that talks to a Joy-Con, and it does what a Switch does with them: pairing, forming two into one unit, player lights, battery, the Ring-Con, Home (which brings up the shell). Steam, the emulator and everything else see only the virtual controllers the service makes. Don't build on Steam's Joy-Con support, `joycond`, SDL's Joy-Con driver or an emulator's own driver: each does it its own way, and glue between them breaks with a random update. The emulator may be patched to fit.
+- The controllers there are: two pairs of Joy-Cons, a Pro Controller and the Ring-Con. The Pro Controller is a generic controller for now (left to Steam); the service is for Joy-Cons.
+- The service speaks the Joy-Con protocol over `hidraw`. References: **SwitchKit** (https://github.com/Meorge/SwitchKit), which supports Joy-Con, Pro Controller and the Ring-Con, and dekuNukem's Nintendo_Switch_Reverse_Engineering.
+- The kernel's `hid_nintendo` and Steam both take a Joy-Con the moment it connects; how they are kept out, and what was measured, is in the log (`docs/gabecube-findings.md`, "Joy-Con").
 - Mind licenses: yuzu/Suyu/Eden code is GPL-3.
 
 ## First task: reconnaissance on `gabecube`
