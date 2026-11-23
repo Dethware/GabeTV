@@ -6,6 +6,7 @@ A custom TV experience on a Valve Steam Machine, replacing a Google TV dongle, a
 
 - The system's constraints are still being discovered. **Ask questions and discuss design decisions before writing larger amounts of code.** Don't fill gaps with assumptions.
 - Prefer reasoning the design upfront, then a **scaffold** (a file layout resembling the end result) or one clear example to follow, then the implementation.
+- After a stretch of building by trying things on the device, go over the code for refactoring and architecture before building further on it.
 - Documentation (the split is in the global `~/.claude/CLAUDE.md`): users read `shell/README.md`, developers `shell/DEVELOPMENT.md`; dated findings and decisions go in the log, `docs/gabecube-findings.md`.
 
 ## Hardware and setup
@@ -92,7 +93,7 @@ Questions to answer:
 
 ## Open questions
 
-- Who uses the TV? Shared space vs. user profiles in the shell. With people, the shell could show each person's own Immich photos and memories (today it only has the TV account's shared albums).
+- User profiles: decided that the TV gets them, as a system of its own to be built from the ground up. They apply to photos (each person's own Immich photos and memories; today it only has the TV account's shared albums), YouTube, Eden (its user and saves) and probably some of the settings. How they work is open.
 - Which server does Symfonium talk to (Navidrome, Jellyfin, other)?
 - Idle/power policy: screensaver → dim → off. How do we turn the TV off without relying on the Steam Machine's CEC?
 

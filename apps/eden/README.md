@@ -8,8 +8,8 @@ so that our own changes (`patches/`) can go on top of a pinned version.
 It is there for Ring Fit Adventure with the Joy-Cons and the Ring-Con. Its controllers
 come from the TV's controller service (`../../controllers`) and from nowhere else: the
 Joy-Cons and the Pro Controller, as that service has them. Eden's own controller settings
-have no effect, and other controllers (the Steam Controller) don't play in it. Form the
-controller with L+R before the game starts. How that is built is in `DEVELOPMENT.md`.
+have no effect, and other controllers (the Steam Controller) don't play in it. How that is
+built is in `DEVELOPMENT.md`.
 
 ## Build and install
 
@@ -31,15 +31,13 @@ The TV shell starts it from the Ring Fit Adventure tile on Home (as the user ser
 game: it is paused and stays as it is, also through the machine's sleep, until you open the
 tile again. It is lost with a reboot; the game's own saves are not.
 
-By hand from this folder, without the shell:
+Hold OK on the tile for its menu: Close ends the game, Force close is for one that doesn't
+react.
 
-    ./try.sh start     # Ring Fit Adventure; another game: ./try.sh start <file on gabecube>
-    ./try.sh stop      # ends Eden and gives the screen back to the shell
-
-Form the controller first: L on the left Joy-Con and R on the right one together. While
-Eden is on screen this way, the shell's own keys and dialogs (Home, the power dialog) don't
-work over it. When the game asks for a name or a number, Eden shows its own on-screen
-keyboard; with the Joy-Con in the Ring-Con its stick moves the cursor as you see it.
+Form the controller with L on the left Joy-Con and R on the right one together; after the
+Joy-Cons have been away (the machine slept), do it again and the game carries on. When the
+game asks for a name or a number, Eden shows its own on-screen keyboard; with the Joy-Con in
+the Ring-Con its stick moves the cursor as you see it.
 
 ## Where its data is
 

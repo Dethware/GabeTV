@@ -236,6 +236,13 @@ differ from the repository's.
   the journal otherwise).
 - State from outside: `busctl --user call local.tvcontrollers /local/tvcontrollers
   local.tvcontrollers Describe`.
+- `tools/` has small clients to run on the Steam Machine (copy them over; they need only
+  Python): `emulator-client.py [seconds] [ring]` says Hello on the emulator socket, prints
+  the controllers, each one's report rate and last report, and with `ring` asks for the
+  ring and prints its range. The others read the motion server as an emulator would:
+  `dsu-client.py` (pads, packet rate and timing, mean acceleration and rotation),
+  `dsu-loss.py` and `dsu-watch.py` (readings lost, from the steps between their times;
+  once, or every ten seconds), `dsu-noise.py` (how quiet the sensors are at rest).
 - "cannot open /dev/hidrawN for a Joy-Con: Permission denied" in the log: the rule or the
   unit's group is missing.
 
@@ -243,8 +250,9 @@ differ from the repository's.
 
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
-2. For the emulator (`EmulatorServer`): lights and rumble as the game sets them, then the
-   IR camera. Units that survive a restart of the service.
+2. For the emulator (`EmulatorServer`): rumble as the game sets it (Ring Fit uses it),
+   then the IR camera; the player lights as the game sets them are only cosmetic. Units
+   that survive a restart of the service.
 3. An idea, not decided: the Ring-Con as the way to steer outside games too (squeeze to
    confirm, pull to cancel, turn it left or right, point it up or down), as one more
    mapping onto the virtual pad. It needs the ring read the whole time, which keeps the

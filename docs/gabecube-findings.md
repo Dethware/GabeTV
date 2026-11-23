@@ -2354,6 +2354,25 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   "Ok. That worked." So the whole round holds: tile, Home, park, Joy-Cons away and back
   with L+R, continue.
 
+- Committed by the user (8f366e7). Their word on what is left (2026-11-23, around
+  midnight): the graphical glitches are not ours to chase ("They were very minor");
+  "Rumble is definitely a thing in Ring Fit, should work"; lights: "not sure if there is
+  any?" (there are only the player lights: on a Switch the ring's Joy-Con shows player 1
+  and the leg's player 2, here both show the pair's number; cosmetic); the IR camera
+  "would be indeed interesting"; user profiles "apply to photos, youtube, eden, probably
+  some of the settings. So it is an another system that we need to build from the ground
+  up." And on the evening as a whole: "this was a pure vibes operation for the most part.
+  Going over the code and looking for refactoring and architecture improvement
+  opportunities is a must." The lists in `apps/eden/DEVELOPMENT.md` and
+  `controllers/DEVELOPMENT.md` and the brief now say so.
+
+- Housekeeping the same night, on the user's word: the test clients used all day lived in
+  the session's scratch folder, which is in memory only on the development machine and
+  gone at shutdown; the ones worth keeping are now `controllers/tools/` (the emulator
+  socket's client and the four cemuhook clients). The recon scripts of the morning, the
+  temporary Eden binding script and the screenshots were left behind: what they found is
+  in this log. `apps/eden/try.sh` is removed: the shell starts Eden.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
