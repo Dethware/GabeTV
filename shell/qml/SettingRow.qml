@@ -9,6 +9,8 @@ Rectangle {
     property string value
     property bool current
     property bool focused: current
+    // Left and Right change the value: show ‹ › around it when focused.
+    property bool adjustable: true
 
     height: 88
     radius: 8
@@ -33,6 +35,6 @@ Rectangle {
         visible: row.value.length > 0
         color: row.focused ? "#101418" : "#b0bec5"
         font.pixelSize: 32
-        text: row.focused ? "‹  " + row.value + "  ›" : row.value
+        text: row.focused && row.adjustable ? "‹  " + row.value + "  ›" : row.value
     }
 }

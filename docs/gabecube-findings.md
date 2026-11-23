@@ -1423,6 +1423,18 @@ PIN):
   Controller"), not the Pro Controller. The user: "Pro controller seems good", and the
   shell's power menu entry that turns controllers off (it disconnects Bluetooth gamepads
   through bluez) worked on these controllers too.
+- A controllers screen in the shell, design agreed with the user: a Controllers entry in
+  Settings; the search runs only while the screen is open (it slows the controllers in
+  use); a list of controllers with player number and battery; OK offers "Change grip"
+  (the service's `EndUnit`) and "Switch off". Forgetting a controller is left out of this
+  version. Built and started headless; not deployed.
+- Deployed, and the user on its shape: unsure what the UI should be, but a Controllers
+  section holding "a choice control that has no choices, but acts as a button to open the
+  real thing" is convoluted. Changed: the Controllers category shows the controllers
+  directly where the other categories show their options, and the search runs while the
+  focus is in that list. Also: a settings line that only opens something (the album
+  picker) no longer shows the ‹ › of a value that can be stepped. Deployed; the user:
+  "Yes, better". Whether "Change grip" was tried is not known.
 - The service also got `EndUnit(player)`: ends a controller, its Joy-Cons stay connected
   and wait again. Built, not tried.
 - The user also: it "felt a bit slow when the second set of joycons was pairing", while

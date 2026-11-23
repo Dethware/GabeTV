@@ -138,9 +138,7 @@ differ from the repository's.
 
 ## Next
 
-1. A controllers screen in the shell (search and pair, order, battery, switch off, forget,
-   and why a Joy-Con left: switched off, battery empty, out of reach). Until then a search
-   is started by hand: `busctl --user call local.tvcontrollers /local/tvcontrollers
-   local.tvcontrollers StartSearch`.
-2. A way to end a unit without switching a Joy-Con off.
-3. Motion, rumble, then the Ring-Con.
+1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
+   why one left (switched off, battery empty, out of reach).
+2. Motion, rumble, then the Ring-Con.
+3. The Pro Controller on a USB cable.

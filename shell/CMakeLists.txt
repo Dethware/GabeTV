@@ -56,6 +56,7 @@ set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarBu
 set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
 set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
 set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
+set_source_files_properties(qml/ControllersPane.qml PROPERTIES QT_RESOURCE_ALIAS ControllersPane.qml)
 set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
 set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
 set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
@@ -91,6 +92,7 @@ qt_add_qml_module(tvshell
         qml/PhotoLayer.qml
         qml/ScreensaverLayer.qml
         qml/AlbumPicker.qml
+        qml/ControllersPane.qml
         qml/PhotoBackdrop.qml
         qml/PhotoInfo.qml
         qml/FitGrid.qml
@@ -144,6 +146,8 @@ qt_add_qml_module(tvshell
         src/ViewerSettings.h
         src/ManagedApp.cpp
         src/ManagedApp.h
+        src/ControllerClient.cpp
+        src/ControllerClient.h
         src/ShellService.cpp
         src/ShellService.h
         src/WebKeys.cpp

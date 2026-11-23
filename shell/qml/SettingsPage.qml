@@ -4,6 +4,7 @@ import TvShell
 // Settings, laid out like Steam's: categories on the left, options on the right.
 // Categories: up/down, Right/OK goes into the options. Options: up/down picks, left/right
 // changes the value, OK toggles or opens. Back goes out a level; from the categories it leaves.
+// The Controllers category has no options: its side shows the controllers themselves.
 FocusScope {
     id: page
 
@@ -12,6 +13,7 @@ FocusScope {
     required property ViewerSettings viewer
     required property YouTubeSettings youtube
     required property ImmichClient immich
+    required property ControllerClient controllers
 
     signal closed()
 
@@ -72,6 +74,12 @@ FocusScope {
         return count === 0 ? qsTr("None (clock)") : count === 1 ? qsTr("1 album") : qsTr("%1 albums").arg(count)
     }
 
+    // The category that shows ControllersPane instead of options.
+    readonly property int controllersCategory: 1
+    readonly property bool showingControllers: categories.currentIndex === controllersCategory
+    // What Right and OK go into from the categories.
+    readonly property Item detail: showingControllers ? controllersPane : options
+
     readonly property var categoryOptions: [
         // Power
         [
@@ -85,6 +93,8 @@ FocusScope {
               value: () => formatDuration(idle.suspendAfter),
               change: d => idle.suspendAfter = stepIn(idleDurations, idle.suspendAfter, d) },
         ],
+        // Controllers: ControllersPane
+        [],
         // Screensaver
         [
             { label: qsTr("Albums"),
@@ -126,8 +136,8 @@ FocusScope {
         ],
     ]
 
-    Keys.onBackPressed: options.activeFocus ? categories.forceActiveFocus() : page.closed()
-    Keys.onEscapePressed: options.activeFocus ? categories.forceActiveFocus() : page.closed()
+    Keys.onBackPressed: categories.activeFocus ? page.closed() : categories.forceActiveFocus()
+    Keys.onEscapePressed: categories.activeFocus ? page.closed() : categories.forceActiveFocus()
 
     Rectangle {
         anchors.fill: parent
@@ -154,7 +164,7 @@ FocusScope {
         width: 400
         spacing: 8
         focus: true
-        model: [qsTr("Power"), qsTr("Screensaver"), qsTr("Photos"), qsTr("YouTube")]
+        model: [qsTr("Power"), qsTr("Controllers"), qsTr("Screensaver"), qsTr("Photos"), qsTr("YouTube")]
 
         delegate: SettingRow {
             required property string modelData
@@ -167,9 +177,9 @@ FocusScope {
             focused: current && categories.activeFocus
         }
 
-        Keys.onRightPressed: options.forceActiveFocus()
-        Keys.onReturnPressed: options.forceActiveFocus()
-        Keys.onEnterPressed: options.forceActiveFocus()
+        Keys.onRightPressed: page.detail.forceActiveFocus()
+        Keys.onReturnPressed: page.detail.forceActiveFocus()
+        Keys.onEnterPressed: page.detail.forceActiveFocus()
     }
 
     ListView {
@@ -182,6 +192,7 @@ FocusScope {
         anchors.margins: 48
         spacing: 8
         keyNavigationWraps: false
+        visible: !page.showingControllers
         model: page.categoryOptions[categories.currentIndex]
 
         delegate: SettingRow {
@@ -190,6 +201,8 @@ FocusScope {
             width: ListView.view.width
             label: modelData.label
             value: modelData.value()
+            // An option that only opens something has nothing to step through.
+            adjustable: modelData.change !== undefined
             current: ListView.isCurrentItem && options.activeFocus
             focused: current
         }
@@ -208,5 +221,17 @@ FocusScope {
         screensaver: page.screensaver
 
         onClosed: options.forceActiveFocus()
+    }
+
+    ControllersPane {
+        id: controllersPane
+
+        anchors.fill: options
+        visible: page.showingControllers
+        controllers: page.controllers
+        awake: page.idle.state === IdleController.Active
+        overlay: page
+
+        onLeftPressed: categories.forceActiveFocus()
     }
 }

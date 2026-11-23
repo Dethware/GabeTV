@@ -262,6 +262,26 @@ Home button, and nothing but that service can read a Joy-Con.
 What the program needs to behave on a TV (flags, controller settings, key map, logging) is in
 `../apps/jellyfin-desktop` and the log.
 
+### Controllers in Settings (`src/ControllerClient.*`, `qml/ControllersPane.qml`)
+
+Nintendo's controllers belong to the controller service (`../controllers/DEVELOPMENT.md`);
+the shell only shows them and asks. `ControllerClient` is the session-bus client of
+`local.tvcontrollers`: it asks `Describe()` when the service signals `Changed` (and on
+`refresh()`, since battery levels aren't announced) and turns the JSON into `units` and
+`waiting`; `startSearch`, `stopSearch`, `switchOff` and `endUnit` pass straight through.
+
+The Controllers category of `SettingsPage` has no options. `ControllersPane` takes the
+options' place: the instructions and the list of controllers, with a `ChoiceDialog` for a
+line's actions (parented to the page, so it covers all of it). The search runs exactly
+while the focus is in the pane's list or its dialog and the shell is awake
+(`searchWanted`), renewed every minute because the service ends a search after two; a
+search takes radio time from the controllers in use, so passing over the category doesn't
+start one. Forming units is not done here: the gestures (L+R, SL+SR) are the service's,
+and the pane shows the result.
+
+In `SettingsPage`, an option without a `change` function is a button (the screensaver's
+album picker): its value is shown without the ‹ › that mean "Left and Right change this".
+
 ### Power (`src/PowerActions.*`, `qml/PowerDialog.qml`)
 
 Power short press toggles the screen; held 0.8 s it opens the dialog (Sleep, Power off, Turn

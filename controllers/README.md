@@ -30,8 +30,7 @@ This is an early version:
   is carried out of reach keeps its connection for up to 20 seconds and carries on when it
   is back.
 
-Not there yet: a screen in the TV's interface for pairing and for the controllers, motion,
-rumble and the Ring-Con.
+Not there yet: motion, rumble and the Ring-Con.
 
 ## Install
 
@@ -56,8 +55,10 @@ Joy-Cons are then visible to Steam again from their next connection.
 
 ## Pairing a Joy-Con
 
-The service pairs Joy-Cons itself; Steam's Bluetooth settings are not needed. Until the TV
-has a screen for it, start a search on the Steam Machine:
+The service pairs the controllers itself; Steam's Bluetooth settings are not needed. Open
+Settings → Controllers on the TV and go into the list: the search runs while you are in
+it. Without the
+TV's interface, start one on the Steam Machine:
 
     busctl --user call local.tvcontrollers /local/tvcontrollers local.tvcontrollers StartSearch
 

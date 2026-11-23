@@ -107,10 +107,19 @@ keeps failing, take its batteries out for a few seconds.
 ## Settings
 
 In the shell: Settings in the top bar, or Start on the controller. Power (when the
-screensaver, screen off and sleep start), Screensaver (albums, time per photo, transition,
+screensaver, screen off and sleep start), Controllers (below), Screensaver (albums, time per photo, transition,
 background, date and place), Photos (transition and background in the viewer) and YouTube
 (what SponsorBlock skips: sponsors, self-promotion, reminders, intros, outros, recaps,
 non-music parts, filler; only sponsors at first). Changes apply at once.
+
+**Controllers** shows Nintendo's controllers (Joy-Cons and the Pro Controller), if the
+controller service is installed (`../controllers`). Go into the list with Right or OK:
+while you are in it, the TV looks for new ones. Hold a controller's small sync button
+until its lights sweep, and it is added. Then show how you hold it: L and R on two Joy-Cons make them one
+controller, SL and SR on one make it a controller held sideways; a Pro Controller needs
+nothing. The list shows each controller with its player number and battery. OK on a line
+offers Change grip (the Joy-Cons wait to be regrouped) and Switch off. Controllers in use
+can feel sluggish while you are in the list, because the search shares their radio.
 
 For the skipping, the shell asks the SponsorBlock service (sponsor.ajay.app) about each video
 you watch, by the first characters of a hash of its ID, not the ID itself. With every switch
