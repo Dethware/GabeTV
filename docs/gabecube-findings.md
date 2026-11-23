@@ -1803,6 +1803,134 @@ The sequence is Eden's (`joycon_protocol/ringcon.cpp`, `common_protocol.cpp`,
   for as long as it exists.
 - The leg strap needs nothing: it holds a left Joy-Con, whose motion is already served.
 
+## Eden for Ring Fit (2026-11-23)
+
+After the Ring-Con worked on our side, the user chose the emulator next ("Emulator
+next"), ahead of the IR camera.
+
+What is there:
+
+- gabecube, `~/Games/Emulators/Switch/`: `ringfit/ROM.xci` (3.3 GB, with the card's
+  certificate and id files), `keys/22.5.0/prod.keys` and `title.keys`,
+  `firmware/Firmware.22.5.0.zip` (325 MB), `sdcard/Nintendo` (43 GB: contents, saves,
+  album). 86 GB free on `/home`. Graphics: RADV on "AMD Steam Machine (NAVI33)", Vulkan
+  1.4.350, Mesa 26.2.0-devel. The processor ("AMD Custom CPU 1772") has AVX-512.
+- Eden: the latest release is v0.2.1 (2026-06-01), published on its own site
+  (`git.eden-emu.dev/eden-emu/eden`, files on `stable.eden-emu.dev`); the GitHub
+  `eden-emulator/Releases` repository answers 451, "Repository access blocked". Linux
+  builds are AppImages only (about 68 MB; amd64, legacy, Steam Deck and Zen 4 variants,
+  each plain or profile-optimised). The source mirror on GitHub (`eden-emulator/mirror`)
+  is readable.
+
+What Eden's source says about input (v0.2.1 and the mirror's master, read, not run):
+
+- Its cemuhook client (`src/input_common/drivers/udp_client.cpp`) offers buttons and
+  sticks for binding as well as motion: 22 buttons, four stick axes (0 to 3: left x, y,
+  right x, y) scaled `(byte - 127) / 127`, so 8 bits. The protocol's analog trigger
+  fields aren't used. A pad is `pad` 0 to 3 of a server, its guid made from the server's
+  address only, the port a separate parameter. It is off by default
+  (`enable_udp_controller`); the server list is `udp_input_servers`, default
+  `127.0.0.1:26760`.
+- The ring: the binding is the setting `ringcon_analogs`, any engine's stick axis
+  (`configure_ringcon.cpp` accepts every input source), with `invert_x` and `deadzone`
+  (0.15 by default in the dialog). The emulated ring
+  (`src/core/hle/service/hid/hidbus/ringcon.cpp` and `.h`) is always player 1's, and
+  turns the axis into the sensor value as `force * 2500 + 2280`: rest 2280, range 2500
+  either way. It tells the game a factory calibration of its own (`os_max` 4900, `hk_max`
+  -340, zero between 2160 and 2400) and a user calibration (2500, -2500, 2280) that the
+  game can overwrite (`SaveCalData`). So Eden's ring isn't our ring's raw value: ours
+  rests at about 3700 and reaches 1474 and 6217 (-2230 and +2520 from rest, the same
+  span). `os_max` is the high end, which fits squeezing being upwards on ours.
+- Command line (`docs/user/CommandLine.md`): `-f` fullscreen, `-g <file>` the game,
+  `-c <file>` another configuration file. With a folder named `user` next to the program
+  everything Eden keeps (settings, keys, system files, saves) stays in there
+  (`src/common/fs/path_util.cpp`). Its window class is `eden`.
+
+Decided with the user, from three questions:
+
+- **Eden is built from source**, not unpacked from the AppImage: "I assume we will want
+  to do some small adjustments on top of it anyway, so let's set up for patching". So
+  `apps/eden`, built like Jellyfin Desktop: a pinned version, our patches on top, a plain
+  folder for `~/apps/eden`.
+- **The shell starts it and shows its window**, like Jellyfin; no Steam shortcut.
+- **The ring goes to Eden in full precision through a patch**, not as an 8-bit cemuhook
+  stick axis.
+
+The build (`apps/eden`), first findings:
+
+- The toolchain image has what Eden asks for: GCC 16.1.1 (it wants 16), CMake 4.4, Qt
+  6.11.1, SDL3 3.4.12, ffmpeg, Vulkan headers 1.4.350 from SteamOS's repositories. Added
+  to the build image from those repositories: git, patchelf, zip, unzip, boost, enet,
+  libzip, fmt, nlohmann-json, vulkan-headers, vulkan-utility-libraries, spirv-headers,
+  qt6-charts. Eden's own build fetched the rest as source while configuring (xbyak,
+  unordered_dense, httplib, frozen, SimpleIni, cubeb, sirit, VulkanMemoryAllocator, the
+  time zone data, gamemode, QuaZip), into `build/src/.cache/cpm`.
+- gabecube lacks enet, fmt, qt6-charts and QuaZip; it has boost-libs, libzip, libusb,
+  opus, lz4, zstd, SDL3, ffmpeg, Qt Multimedia and OpenSSL in the versions built against.
+- v0.2.1 doesn't compile against the repositories' fmt 12.2.0: `std::strncmp` without
+  `<cstring>` in `src/common/dynamic_library.cpp`, and `fmt::format` unknown in
+  `src/common/settings_setting.h` (60 files). Eden pins fmt 12.1.0; with its own copy
+  built in (`-Dfmt_FORCE_BUNDLED=ON`) all 1304 steps build, no patch needed. Built for
+  `znver4`, without tests, multiplayer room, web service, update check and the SDL
+  frontend, with Qt Multimedia (Eden's camera input). The folder is 43 MB: the binary and
+  the libraries of enet and qt6-charts. In the plain toolchain image all 207 libraries it
+  names are found. Not yet run, not yet on gabecube.
+
+### First run on gabecube (2026-11-23, evening)
+
+The user agreed to a first run without any patch, and chose the driver design: "our own
+driver sounds right" (an input driver of ours inside Eden that talks to the controller
+service, in place of SDL, cemuhook and separate routes for ring, rumble and camera).
+
+- Deployed to `~/apps/eden` (v0.2.1, all libraries found). Keys copied to `user/keys/`,
+  the firmware's 238 files unpacked into `user/nand/system/Contents/registered/`.
+- **The `user` folder is looked for in the current directory on Linux, not next to the
+  program** (`path_util.cpp`; the handbook's "portable" tip is about Windows). Started
+  from elsewhere, Eden made `~/.local/share/eden`, `~/.config/eden` and `~/.cache/eden`,
+  found no keys and asked "Decryption keys are missing. Install them now?". Those three
+  folders were removed again; started with `~/apps/eden` as working directory it uses
+  `user/` for everything.
+- Started by hand as a transient user unit (`systemd-run --user`, gamescope's environment
+  file, `QT_QPA_PLATFORM=xcb`, `eden -f -g …/ringfit/ROM.xci`), its windows tagged
+  `STEAM_GAME=0x7D000001` and that id put first in `GAMESCOPECTRL_BASELAYER_APPID`. The
+  id is deliberately not one of the shell's: the shell takes it for a Steam game and
+  leaves the screen alone. Side effect, seen by the user: the shell's power dialog came
+  up "but the focus was on the screen behind it", because the shell doesn't know this
+  window as its app. It goes away once Eden is a managed app of the shell.
+- **Ring Fit Adventure 1.0.0 boots**: the window title names it, with RADV; the Suit-Up
+  Guide video and the title logo were on screen (3840x2160 screenshots).
+- Eden creates nine top-level windows of class `eden` (two at 3840x2160 besides the main
+  one, bars, 100x30 stubs); the shell's "largest window of that class" needs a look.
+- Stopping the unit with SIGTERM while a game runs hung until my command's 90 s limit;
+  SIGKILL ends it at once. The service unit needs its own stop.
+- Eden's own Joy-Con driver is on by default and tries every five seconds to open the
+  Joy-Cons: "Yuzu can't gain access to this device: ID 057E:2006" and `2007`. The udev
+  rule keeps it out. To be switched off in the settings (`enable_joycon_driver`).
+- Eden's cemuhook client is always running and connects to 127.0.0.1:26760 by default,
+  so it found our server unasked ("a program at 127.0.0.1:… reads motion"). It dropped
+  our first packet as "stale": it expects the packet counter to differ from its initial
+  0, and ours starts at 0. Harmless (one packet); the counter should start at 1.
+- By default player 1 is a Pro Controller on the keyboard. SDL (asked through a small
+  script, HIDAPI off) sees our virtual controllers as two "Xbox 360 Controller" gamepads
+  whose GUIDs differ in the name's checksum: `030065335e0400008e02000010010000` is "TV
+  Controller 1", `030025325e0400008e02000010010000` "TV Controller 2". So an SDL binding
+  in Eden follows the player number of the moment, one more reason for the own driver.
+  Steam's virtual pads were not in that list.
+- A temporary binding for the first try (a script, not kept in the repository; the
+  settings before it are in `/tmp/qt-config.first.ini` on gabecube): player 1 as two
+  Joy-Cons, buttons, sticks and d-pad from "TV Controller 2" through SDL by raw index (A 0,
+  B 1, X 2, Y 3, L 4, R 5, minus 6, plus 7, stick buttons 9 and 10, ZL and ZR as axes 2
+  and 5, hat 0, sticks 0/1 and 3/4), motion from cemuhook pads 2 and 3, and the ring from
+  the right stick's x axis. The key for the ring in `qt-config.ini` is `ring_controller`
+  (the setting inside Eden is called `ringcon_analogs`); a key only counts when its
+  `…\default` line says `false`.
+- Around the first start the user saw "the joycons were going crazy for a bit". The
+  service's log for that time: the machine had just woken, the pair was formed at
+  20:50:17, a search ran from 20:50:33 to 20:50:35, and at 20:50:41 the right Joy-Con
+  dropped (bluez: reason Unknown; 89 reports lost on the radio before, last report 214 ms
+  earlier), came back at 20:50:57 and the pair was formed again at 20:51:11. What exactly
+  they saw (lights, rumble) wasn't asked yet; Eden can't have sent the Joy-Cons anything.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
