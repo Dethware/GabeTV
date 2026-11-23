@@ -8,6 +8,15 @@
 
 // The shell's idle chain, replacing Steam's: screensaver → screen off → suspend.
 // All three count from the last input; suspend only happens once the screen is off.
+//
+// Three kinds of activity hold the chain back, each differently:
+//   input       activity(), key presses: restarts the idle time.
+//   foreground  `watching`: something on screen is being watched (a video). No screensaver,
+//               no screen off, no suspend while it lasts; when it ends, the idle time counts
+//               from that moment, not from the last input long before.
+//   background  `audioPlaying`: music with nothing to watch. See below.
+// The time since the last input is kept apart from the foreground on purpose: a later "sleep
+// after an hour without input, whatever plays" only needs that clock.
 // Idle time only counts while `counting` is true (the shell is on screen, no game).
 // Times come from ~/.config/tvshell/tvshell.conf, [idle] group, in seconds (0 = never):
 //   screensaverAfter=300, screenOffAfter=1800, suspendAfter=3600
@@ -29,6 +38,8 @@ class IdleController : public QObject
 
     Q_PROPERTY(bool counting READ counting WRITE setCounting NOTIFY countingChanged)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    // Something on screen is being watched (a playing video): foreground activity.
+    Q_PROPERTY(bool watching READ watching WRITE setWatching NOTIFY watchingChanged)
     // Sound that should go on while nobody touches anything (music in the background).
     Q_PROPERTY(bool audioPlaying READ audioPlaying WRITE setAudioPlaying NOTIFY audioPlayingChanged)
     // Seconds, 0 = never. Setting one saves it to the config file and applies it at once.
@@ -51,6 +62,9 @@ public:
     void setCounting(bool counting);
 
     State state() const { return m_state; }
+
+    bool watching() const { return m_watching; }
+    void setWatching(bool watching);
 
     bool audioPlaying() const { return m_audioPlaying; }
     void setAudioPlaying(bool playing);
@@ -81,6 +95,7 @@ signals:
     void stateChanged();
     void timesChanged();
     void audioPlayingChanged();
+    void watchingChanged();
     // The machine is about to suspend (whoever asked for it).
     void aboutToSleep();
 
@@ -101,9 +116,13 @@ private:
 
     bool m_counting = false;
     bool m_audioPlaying = false;
+    bool m_watching = false;
     bool m_screenSleeping = false;
     State m_state = State::Active;
+    // Since the last input.
     QElapsedTimer m_sinceActivity;
+    // Since something stopped being watched (invalid until that first happens).
+    QElapsedTimer m_sinceWatched;
     QElapsedTimer m_sinceWake;
     QElapsedTimer m_sinceScreenOffRequest;
     QTimer m_tick;

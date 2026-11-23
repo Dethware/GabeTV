@@ -181,6 +181,10 @@ Window {
         id: idle
         // Also over a managed app: a paused film or an untouched menu gets the screensaver too.
         counting: baseLayer.onScreen || baseLayer.frontAppOnScreen || !baseLayer.available
+        // Foreground activity: a video that is playing, wherever it plays. Not a music track
+        // in YouTube that only shows its cover; that is background (audioPlaying).
+        watching: photoViewer.playing || (root.page === "youtube" && youtube.playing && !youtube.coverOnly)
+                  || (root.shownApp !== null && root.shownApp.playing)
         // Music (in YouTube, shown or in the background): screensaver and a black screen as
         // usual, but the sound's signal stays and the machine doesn't sleep.
         audioPlaying: youtube.playing && youtube.music
@@ -188,10 +192,14 @@ Window {
             youtube.pause()
             jellyfin.pause()
         }
-        // Screen off over a playing film (the remote's Power): it pauses.
+        // Screen off over something playing (the remote's Power): it pauses. Music goes on.
         onStateChanged: {
-            if (state !== IdleController.Active && root.shownApp !== null)
+            if (state === IdleController.Active)
+                return
+            if (root.shownApp !== null)
                 root.shownApp.pause()
+            if (root.page === "youtube" && youtube.playing && !youtube.music)
+                youtube.pause()
         }
     }
 
@@ -279,16 +287,6 @@ Window {
 
     ImmichMediaProxy {
         id: mediaProxy
-    }
-
-    // Videos keep the screen awake while they play (YouTube: while it plays sound; not for a
-    // music track that only shows its cover).
-    Timer {
-        interval: 30000
-        repeat: true
-        running: photoViewer.playing || (root.page === "youtube" && youtube.audible && !youtube.coverOnly)
-                 || (root.shownApp !== null && root.shownApp.playing)
-        onTriggered: idle.activity()
     }
 
     // One source of sound at a time: a photo's video pauses the music.

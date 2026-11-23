@@ -89,6 +89,18 @@ void IdleController::prepareForSleep(bool start)
     }
 }
 
+void IdleController::setWatching(bool watching)
+{
+    if (m_watching == watching)
+        return;
+    m_watching = watching;
+    // The idle time counts from the end of what was watched.
+    if (!watching)
+        m_sinceWatched.start();
+    qCInfo(lcIdle) << (watching ? "something is being watched: no screensaver" : "nothing is being watched any more");
+    emit watchingChanged();
+}
+
 void IdleController::setAudioPlaying(bool playing)
 {
     if (playing) {
@@ -227,13 +239,17 @@ bool IdleController::eventFilter(QObject *watched, QEvent *event)
 
 void IdleController::tick()
 {
-    const qint64 idleSeconds = m_sinceActivity.elapsed() / 1000;
+    // Idle since the last input, or since something stopped being watched if that was later.
+    qint64 idleSeconds = m_sinceActivity.elapsed() / 1000;
+    if (m_sinceWatched.isValid())
+        idleSeconds = qMin(idleSeconds, m_sinceWatched.elapsed() / 1000);
     if (m_state == State::ScreenOff) {
-        if (m_counting && !m_audioPlaying && m_suspendAfter > 0 && !m_suspended && idleSeconds >= m_suspendAfter)
+        if (m_counting && !m_audioPlaying && !m_watching && m_suspendAfter > 0 && !m_suspended
+            && idleSeconds >= m_suspendAfter)
             suspend();
         return;
     }
-    if (!m_counting)
+    if (!m_counting || m_watching)
         return;
     if (m_screenOffAfter > 0 && idleSeconds >= m_screenOffAfter)
         setState(State::ScreenOff);

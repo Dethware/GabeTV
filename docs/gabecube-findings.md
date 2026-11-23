@@ -1053,6 +1053,26 @@ later. *Inferred* from that, not seen in a trace: no video was playing when I lo
 to an `AudioOutput` that follows `MediaDevices.defaultAudioOutput`. Not confirmed on the TV at
 the time of writing.
 
+## Screensaver over a playing YouTube video; activity model (2026-11-23)
+
+Reported by the user: the screensaver came up while a YouTube video was playing.
+
+- The log: a video started at 09:32:18, the screensaver at 09:37:18, 09:42:32 and 09:47:38,
+  each exactly five minutes after the last input. So nothing held the idle time back during
+  that video, while earlier videos that morning did.
+- A playing video wasn't a state in the idle logic. A 30 s timer in `Main.qml` called
+  `activity()` while `WebEngineView.recentlyAudible` was true for YouTube. *Inferred, not
+  measured:* that flag drops in every quiet stretch of a video and each drop restarted the
+  timer, so in a video with pauses in the sound it never fired.
+- The user's model, adopted: **input**, **foreground** activity (something being watched)
+  and **background** activity (music). `IdleController` now has `watching` for the
+  foreground next to `audioPlaying`; the timer is gone. For YouTube it follows the page's
+  player state (`playing`, read every second), no longer the sound.
+- Input and foreground stay separate clocks. The use the user named for that: a sleep timer
+  that counts from the last input even while something plays. Not built.
+- Also changed: screen off (Power) now pauses a playing YouTube video, as it already did for
+  Jellyfin. Music is left playing.
+
 ## One-handed controller, video seeking (decided 2026-11-22)
 
 Asked for by the user:

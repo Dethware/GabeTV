@@ -22,8 +22,6 @@ FocusScope {
 
     required property YouTubeSettings settings
 
-    // Playing sound: keeps the screen awake.
-    readonly property bool audible: view ? view.recentlyAudible : false
     readonly property WebEngineView view: loader.item as WebEngineView
     // What the page's player is doing, read once a second while the page runs.
     property bool playing: false

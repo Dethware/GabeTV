@@ -79,7 +79,17 @@ screensaver.
 States Active → Screensaver → ScreenOff, then suspend. Counts only while the shell is on
 screen. Activity: keys reaching the shell, controller input (also during games), gamescope's
 `GAMESCOPE_INPUT_COUNTER`, the global keys, resume. Its event filter lets Left, Right and
-Return through to the screensaver; other keys only wake. Screen off is
+Return through to the screensaver; other keys only wake.
+
+Three kinds of activity hold the chain back. Input restarts the idle time. Foreground
+(`watching`, set in `Main.qml`: a photo's video, a YouTube video that isn't a cover-only
+music track, a managed app that is playing) stops the chain altogether, and when it ends the
+idle time counts from that moment. Background (`audioPlaying`, music) lets the screensaver
+and a black screen come but keeps the signal and the machine awake. The time since the last
+input is kept separate from the other two, so a sleep timer that ignores what is playing can
+be added on top of it.
+
+Screen off is
 `gamescopectl drm_sleep_external_screen 1`. Screen on (`0`) is sent on waking and after every
 resume, then three more times two seconds apart: sent once right after a resume it can go
 unheeded, and the screen then stays dark (see the log, 2026-11-22). Videos and YouTube keep
