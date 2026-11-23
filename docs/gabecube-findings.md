@@ -1232,6 +1232,141 @@ PIN):
   background search for it; no difference. Wi-Fi is on 5 GHz and the soundbar wasn't
   connected over Bluetooth. *Inferred:* the bad numbers, the -86 dBm and probably the first
   dropped connection were distance and walls, not the machine.
+- Scaffold of the service written: `controllers/`, binary `tvcontrollers`, C++ with Qt Core
+  and D-Bus, the hidraw node read directly (no hidapi; my choice, offered to the user twice
+  without an objection). Working: finding Joy-Cons, the protocol's reports and subcommands,
+  the D-Bus interface. Outlined only: units, virtual controllers, Bluetooth. How it fits
+  together is in `controllers/DEVELOPMENT.md`. Built and started in the toolchain image.
+- Installed by the user (`system/install.sh`: rule, unit, keep-list entry) and running as
+  `deck` with the groups `steamos-log-submitter,input,wheel,deck`. It reached the session
+  bus at once, found the right Joy-Con on its next connection ("ready, firmware 4.25
+  battery 4 of 4") and lists it over D-Bus as unassigned. Seen at its start: a Joy-Con
+  that had gone quiet but whose node still existed gave "no reply to subcommand 2" and 3,
+  then "lost: Input/output error" 14 s later; the service doesn't yet give up on a node
+  that never answers. (It does now.)
+- The kernel driver's writes do land on ours. Seen by the user on a reconnect: the sweep
+  (the Joy-Con itself), two flashes (the service's "unassigned" pattern), then light 1
+  alone: `hid_nintendo` ends its setup with "assigned player 1 led pattern", after the
+  service had opened the node. Changed: the service opens a Joy-Con only once the driver's
+  input devices exist (it creates them last) and one more 250 ms interval has passed.
+  Restarting the service by ending its process, without root, works.
+- That wait wasn't enough. The user: the lights now end either flashing or dark, with a
+  hiccup in the sweep when it works. The kernel log of one reconnect: input devices at
+  13:22:03.67, then `joycon_enforce_subcmd_rate: exceeded max attempts` at 04.02, 04.33 and
+  04.58, so `hid_nintendo` still sends for about a second after its input devices exist,
+  and the service's traffic (it opened the node at about 04.0) upsets its rate limiter.
+  What it sends there, and which write leaves the lights dark, was not found out.
+- **Decided: the kernel driver goes.** The user asked whether it can be masked and whether
+  we need it at all. We don't: the service does everything itself. `blacklist hid_nintendo`
+  plus `install hid_nintendo /bin/false` in `/etc/modprobe.d/tv-no-hid-nintendo.conf`
+  (`/etc/modprobe.d` is not on the default keep list; the service's keep file adds it).
+  Per device it can't be done: `hid-generic` refuses a device a loaded special driver
+  claims, and an unbound device has no hidraw node. So the Pro Controller loses the driver
+  too; Steam reads it through hidraw itself. Not in the initramfs; nothing else uses the
+  module. Not yet installed, and the Pro Controller without the driver is untested.
+- Installed by the user at 13:28:04: `rmmod` took the driver out, `hid-generic` bound the
+  connected Joy-Con at once ("input,hidraw5: BLUETOOTH HID v80.01 Gamepad"), and the
+  service read it there (ready at 13:28:05). `/sys/bus/hid/drivers` no longer has
+  `nintendo`.
+- A bug of the service's own, seen in its debug log: the lights command went out twice,
+  50 µs apart ("subcommand 30 f0 try 1", "try 2"), because a reply's callback queued a
+  command and both it and the reply handler sent the queue's head. Fixed.
+- **The Joy-Con stopped calling the machine.** It was lost at 13:28:55 (cause not known;
+  possibly switched off by the user for a reconnect test) and from then on a button press
+  gives "a faint flash from the LED closest to the connect button", then dark, where
+  before it gave the sweep. On the machine: no kernel or bluetoothd line, the Joy-Con still
+  paired, bonded and trusted, the adapter up with page scan on (`hciconfig`: `UP RUNNING
+  PSCAN`). A 45 s `btmon` trace taken by the user while pressing buttons holds no HCI
+  event at all, so nothing reaches the machine: the Joy-Con doesn't page it. Why is open.
+- With the Joy-Con held in sync mode (sweep), `bluetoothctl connect` from the machine
+  succeeded at 13:39:45 with the pairing it had, so the keys are intact on both sides.
+  The kernel line differs from a Joy-Con-initiated connection: "BLUETOOTH HID v0.01"
+  against "v80.01". The service then asked for the device info three times within 750 ms
+  of the node appearing, got no answer and gave up; the Joy-Con disconnected within the
+  next half minute with nobody talking to it. Earlier the service only ever started a
+  second or more after the node appeared (it was waiting for the kernel driver). Changed:
+  the first subcommand is tried for 5 s, and a Joy-Con given up on is looked at again
+  while its node exists.
+- Without the kernel driver the outcomes were still "sweep ending with nothing" or four
+  flashing lights, while the service's log was the same each time (device info answered on
+  the second try about 0.4 s after the node, full reports on, lights `f0` acknowledged). A
+  read-back was added (subcommand `0x31`, 0.4 s after setting; set again if different): it
+  answered `f0` on all of four reconnects.
+- **What the user was doing, and what the outcomes are** (their report after many tries):
+  a short press of the sync button on a Joy-Con that is off gives a very short flash of
+  the nearest light and nothing else, which is the "faint flash" above and not a fault; a
+  long press gives the sweep (pairing mode) and connects only sometimes; a normal button
+  connects about half the time, "sweep → nothing" or "sweep + visible hiccup + connected
+  and flashing". So the dark outcome is a failed connection, not lights. In the log, three
+  of four reconnects have "lost: Input/output error" and the new node 0.3 s apart: the
+  machine only gave up the old connection when the new one came in. *Inferred, not
+  measured:* a Joy-Con that is switched off just stops, the machine keeps the dead link
+  until its timeout, and a button press in that time collides with it. Changed: 1.5 s
+  without a report (they come every 15 ms) counts as gone and the service has bluez
+  disconnect the Joy-Con (`org.bluez.Device1.Disconnect`).
+- Home is seen by the service ("Home on Joy-Con (R)").
+- That version in the user's hands, four switch-offs: each "went quiet", the disconnect
+  asked for, bluetoothd's "No matching connection for device" 4 s later, and the next
+  connection about 10 s after the quiet. The user: after a disconnect one has to wait a
+  few seconds before a reconnect works. So the dead link is real and blocks the Joy-Con:
+  about 1.5 s to notice plus about 4 s for bluez to drop a link whose other end is gone.
+  Left alone, the machine kept such a link about 14 s (one measurement, 13:14:46 to
+  13:15:00).
+- **The user on dropping a quiet Joy-Con:** there is a reason to keep the connection up,
+  interference or people taking the Joy-Cons out of range; one that went off is hard to
+  tell from one that isn't reachable, "so we need some leniency". The forced disconnect is
+  out again. The service now only marks a Joy-Con quiet after 1 s without a report and
+  logs what could tell the two cases apart: the longest gap and the number of gaps over
+  40 ms in the second before, the start of the last report, how long it was away if it
+  comes back, and bluez's own connect and disconnect events with their reason. No policy
+  chosen yet.
+- **Switched off and out of reach look different.** One sample each, by the user:
+  - Switched off with the sync button (13:58:43): "longest gap 28 ms, 0 gaps over 40 ms"
+    in the second before, then nothing. bluez ended the link 20.03 s after the last report
+    with `org.bluez.Reason.Timeout, Connection timeout`: the link supervision timeout is
+    Bluetooth's default 20 s, and the Joy-Con says nothing when it switches off. A button
+    press 7 s after that connected.
+  - Carried out of reach (13:59:21): "longest gap 252 ms, 8 gaps over 40 ms" before the
+    first silence, back after 1.3 s, quiet again, back after 1.2 s, then away for 14.9 s
+    and back **on the same connection**, no disconnect: inside the 20 s, Bluetooth's own
+    leniency works.
+  - The last report carries no mark of a switch-off (byte 2, battery and connection, is
+    `8e` in both).
+- **Decided with the user:** an abrupt stop (no gap over 40 ms among the last 64, then 1 s
+  of silence) is taken as switched off and the service has bluez disconnect the Joy-Con;
+  any other silence is left to Bluetooth's 20 s. The user added that the battery level is
+  known too; it is logged with the stop, so an empty battery can be told from a switch-off
+  (the action is the same). Resting on one sample of each case.
+- First run of the rule, user's verdict "seems fine", but the log disagrees for the
+  switch-offs: two of them (14:05:27, 14:05:42) had a longest gap of 44 and 45 ms, one and
+  two reports over the 40 ms limit, and were classed as a fading link and left alone. The
+  link then timed out 10.4 and 10.5 s after the last report (not 20 s as at 13:59; why it
+  differs is not known) and the Joy-Con, whose button was being pressed, connected 0.23 s
+  after that. The walk out of reach was classed right (255 ms, 9 late) and came back four
+  times, after up to 7.3 s, on the same connection. The limit for a late report is now
+  100 ms; not yet tried.
+- With the 100 ms limit, two switch-offs (14:08:32, 14:08:49; longest gaps 59 and 29 ms)
+  were classed as abrupt. The sequence each time: quiet 1.07 s after the last report, the
+  disconnect asked for, the node gone 20 ms later, bluez's "disconnected" 4.6 and 4.2 s
+  after that (reason given as `org.bluez.Reason.Remote`), so the machine is free again
+  about 5.7 s after the Joy-Con stopped. The user's button presses came about 10 s after
+  the stop and connected within 0.6 s. A walk out of reach in the same run (883 ms, 6
+  late) was left alone and came back after 2.0 s and after 16.2 s on the same connection.
+  Not measured: how long a Joy-Con keeps trying when a button is pressed inside those
+  5.7 s (at 14:05:36 one got in 0.23 s after the old link ended).
+- Units and the virtual controller written. Chosen: the Switch's gestures (SL+SR for one
+  Joy-Con sideways, L+R across a left and a right one for a pair); the virtual controller
+  presents itself as an Xbox 360 pad (045e:028e, xpad's layout) so nothing needs a mapping,
+  with the guide button declared but never pressed; buttons mapped by position. The right
+  Joy-Con's factory stick calibration reads as centre 2023/1871, below 1352/1134, above
+  1257/1038; it has no user calibration.
+- First unit formed by the user (14:16:27): SL+SR gave "player 1 is Joy-Con (R) sideways"
+  and the virtual controller `TV Controller 1`. Steam found it in the same second ("Local
+  Device Found, type: 045e 028e, Product: Xbox 360 Controller", SDL mapping with
+  `guide:b8,leftstick:b9,rightstick:b10`), opened it and made its own virtual pad; the
+  shell ignored ours ("not one of Steam's") and added Steam's. So the chain Joy-Con →
+  service → virtual controller → Steam → shell holds. The user: "seems OK", and it works
+  in YouTube too.
 - The first connection ended after 5 s (Steam: "Controller device closed after hid_read
   failure"), with nothing in the kernel log. The Joy-Con then reconnected by itself on a
   button press and stayed for the 45 s watched. A sleeping Joy-Con can't be connected from

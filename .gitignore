@@ -2,3 +2,4 @@
 toolchains/archive/*.tar.zst
 shell/build/
 apps/*/build/
+controllers/build/

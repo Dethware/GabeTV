@@ -62,6 +62,7 @@ Everything below describes the target unless noted.
 
 - **Decision: we override everything.** One service of ours is the only thing that talks to a Joy-Con, and it does what a Switch does with them: pairing, forming two into one unit, player lights, battery, the Ring-Con, Home (which brings up the shell). Steam, the emulator and everything else see only the virtual controllers the service makes. Don't build on Steam's Joy-Con support, `joycond`, SDL's Joy-Con driver or an emulator's own driver: each does it its own way, and glue between them breaks with a random update. The emulator may be patched to fit.
 - The controllers there are: two pairs of Joy-Cons, a Pro Controller and the Ring-Con. The Pro Controller is a generic controller for now (left to Steam); the service is for Joy-Cons.
+- The service is `controllers/` (`tvcontrollers`): users read `controllers/README.md`, developers `controllers/DEVELOPMENT.md`.
 - The service speaks the Joy-Con protocol over `hidraw`. References: **SwitchKit** (https://github.com/Meorge/SwitchKit), which supports Joy-Con, Pro Controller and the Ring-Con, and dekuNukem's Nintendo_Switch_Reverse_Engineering.
 - The kernel's `hid_nintendo` and Steam both take a Joy-Con the moment it connects; how they are kept out, and what was measured, is in the log (`docs/gabecube-findings.md`, "Joy-Con").
 - Mind licenses: yuzu/Suyu/Eden code is GPL-3.

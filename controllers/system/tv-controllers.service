@@ -1,0 +1,21 @@
+[Unit]
+Description=TV controller service (Joy-Cons)
+After=bluetooth.service
+
+[Service]
+Type=exec
+# The user's own account, plus the one group that may open the Joy-Cons' device nodes
+# (72-tv-joycon.rules). Steam and everything else in the session run without that group.
+User=deck
+Group=deck
+SupplementaryGroups=input
+# The shell talks to the service on the user's session bus.
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+ExecStart=/home/deck/.local/share/tvcontrollers/tvcontrollers
+# Also after a clean exit: a deploy restarts the service by ending its process.
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
