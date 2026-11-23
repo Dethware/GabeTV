@@ -75,6 +75,12 @@ public:
     // Reports lost on the radio since it connected; their readings were filled in.
     int lostReports() const { return m_lostReports; }
 
+    // Whether to look for a Ring-Con on this (right) Joy-Con's rail and read it. It
+    // keeps the Joy-Con's second processor running, which costs battery, so only while
+    // something wants it.
+    void setRingWanted(bool wanted);
+    bool hasRing() const { return m_ring; }
+
     // The stick's position: -1 to 1, right and up positive, calibrated, with a dead zone.
     struct Stick
     {
@@ -119,6 +125,10 @@ signals:
     void quietChanged();
     // Every 15 ms while it is connected.
     void motion(const JoyCon::MotionReport &samples);
+    // A Ring-Con was found on the rail, or is gone.
+    void ringChanged();
+    // The ring's flex as the Joy-Con reports it, every 15 ms while a ring is attached.
+    void ringFlex(int raw);
     // It went quiet from a perfectly regular stream of reports: that is what a Joy-Con
     // being switched off looks like (it says nothing when it does). One that drifts out
     // of reach has late and missing reports first.
@@ -144,6 +154,8 @@ private:
     void readCalibration(quint32 address, bool user, Side which);
     void readMotionCalibration(quint32 address, bool user);
     void trackRest(const MotionReport &samples, bool gap);
+    void lookForRing();
+    void setRing(bool ring);
 
     // The stick's raw values at rest and how far it reaches from there in each direction.
     struct Calibration
@@ -195,6 +207,12 @@ private:
     };
     RestWindow m_restWindow;
     Motion m_lastMotion;
+    bool m_ringWanted = false;
+    bool m_ring = false;
+    // Asks the rail what is attached, while a ring is wanted and none is there.
+    QTimer m_ringTimer;
+    // Reports in a row without the ring's id: the ring was taken off.
+    int m_ringSilent = 0;
     // The time of the last motion reading (Motion::time), and the clock it is held to.
     qint64 m_motionTime = 0;
     int m_lastTimer = 0;

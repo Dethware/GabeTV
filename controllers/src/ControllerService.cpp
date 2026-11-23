@@ -1,6 +1,7 @@
 #include "ControllerService.h"
 
 #include "Bluetooth.h"
+#include "DeviceWatcher.h"
 #include "JoyCon.h"
 #include "MotionCalibration.h"
 #include "Unit.h"
@@ -19,12 +20,14 @@ namespace {
 
 const QString BusName = QStringLiteral("tvcontrollers");
 constexpr int RetryIntervalMs = 3000;
+constexpr int RingLeaseMs = 5000;
 
 QJsonObject describe(const JoyCon *joyCon, const MotionCalibration *calibration)
 {
     return {
         {QStringLiteral("motionCalibrated"), calibration->isCalibrated(joyCon->address())},
         {QStringLiteral("lostReports"), joyCon->lostReports()},
+        {QStringLiteral("ring"), joyCon->hasRing()},
         {QStringLiteral("address"), joyCon->address()},
         {QStringLiteral("name"), joyCon->name()},
         {QStringLiteral("side"), joyCon->side() == JoyCon::Side::Left    ? QStringLiteral("left")
@@ -37,14 +40,19 @@ QJsonObject describe(const JoyCon *joyCon, const MotionCalibration *calibration)
 
 } // namespace
 
-ControllerService::ControllerService(UnitManager *units, Bluetooth *bluetooth, MotionCalibration *calibration,
-                                     QObject *parent)
+ControllerService::ControllerService(DeviceWatcher *watcher, UnitManager *units, Bluetooth *bluetooth,
+                                     MotionCalibration *calibration, QObject *parent)
     : QObject(parent)
+    , m_watcher(watcher)
     , m_units(units)
     , m_bluetooth(bluetooth)
     , m_calibration(calibration)
 {
     connect(calibration, &MotionCalibration::finished, this, &ControllerService::MotionCalibrated);
+    connect(watcher, &DeviceWatcher::joyConAdded, this, [this](JoyCon *joyCon) {
+        connect(joyCon, &JoyCon::ringChanged, this, &ControllerService::Changed);
+        connect(joyCon, &JoyCon::ringFlex, this, [this, joyCon](int raw) { emit RingFlex(joyCon->address(), raw); });
+    });
     connect(calibration, &MotionCalibration::finished, this, &ControllerService::Changed);
     connect(units, &UnitManager::changed, this, &ControllerService::Changed);
     connect(bluetooth, &Bluetooth::searchingChanged, this, &ControllerService::Changed);
@@ -114,6 +122,33 @@ void ControllerService::StopSearch()
 void ControllerService::SwitchOff(const QString &address)
 {
     m_bluetooth->switchOff(address);
+}
+
+void ControllerService::WatchRing(const QString &address, bool watch)
+{
+    QTimer *&lease = m_ringLeases[address];
+    if (!lease) {
+        lease = new QTimer(this);
+        lease->setSingleShot(true);
+        lease->setInterval(RingLeaseMs);
+        connect(lease, &QTimer::timeout, this, [this, address] { setRingWanted(address, false); });
+    }
+    if (watch)
+        lease->start();
+    else
+        lease->stop();
+    setRingWanted(address, watch);
+}
+
+// A Joy-Con that reconnects is a new one that knows nothing of this; the next request,
+// a second later, tells it.
+void ControllerService::setRingWanted(const QString &address, bool wanted)
+{
+    const QList<JoyCon *> joyCons = m_watcher->joyCons();
+    for (JoyCon *joyCon : joyCons) {
+        if (joyCon->address() == address && joyCon->isReady())
+            joyCon->setRingWanted(wanted);
+    }
 }
 
 void ControllerService::CalibrateMotion(const QString &address)

@@ -128,6 +128,9 @@ Recenter lines the picture up with the controller as it lies, and Calibrate meas
 controller's sensors at rest (lay it on a table and leave it alone for a few seconds) and
 corrects its motion from then on, for games too. Lay the controller flat, face up, its top away from you, and press OK to
 line the picture up; OK again any time it has drifted round. For players 1 and 2.
+A right Joy-Con also has a Ring-Con line: slide it onto the ring, and the line shows the
+ring's reading and a bar that follows your squeeze and pull, measured from where the ring
+was at the last Recenter.
 
 To change who is which player, go Left onto a controller's lights and press OK to grab it.
 Up and Down then move it, one step a press, and OK or Back lets go where it is. It takes

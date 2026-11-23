@@ -323,6 +323,14 @@ orientation goes straight onto `ControllerModel`, a few boxes and cylinders in t
 Qt Quick 3D is only imported in QML, not linked; SteamOS ships it and the toolchain image
 has it since the motion test.
 
+While the test is open it asks the service every second to read the Ring-Con on each
+right Joy-Con (`ControllerClient::watchRing`; the service stops by itself five seconds
+after the last request). Whether a ring is attached comes with the service's description
+(`ring`), its flex with `ControllerClient::ringFlex`, 66 times a second. The test shows
+the raw value and a bar around the value at the last Recenter, as wide as the ring has
+been bent since: the service passes the flex on unscaled, and the game does the
+calibrating.
+
 In `SettingsPage`, an option without a `change` function is a button (the screensaver's
 album picker): its value is shown without the ‹ › that mean "Left and Right change this".
 

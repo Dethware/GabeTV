@@ -12,6 +12,8 @@ import TvShell
 // with the controller as it lies; Calibrate has the service measure the sensors at rest
 // and correct what it passes on from then on. Both wait a moment first, because pressing
 // OK on the controller itself shakes it. Back closes.
+// While it is open the service looks for a Ring-Con on a right Joy-Con and reads it; its
+// flex is shown raw, with the value at the last Recenter as the resting point.
 FocusScope {
     id: test
 
@@ -114,7 +116,10 @@ FocusScope {
     Keys.onLeftPressed: action = 0
     Keys.onRightPressed: action = 1
 
+    signal recentered()
+
     function recenter() {
+        recentered()
         for (let i = 0; i < joyCons.length; ++i)
             motion.pad(firstPad + i).recenter()
         const marks = {}
@@ -127,15 +132,33 @@ FocusScope {
     // readings are filled in by the service): now, and since the last recenter.
     property var lostAtRecenter: ({})
 
-    function lostNow(address) {
+    // The controller as the service describes it now; `unit` is as it was when opened.
+    function current(address) {
         for (const unit of controllers.units) {
             for (const joyCon of unit.joyCons) {
                 if (joyCon.address === address)
-                    return joyCon.lostReports
+                    return joyCon
             }
         }
-        return 0
+        return null
     }
+
+    function lostNow(address) {
+        const joyCon = current(address)
+        return joyCon !== null ? joyCon.lostReports : 0
+    }
+
+    // The service reads a ring only for as long as it keeps being asked to.
+    function watchRings(watch) {
+        for (const joyCon of joyCons) {
+            if (joyCon.side === "right")
+                controllers.watchRing(joyCon.address, watch)
+        }
+    }
+
+    readonly property bool watching: opened && visible
+
+    onWatchingChanged: watchRings(watching)
 
     function lostSince(address) {
         const mark = lostAtRecenter[address]
@@ -146,8 +169,11 @@ FocusScope {
     Timer {
         interval: 1000
         repeat: true
-        running: test.opened && test.visible
-        onTriggered: test.controllers.refresh()
+        running: test.watching
+        onTriggered: {
+            test.controllers.refresh()
+            test.watchRings(true)
+        }
     }
 
     readonly property int firstPad: unit !== null ? 2 * (unit.player - 1) : 0
@@ -258,6 +284,44 @@ FocusScope {
                 required property int index
 
                 readonly property MotionPad pad: motion.pad(test.firstPad + index)
+
+                // The Ring-Con on this Joy-Con's rail: its flex as reported, the value
+                // at the last Recenter, and how far it has been either way since.
+                readonly property var now: test.current(modelData.address)
+                readonly property bool ring: now !== null && now.ring === true
+                property int flex: 0
+                property int flexRest: 0
+                property int flexLow: 0
+                property int flexHigh: 0
+                property bool flexSeen: false
+
+                onRingChanged: flexSeen = false
+
+                Connections {
+                    target: test.controllers
+
+                    function onRingFlex(address, raw) {
+                        if (address !== part.modelData.address)
+                            return
+                        part.flex = raw
+                        if (!part.flexSeen) {
+                            part.flexSeen = true
+                            part.flexRest = raw
+                            part.flexLow = raw
+                            part.flexHigh = raw
+                        }
+                        part.flexLow = Math.min(part.flexLow, raw)
+                        part.flexHigh = Math.max(part.flexHigh, raw)
+                    }
+                }
+
+                Connections {
+                    target: test
+
+                    function onRecentered() {
+                        part.flexSeen = false
+                    }
+                }
 
                 width: (parent.width - (test.joyCons.length - 1) * 48) / test.joyCons.length
                 height: parent.height
@@ -388,6 +452,57 @@ FocusScope {
                                 visible: part.pad.pushPeak > 0.05
                             }
                         }
+                    }
+
+                    // The ring's flex as a bar around its resting point: as wide as it
+                    // has been bent so far, and at least 500 either way.
+                    Row {
+                        spacing: 16
+                        visible: part.modelData.side === "right"
+
+                        Text {
+                            width: 300
+                            color: part.ring ? "white" : "#b0bec5"
+                            font.pixelSize: 28
+                            text: part.ring ? qsTr("Ring-Con  %1").arg(part.flex) : qsTr("No Ring-Con")
+                        }
+
+                        Rectangle {
+                            id: flexBar
+
+                            readonly property real span: Math.max(500, part.flexHigh - part.flexRest,
+                                                                  part.flexRest - part.flexLow)
+                            readonly property real share: (part.flex - part.flexRest) / span
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.max(100, readings.width - 316)
+                            height: 20
+                            radius: 4
+                            color: "#1d252c"
+                            visible: part.ring
+
+                            Rectangle {
+                                x: flexBar.width / 2 + Math.min(0, flexBar.share) * flexBar.width / 2
+                                width: Math.abs(flexBar.share) * flexBar.width / 2
+                                height: parent.height
+                                color: "#4fc3f7"
+                            }
+
+                            Rectangle {
+                                x: (parent.width - width) / 2
+                                width: 4
+                                height: parent.height
+                                color: "white"
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: part.ring
+                        color: "#b0bec5"
+                        font.pixelSize: 28
+                        text: qsTr("At rest  %1      Lowest  %2      Highest  %3").arg(part.flexRest).arg(part.flexLow)
+                              .arg(part.flexHigh)
                     }
 
                     // Two checks of the sensor itself. Lying still, the strength is 1 g

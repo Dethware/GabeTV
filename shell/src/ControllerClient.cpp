@@ -23,6 +23,8 @@ ControllerClient::ControllerClient(QObject *parent)
     QDBusConnection::sessionBus().connect(Service, Path, Service, QStringLiteral("Changed"), this, SLOT(refresh()));
     QDBusConnection::sessionBus().connect(Service, Path, Service, QStringLiteral("MotionCalibrated"), this,
                                           SLOT(onMotionCalibrated(QString,bool,double,double)));
+    QDBusConnection::sessionBus().connect(Service, Path, Service, QStringLiteral("RingFlex"), this,
+                                          SIGNAL(ringFlex(QString,int)));
     refresh();
 }
 
@@ -75,6 +77,11 @@ void ControllerClient::switchOff(const QString &address)
 void ControllerClient::calibrateMotion(const QString &address)
 {
     call(QStringLiteral("CalibrateMotion"), {address});
+}
+
+void ControllerClient::watchRing(const QString &address, bool watch)
+{
+    call(QStringLiteral("WatchRing"), {address, watch});
 }
 
 void ControllerClient::onMotionCalibrated(const QString &address, bool ok, double strength, double drift)

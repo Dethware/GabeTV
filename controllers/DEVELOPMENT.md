@@ -150,6 +150,19 @@ the bus every three seconds.
   axes point; the mapping in `sendMotion` (x right, y out of the face, z towards the
   player) is to be checked against an emulator. A client that stops asking is dropped
   after five seconds.
+- **The Ring-Con** hangs on a right Joy-Con's rail and is read through the Joy-Con's
+  second processor, which also drives the IR camera and NFC. `JoyCon::setRingWanted(true)`
+  switches that processor on and puts it in standby, then asks the rail every second what
+  is attached (`lookForRing`); when it answers with the ring's id, the format block and
+  the polling command go out (the bytes are in `JoyConProtocol.h`) and `ringChanged()`
+  says there is one. From then on the Joy-Con puts the rail's data where the third
+  motion reading's accelerometer was: a zero, the flex, the ring's id; all zeros once the
+  ring is taken off. The gyroscope half stays its own. `handleReport` knows such a
+  reading by that pattern, gives it the second reading's acceleration, emits the flex
+  (`ringFlex`, 66 a second) and takes the ring as gone when the id was missing for ten
+  reports. The flex is passed on as it comes, about 3700 at rest and 1500 to 6200 at the
+  ends: the game calibrates it for the player. The second processor costs battery, so it
+  runs only while the ring is wanted; `setRingWanted(false)` switches it off.
 - **Stick calibration** comes from the Joy-Con's memory (subcommand `0x10`): the factory
   values, replaced by the user's own if those are marked valid. `JoyCon::stick()` gives
   -1 to 1 with a 15 % dead zone.
@@ -163,9 +176,12 @@ the bus every three seconds.
   and forgets a device, and logs bluez's connect and disconnect events, with the reason,
   for every Joy-Con the service has seen.
 - **`ControllerService`** is the shell's view: `Describe()` (JSON, units in player order),
-  `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit`, `SwapPlayers`, and
-  `CalibrateMotion` with its answer `MotionCalibrated`. The shell's `ShellService` listens
-  for `HomePressed` and treats it as Home on the remote.
+  `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit`, `SwapPlayers`,
+  `CalibrateMotion` with its answer `MotionCalibrated`, and `WatchRing` with the signal
+  `RingFlex`. `WatchRing(address, true)` holds for five seconds, so whoever watches a
+  ring keeps asking and a watcher that dies doesn't leave the Joy-Con's second processor
+  running. The shell's `ShellService` listens for `HomePressed` and treats it as Home on
+  the remote.
 
 Not tried yet: forgetting a Joy-Con.
 
@@ -192,7 +208,9 @@ differ from the repository's.
 
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
-2. The Ring-Con (its flex as an axis of a virtual device), rumble, then the IR camera.
+2. The Ring-Con for a game: its flex, raw, as an axis of a virtual device, and a unit of
+   a right Joy-Con in the ring with a left one in the leg strap, which keeps the ring
+   read for as long as it exists. Then rumble and the IR camera.
 3. Lost reports, later and not urgent: their readings are filled in on a straight line
    once the next report is there. Worth reading up on what is done elsewhere (loss
    concealment for inertial sensors) and trying prediction, so that a reader gets

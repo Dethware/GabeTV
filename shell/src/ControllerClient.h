@@ -11,7 +11,8 @@
 //
 // units:   [{ player, kind: "pair" | "sideways" | "pro", joyCons: [joyCon, …] }]
 // waiting: [joyCon, …]   connected, but not part of a controller yet
-// joyCon:  { address, name, side, battery (0 to 4), charging }
+// joyCon:  { address, name, side, battery (0 to 4), charging, ring (a Ring-Con is attached
+//            and being read), lostReports, motionCalibrated }
 class ControllerClient : public QObject
 {
     Q_OBJECT
@@ -42,6 +43,10 @@ public:
     // Has the service measure this controller's motion sensors at rest (two seconds; it
     // must lie still). motionCalibrated says how it went.
     Q_INVOKABLE void calibrateMotion(const QString &address);
+    // Has the service look for a Ring-Con on this right Joy-Con and read it, for the
+    // next five seconds: ask again every second or so for as long as it is wanted.
+    // ringFlex carries the readings; the Joy-Con's `ring` says whether one is attached.
+    Q_INVOKABLE void watchRing(const QString &address, bool watch = true);
 
 public slots:
     // The service announces changes of the units itself; battery levels only come with a
@@ -52,6 +57,8 @@ signals:
     void changed();
     // strength: the g it showed at rest before the correction; drift: degrees a second.
     void motionCalibrated(const QString &address, bool ok, double strength, double drift);
+    // The ring's flex as the Joy-Con reports it, 66 times a second.
+    void ringFlex(const QString &address, int raw);
 
 private slots:
     void onMotionCalibrated(const QString &address, bool ok, double strength, double drift);

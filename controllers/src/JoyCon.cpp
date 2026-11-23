@@ -24,6 +24,22 @@ constexpr int MaxTries = 3;
 // The first subcommand after a connection: a Joy-Con takes a while to answer anything
 // (the node is there before the connection is fully up), so this one is patient: 5 s.
 constexpr int MaxFirstTries = 20;
+// How often the rail is asked what is attached, and how many reports in a row without the
+// ring's id mean it was taken off (150 ms).
+constexpr int RingLookMs = 1000;
+constexpr int RingGoneReports = 10;
+
+// CRC-8, polynomial 7, starting from 0: the second processor's checksum.
+quint8 crc8(const QByteArray &data, int from, int count)
+{
+    quint8 crc = 0;
+    for (int i = from; i < from + count; ++i) {
+        crc ^= quint8(data[i]);
+        for (int bit = 0; bit < 8; ++bit)
+            crc = crc & 0x80 ? quint8((crc << 1) ^ 0x07) : quint8(crc << 1);
+    }
+    return crc;
+}
 // Up to this many lost reports in a row are filled in (120 ms).
 constexpr int MostFilledReports = 8;
 // Following the gyroscope's error at rest: see trackRest().
@@ -71,6 +87,8 @@ JoyCon::JoyCon(const QString &node, Side side, const QString &address, QObject *
     m_replyTimer.setSingleShot(true);
     m_replyTimer.setInterval(ReplyTimeoutMs);
     connect(&m_replyTimer, &QTimer::timeout, this, &JoyCon::replyTimedOut);
+    m_ringTimer.setInterval(RingLookMs);
+    connect(&m_ringTimer, &QTimer::timeout, this, &JoyCon::lookForRing);
     m_lightsTimer.setSingleShot(true);
     m_lightsTimer.setInterval(LightsCheckMs);
     connect(&m_lightsTimer, &QTimer::timeout, this, &JoyCon::checkLights);
@@ -212,6 +230,60 @@ void JoyCon::readMotionCalibration(quint32 address, bool user)
     });
 }
 
+void JoyCon::setRingWanted(bool wanted)
+{
+    if (m_side != Side::Right || m_ringWanted == wanted)
+        return;
+    m_ringWanted = wanted;
+    if (wanted) {
+        // The second processor on and in standby; then ask the rail now and again.
+        send(SetMcuState, QByteArray(1, char(0x01)));
+        QByteArray config(McuConfigSize, '\0');
+        config[0] = char(0x21); // configure
+        config[1] = char(0x01); // set the device mode
+        config[2] = char(0x01); // standby
+        config[McuConfigSize - 1] = char(crc8(config, 1, McuConfigSize - 2));
+        send(SetMcuConfig, config, [this](const QByteArray &) {
+            if (m_ringWanted && !m_ring)
+                m_ringTimer.start();
+        });
+    } else {
+        m_ringTimer.stop();
+        if (m_ring)
+            send(DisableExternalPolling);
+        send(SetMcuState, QByteArray(1, char(0x00)));
+        setRing(false);
+    }
+}
+
+void JoyCon::lookForRing()
+{
+    send(GetExternalDevice, {}, [this](const QByteArray &data) {
+        if (!m_ringWanted || m_ring || data.size() < 2)
+            return;
+        const quint16 device = qFromLittleEndian<quint16>(data.constData());
+        qCDebug(lcJoyCon).noquote() << name() << "has on its rail:" << Qt::hex << device;
+        if (device != ExternalRingCon)
+            return;
+        m_ringTimer.stop();
+        send(SetExternalFormat, QByteArray(reinterpret_cast<const char *>(RingFormat), sizeof RingFormat));
+        send(EnableExternalPolling, QByteArray(reinterpret_cast<const char *>(RingPolling), sizeof RingPolling),
+             [this](const QByteArray &) { setRing(true); });
+    });
+}
+
+void JoyCon::setRing(bool ring)
+{
+    if (m_ring == ring)
+        return;
+    m_ring = ring;
+    m_ringSilent = 0;
+    qCInfo(lcJoyCon).noquote() << name() << m_address << (ring ? "has a Ring-Con attached" : "has no Ring-Con any more");
+    emit ringChanged();
+    if (!ring && m_ringWanted)
+        m_ringTimer.start();
+}
+
 // Follows the gyroscope's error as it creeps (it does, by a tenth of a degree a second or
 // so as the controller warms up), the way a Switch does: while the controller is at rest,
 // what the gyroscope still shows is error, and the correction is moved towards it.
@@ -322,6 +394,7 @@ void JoyCon::readReports()
         m_replyTimer.stop();
         m_lightsTimer.stop();
         m_quietTimer.stop();
+        m_ringTimer.stop();
         emit lost();
         return;
     }
@@ -399,6 +472,15 @@ void JoyCon::handleReport(const QByteArray &report)
         m_lastTimer = timer;
         m_lastArrived = arrived;
         m_motionTime = first + (MotionSamples - 1) * MotionIntervalUs;
+        // While the Joy-Con polls its rail (for the Ring-Con), what the rail says takes
+        // the place of the third reading's accelerometer: 0, the ring's flex and the
+        // ring's id, or all zeros with nothing attached (measured). The gyroscope half
+        // stays the Joy-Con's own. The data tells: no accelerometer reads exactly that.
+        const char *third = report.constData() + MotionOffset + (MotionSamples - 1) * MotionSampleSize;
+        const quint16 railId = qFromLittleEndian<quint16>(third + 4);
+        const int railValue = qFromLittleEndian<qint16>(third + 2);
+        const bool rail = m_ringWanted && qFromLittleEndian<qint16>(third) == 0
+                          && (railId == ExternalRingCon || (railId == 0 && railValue == 0));
         for (int n = 0; n < MotionSamples; ++n) {
             samples[n].time = first + n * MotionIntervalUs;
             const char *raw = report.constData() + MotionOffset + n * MotionSampleSize;
@@ -413,6 +495,11 @@ void JoyCon::handleReport(const QByteArray &report)
                 samples[n].accel[axis] *= m_restCorrection.accelScale;
                 samples[n].gyro[axis] -= m_restCorrection.gyro[axis];
             }
+        }
+        // The third accelerometer reading is then the second once more.
+        if (rail) {
+            for (int axis = 0; axis < 3; ++axis)
+                samples[MotionSamples - 1].accel[axis] = samples[MotionSamples - 2].accel[axis];
         }
         // The readings of lost reports, filled in on a straight line from the last reading
         // before the gap to the first after it, so that whoever adds the motion up gets a
@@ -432,6 +519,15 @@ void JoyCon::handleReport(const QByteArray &report)
                 if (j % MotionSamples == MotionSamples - 1)
                     emit motion(filled);
             }
+        }
+        if (m_ring && rail) {
+            // Taken off the rail, the id is gone at once; a few reports in a row, in
+            // case one is ever wrong.
+            m_ringSilent = railId == ExternalRingCon ? 0 : m_ringSilent + 1;
+            if (m_ringSilent >= RingGoneReports)
+                setRing(false);
+            else if (railId == ExternalRingCon)
+                emit ringFlex(railValue);
         }
         m_lastMotion = samples[MotionSamples - 1];
         // A gap spoils the stretch of stillness being watched, filled in or not.

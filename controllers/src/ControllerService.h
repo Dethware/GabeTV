@@ -1,10 +1,12 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QTimer>
 
 class Bluetooth;
+class DeviceWatcher;
 class MotionCalibration;
 class UnitManager;
 
@@ -24,8 +26,8 @@ class ControllerService : public QObject
     Q_CLASSINFO("D-Bus Interface", "local.tvcontrollers")
 
 public:
-    ControllerService(UnitManager *units, Bluetooth *bluetooth, MotionCalibration *calibration,
-                      QObject *parent = nullptr);
+    ControllerService(DeviceWatcher *watcher, UnitManager *units, Bluetooth *bluetooth,
+                      MotionCalibration *calibration, QObject *parent = nullptr);
 
 public slots:
     Q_SCRIPTABLE QString Describe() const;
@@ -39,6 +41,10 @@ public slots:
     // Measures this controller's motion sensors at rest for two seconds; it must lie
     // still on a table. MotionCalibrated says how it went.
     Q_SCRIPTABLE void CalibrateMotion(const QString &address);
+    // Whether to look for a Ring-Con on this right Joy-Con and read it; RingFlex carries
+    // its flex while one is attached. It costs the Joy-Con battery, so watching ends by
+    // itself five seconds after it was last asked for: whoever watches keeps asking.
+    Q_SCRIPTABLE void WatchRing(const QString &address, bool watch);
     Q_SCRIPTABLE void Forget(const QString &address);
 
 signals:
@@ -46,10 +52,17 @@ signals:
     Q_SCRIPTABLE void HomePressed();
     // strength: g shown at rest before the correction; drift: degrees a second.
     Q_SCRIPTABLE void MotionCalibrated(const QString &address, bool ok, double strength, double drift);
+    // The ring's flex as the Joy-Con reports it, raw, 66 times a second.
+    Q_SCRIPTABLE void RingFlex(const QString &address, int raw);
 
 private:
     void connectToBus();
 
+    void setRingWanted(const QString &address, bool wanted);
+
+    DeviceWatcher *m_watcher;
+    // By address: runs out when nobody asked to watch that Joy-Con's ring for a while.
+    QHash<QString, QTimer *> m_ringLeases;
     UnitManager *m_units;
     Bluetooth *m_bluetooth;
     MotionCalibration *m_calibration;

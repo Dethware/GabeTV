@@ -1760,6 +1760,49 @@ positioning); a 3D view on the test screen; the Ring-Con and the leg strap are a
   better ways someone has patented or written up, worth some research or some prediction
   of the missing readings later; minor, but interesting.
 
+## The Ring-Con (2026-11-23)
+
+Read by the controller service through a right Joy-Con, shown in the shell's motion test.
+The sequence is Eden's (`joycon_protocol/ringcon.cpp`, `common_protocol.cpp`,
+`joycon_types.h`), tried on the Joy-Con (R) with firmware 4.25:
+
+- Subcommand `0x22 01` switches the Joy-Con's second processor on (the one that also
+  drives the IR camera and NFC); `0x21` with a 38-byte block (`21 01 01`, zeros, and a
+  CRC-8 with polynomial 7 over bytes 1 to 36 in the last byte) puts it in standby. `0x59`
+  then asks what is on the rail: the answer's first two bytes were `2000` (the Ring-Con)
+  on the first ask, a second after the two commands; no waiting for the processor was
+  needed. `0x5c` with Eden's fixed 37-byte block and `0x5a 04 01 01 02` start the polling.
+  It worked on the first try.
+- Where the value is. Eden reads the flex as a signed 16-bit value at byte 39 of the
+  full report, which is inside the third motion reading (bytes 37 to 48). Measured: while
+  the rail is polled, that reading's accelerometer half is not the accelerometer's:
+  `00 00`, the flex, `00 20` (the ring's id), then the gyroscope's three values as usual
+  (they match the second reading's). The first two readings are untouched. In the motion
+  test this showed as the Push value "going crazy" (the user), since one accelerometer
+  reading in three was nonsense. Fixed in the service: a third reading with that pattern
+  takes its accelerometer from the second. The user: "Push is good now".
+- Taking the Joy-Con off the ring: the same six bytes are all zeros from then on (polling
+  stays on), and `0x59` answers `fe`. Slid back on: two asks went unanswered (about
+  2 s), then `2000` again; the service sends the format block and the polling command
+  again (whether that is needed a second time wasn't tried). The first version noticed
+  the removal by a second of zero flex; it now goes by the id missing for ten reports
+  (150 ms).
+- The values, 207 s recorded while the user squeezed and pulled (66.7 readings a second,
+  one per report): at rest about 3700, lowest 1474, highest 6217. At rest it varies by
+  about 5 counts within two seconds, but the resting value itself moved between sittings:
+  3750 held in the hand, 3637 and 3704 lying still. Which way is the squeeze wasn't
+  asked; the first six excursions were all upwards and the user began with squeezes, so
+  probably up.
+- Decided by the user: "The game has its own calibration for the ring con squeeze. It
+  needs to account for different people's arm strength, and what we show seems good. I
+  would just pass raw values for squeeze on." So the service scales nothing and keeps no
+  zero point; what goes to an emulator later is the raw value.
+- The second processor costs battery (how much wasn't measured), so the service reads a
+  ring only while it is asked to: `WatchRing(address, true)` holds for five seconds, and
+  the motion test repeats it every second while it is open. A Ring Fit unit will need it
+  for as long as it exists.
+- The leg strap needs nothing: it holds a left Joy-Con, whose motion is already served.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

@@ -41,7 +41,10 @@ This is an early version:
   motion from then on, for games too. It is remembered per controller, in
   `~/.config/tvcontrollers/motion.ini` on the Steam Machine.
 
-Not there yet: rumble, the Ring-Con and the IR camera.
+- **The Ring-Con** is recognised on a right Joy-Con and its squeeze and pull are read.
+  So far only the TV's motion test shows them; games don't get them yet.
+
+Not there yet: rumble, the Ring-Con in games and the IR camera.
 
 ## Install
 

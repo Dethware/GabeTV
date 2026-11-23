@@ -37,6 +37,12 @@ constexpr int ReplyDataOffset = 15;
 enum Subcommand : quint8 {
     DeviceInfo = 0x02, // firmware, type, Bluetooth address
     SetInputMode = 0x03, // 0x30 for full reports
+    SetMcuConfig = 0x21, // a 38-byte block for the second processor, with a checksum
+    SetMcuState = 0x22, // 1: the second processor on, 0: off
+    GetExternalDevice = 0x59, // what is attached to the rail; answers with a 16-bit id
+    EnableExternalPolling = 0x5a,
+    DisableExternalPolling = 0x5b,
+    SetExternalFormat = 0x5c,
     ReadMemory = 0x10, // address (4 bytes, little endian) and length; answers with both, then the data
     SetPlayerLights = 0x30, // low nibble: lit, high nibble: flashing
     GetPlayerLights = 0x31, // answers with the same byte
@@ -63,6 +69,24 @@ constexpr int MotionIntervalUs = 5000;
 constexpr quint32 FactoryMotion = 0x6020;
 constexpr quint32 UserMotion = 0x8026;
 constexpr int MotionCalibrationSize = 24;
+
+// The Ring-Con hangs on a right Joy-Con's rail and is reached through the Joy-Con's second
+// processor (the "MCU", which also drives the IR camera and NFC). Facts from Eden's
+// joycon_protocol (ringcon.cpp, common_protocol.cpp, joycon_types.h):
+//   1. the second processor on (SetMcuState 1), then into standby: SetMcuConfig with a
+//      block of command 0x21, subcommand 1 (set device mode), mode 1 (standby), zeros,
+//      and in the last byte a CRC-8 (polynomial 7, from 0) of bytes 1 to 36;
+//   2. GetExternalDevice until it answers with the Ring-Con's id;
+//   3. SetExternalFormat with the fixed block below, then EnableExternalPolling with
+//      the four bytes below.
+// From then on a full report carries, in place of its third motion reading's accelerometer
+// (JoyCon.cpp), a zero, the ring's flex as a signed 16-bit value, and the ring's id.
+constexpr int McuConfigSize = 38;
+constexpr quint16 ExternalRingCon = 0x2000;
+constexpr quint8 RingFormat[37] = {0x06, 0x03, 0x25, 0x06, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x16, 0xed, 0x34, 0x36,
+                                   0x00, 0x00, 0x00, 0x0a, 0x64, 0x0b, 0xe6, 0xa9, 0x22, 0x00, 0x00, 0x04, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0xa8, 0xe1, 0x34, 0x36};
+constexpr quint8 RingPolling[4] = {0x04, 0x01, 0x01, 0x02};
 
 // The buttons as one value: byte 3 of the report in bits 0-7 (the right Joy-Con's), byte 4
 // in bits 8-15 (shared), byte 5 in bits 16-23 (the left Joy-Con's).
