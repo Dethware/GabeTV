@@ -121,12 +121,12 @@ for `user/`.
    (name and icon read from each game file, which needs Eden's own loader and the keys),
    and one unit per game in place of `eden.service` naming Ring Fit.
 5. A Joy-Con held sideways in a game (its buttons and stick are passed as held upright).
-6. The player lights as the game sets them. Only cosmetic: on a Switch the Joy-Con in the
-   ring shows player 1 and the one on the leg player 2, because the game takes the pair
-   apart; here both show the pair's number. The game's request already reaches the
-   service, which ignores it.
-7. User profiles pass through to Eden (its user, and with it the saves, follows who is
+6. User profiles pass through to Eden (its user, and with it the saves, follows who is
    using the TV), once the TV has them: a system of its own, see the brief (`CLAUDE.md`).
 
 Not pursued: the stray geometry the user saw once or twice in Ring Fit's first level
-("very minor"); that is Eden's rendering.
+("very minor"), which is Eden's rendering; and the player lights as the game sets them. A
+game can only set those, not read them, so they change nothing but the look: on a Switch
+the Joy-Con in the ring shows player 1 and the one on the leg player 2, because the game
+takes the pair apart, and here both show the pair's number. The game's request reaches the
+service, which ignores it.

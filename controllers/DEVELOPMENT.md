@@ -251,8 +251,8 @@ differ from the repository's.
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
 2. For the emulator (`EmulatorServer`): rumble as the game sets it (Ring Fit uses it),
-   then the IR camera; the player lights as the game sets them are only cosmetic. Units
-   that survive a restart of the service.
+   then the IR camera. (The player lights as a game sets them are left alone: they only
+   change the look.) Units that survive a restart of the service.
 3. An idea, not decided: the Ring-Con as the way to steer outside games too (squeeze to
    confirm, pull to cancel, turn it left or right, point it up or down), as one more
    mapping onto the virtual pad. It needs the ring read the whole time, which keeps the

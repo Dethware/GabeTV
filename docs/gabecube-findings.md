@@ -2373,6 +2373,11 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   temporary Eden binding script and the screenshots were left behind: what they found is
   in this log. `apps/eden/try.sh` is removed: the shell starts Eden.
 
+- The user on the player lights, which differ from a Switch only in what the leg's Joy-Con
+  shows: "If it indeed has no effect aside from that, then it's fine", "Playing the game,
+  nobody will really notice anyway", and "we don't worry about the controller LEDs in
+  Ring Fit". Left as they are; off the list.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
