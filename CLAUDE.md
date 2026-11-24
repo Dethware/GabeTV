@@ -1,8 +1,9 @@
 # GabeTV: working on this project
 
 A TV experience of our own on a Valve Steam Machine (`gabecube`), published as
-https://github.com/Dethware/GabeTV. The repository is public: nothing private goes into
-it (keys, tokens, addresses of people's accounts). What it is and does:
+https://github.com/Dethware/GabeTV. The repository is public: no secrets go into it
+(keys, tokens, sign-in details). Device addresses and host names in the log are fine: the
+log is a reference with the reasons why things were done, and such details help. What it is and does:
 `README.md`. How the parts fit, the decisions, the hardware and what is planned:
 `DEVELOPMENT.md`. This file is only about how to work on it.
 

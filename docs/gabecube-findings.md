@@ -2423,6 +2423,13 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   in mind as we add more and have more information about what such an interface would
   need." So: wanted, deliberately not designed yet.
 
+- The log keeps its details (2026-11-24). I had taken the photo server's host name and
+  the controllers' Bluetooth addresses out because the repository is public; the user
+  removed that commit again: "I think it's fine to have them. The log is mostly a
+  reference for you with reasons why things were done, and the details can help." So
+  device addresses and internal host names stay; secrets (keys, tokens, sign-in details)
+  stay out, as before. `CLAUDE.md` says so.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
