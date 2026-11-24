@@ -2439,6 +2439,26 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   app is, which includes a manifest with its name and other details along with an icon
   file".
 
+### The shell by topic (2026-11-24)
+
+- On the user's "let's do it": the shell's `src/` and `qml/` are gone; each topic is a
+  folder that is one QML module (`TvShell.Common`, `.Session`, `.Power`, `.Audio`,
+  `.Photos`, `.Steam`, `.Apps`, `.YouTube`, `.Controllers`, `.Assistant`), a static
+  library linked into the program, with `TvShell` itself keeping `Main.qml`, `TopBar.qml`
+  and `SettingsPage.qml` at the top. Done the way Qt's "Writing QML Modules" describes
+  for several modules in one binary: `qt_add_library(… STATIC)` + `qt_add_qml_module`,
+  the plugin targets linked into the program and `Q_IMPORT_QML_PLUGIN` in `main.cpp`,
+  `QT_QML_OUTPUT_DIRECTORY` for the tools. `WebKeys` went to YouTube (it only filters
+  the YouTube page's keys); `make-places.py`, a build-time tool, stays at the top.
+- One dependency had to turn round: the network layer (common) read the Immich
+  configuration (photos) itself. Now the photos module hands it a rule at start that adds
+  the API key and prefers the cache for an asset's images.
+- Checked: it builds; qmllint gives the same 34 warnings as the old layout (built and
+  linted from a worktree of the commit before), after the moved files importing their
+  own module where they use its C++ types and the session and YouTube modules declaring
+  QtQuick as a dependency (for the `QWindow` of their `window` properties); a headless
+  run starts with no QML errors. Not deployed yet.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

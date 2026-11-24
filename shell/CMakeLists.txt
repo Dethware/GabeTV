@@ -18,6 +18,10 @@ find_package(Threads REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.11)
 
+# All QML modules in one place in the build tree, under their URIs (TvShell/Photos, …),
+# so that the tools find them; at run time they come from the binary's resources.
+set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
+
 # Vendored (3rdparty/miniaudio/README.md). Audio backends are loaded at runtime.
 add_library(miniaudio STATIC
     3rdparty/miniaudio/miniaudio.c
@@ -33,152 +37,59 @@ target_link_libraries(miniaudio
         m
 )
 
+# One module per topic, each a static library with its C++ and QML (see DEVELOPMENT.md).
+add_subdirectory(common)
+add_subdirectory(session)
+add_subdirectory(power)
+add_subdirectory(apps)
+add_subdirectory(audio)
+add_subdirectory(photos)
+add_subdirectory(steam)
+add_subdirectory(youtube)
+add_subdirectory(controllers)
+add_subdirectory(assistant)
+
 qt_add_executable(tvshell
-    src/main.cpp
+    main.cpp
 )
 
-# Keep the QML files at the module root in resources, without the qml/ prefix.
-set_source_files_properties(qml/Main.qml PROPERTIES QT_RESOURCE_ALIAS Main.qml)
-set_source_files_properties(qml/GamesPlace.qml PROPERTIES QT_RESOURCE_ALIAS GamesPlace.qml)
-set_source_files_properties(qml/GameTile.qml PROPERTIES QT_RESOURCE_ALIAS GameTile.qml)
-set_source_files_properties(qml/Screensaver.qml PROPERTIES QT_RESOURCE_ALIAS Screensaver.qml)
-set_source_files_properties(qml/PowerDialog.qml PROPERTIES QT_RESOURCE_ALIAS PowerDialog.qml)
-set_source_files_properties(qml/SettingRow.qml PROPERTIES QT_RESOURCE_ALIAS SettingRow.qml)
-set_source_files_properties(qml/SettingsPage.qml PROPERTIES QT_RESOURCE_ALIAS SettingsPage.qml)
-set_source_files_properties(qml/TopBar.qml PROPERTIES QT_RESOURCE_ALIAS TopBar.qml)
-set_source_files_properties(qml/AssistantIndicator.qml PROPERTIES QT_RESOURCE_ALIAS AssistantIndicator.qml)
-set_source_files_properties(qml/PhotoViewer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoViewer.qml)
-set_source_files_properties(qml/PhotoGrid.qml PROPERTIES QT_RESOURCE_ALIAS PhotoGrid.qml)
-set_source_files_properties(qml/PhotoTile.qml PROPERTIES QT_RESOURCE_ALIAS PhotoTile.qml)
-set_source_files_properties(qml/PhotosPlace.qml PROPERTIES QT_RESOURCE_ALIAS PhotosPlace.qml)
-set_source_files_properties(qml/AlbumGroups.qml PROPERTIES QT_RESOURCE_ALIAS AlbumGroups.qml)
-set_source_files_properties(qml/BarButton.qml PROPERTIES QT_RESOURCE_ALIAS BarButton.qml)
-set_source_files_properties(qml/PhotoLayer.qml PROPERTIES QT_RESOURCE_ALIAS PhotoLayer.qml)
-set_source_files_properties(qml/ScreensaverLayer.qml PROPERTIES QT_RESOURCE_ALIAS ScreensaverLayer.qml)
-set_source_files_properties(qml/AlbumPicker.qml PROPERTIES QT_RESOURCE_ALIAS AlbumPicker.qml)
-set_source_files_properties(qml/ControllersPane.qml PROPERTIES QT_RESOURCE_ALIAS ControllersPane.qml)
-set_source_files_properties(qml/ControllerRow.qml PROPERTIES QT_RESOURCE_ALIAS ControllerRow.qml)
-set_source_files_properties(qml/ControllerTest.qml PROPERTIES QT_RESOURCE_ALIAS ControllerTest.qml)
-set_source_files_properties(qml/ControllerModel.qml PROPERTIES QT_RESOURCE_ALIAS ControllerModel.qml)
-set_source_files_properties(qml/PlayerLights.qml PROPERTIES QT_RESOURCE_ALIAS PlayerLights.qml)
-set_source_files_properties(qml/PhotoBackdrop.qml PROPERTIES QT_RESOURCE_ALIAS PhotoBackdrop.qml)
-set_source_files_properties(qml/PhotoInfo.qml PROPERTIES QT_RESOURCE_ALIAS PhotoInfo.qml)
-set_source_files_properties(qml/FitGrid.qml PROPERTIES QT_RESOURCE_ALIAS FitGrid.qml)
-set_source_files_properties(qml/AppTile.qml PROPERTIES QT_RESOURCE_ALIAS AppTile.qml)
-set_source_files_properties(qml/YouTubeLogo.qml PROPERTIES QT_RESOURCE_ALIAS YouTubeLogo.qml)
-set_source_files_properties(qml/JellyfinLogo.qml PROPERTIES QT_RESOURCE_ALIAS JellyfinLogo.qml)
-set_source_files_properties(qml/VolumeIndicator.qml PROPERTIES QT_RESOURCE_ALIAS VolumeIndicator.qml)
-set_source_files_properties(qml/NowPlayingButton.qml PROPERTIES QT_RESOURCE_ALIAS NowPlayingButton.qml)
-set_source_files_properties(qml/ChoiceDialog.qml PROPERTIES QT_RESOURCE_ALIAS ChoiceDialog.qml)
-set_source_files_properties(qml/sponsorskip.js PROPERTIES QT_RESOURCE_ALIAS sponsorskip.js)
-set_source_files_properties(qml/mediacaps.js PROPERTIES QT_RESOURCE_ALIAS mediacaps.js)
-set_source_files_properties(qml/HomePlace.qml PROPERTIES QT_RESOURCE_ALIAS HomePlace.qml)
-set_source_files_properties(qml/YouTubePage.qml PROPERTIES QT_RESOURCE_ALIAS YouTubePage.qml)
-
+# The shell itself: what assembles the topics into the screen.
 qt_add_qml_module(tvshell
     URI TvShell
     QML_FILES
-        qml/Main.qml
-        qml/GamesPlace.qml
-        qml/GameTile.qml
-        qml/Screensaver.qml
-        qml/PowerDialog.qml
-        qml/SettingRow.qml
-        qml/SettingsPage.qml
-        qml/TopBar.qml
-        qml/AssistantIndicator.qml
-        qml/PhotoViewer.qml
-        qml/PhotoGrid.qml
-        qml/PhotoTile.qml
-        qml/PhotosPlace.qml
-        qml/AlbumGroups.qml
-        qml/BarButton.qml
-        qml/PhotoLayer.qml
-        qml/ScreensaverLayer.qml
-        qml/AlbumPicker.qml
-        qml/ControllersPane.qml
-        qml/ControllerRow.qml
-        qml/ControllerTest.qml
-        qml/ControllerModel.qml
-        qml/PlayerLights.qml
-        qml/PhotoBackdrop.qml
-        qml/PhotoInfo.qml
-        qml/FitGrid.qml
-        qml/AppTile.qml
-        qml/YouTubeLogo.qml
-        qml/JellyfinLogo.qml
-        qml/VolumeIndicator.qml
-        qml/NowPlayingButton.qml
-        qml/ChoiceDialog.qml
-        qml/HomePlace.qml
-        qml/YouTubePage.qml
-    RESOURCES
-        qml/sponsorskip.js
-        qml/mediacaps.js
-    SOURCES
-        src/AudioPlayer.cpp
-        src/AudioPlayer.h
-        src/BaseLayer.cpp
-        src/BaseLayer.h
-        src/GamepadInput.cpp
-        src/GamepadInput.h
-        src/ImaAdpcm.cpp
-        src/ImaAdpcm.h
-        src/IdleController.cpp
-        src/IdleController.h
-        src/ImmichClient.cpp
-        src/ImmichClient.h
-        src/ImmichConfig.cpp
-        src/ImmichConfig.h
-        src/ImmichMediaProxy.cpp
-        src/ImmichMediaProxy.h
-        src/NetworkAccess.cpp
-        src/NetworkAccess.h
-        src/PlaceLookup.cpp
-        src/PlaceLookup.h
-        src/PowerActions.cpp
-        src/PowerActions.h
-        src/RemoteAssistant.cpp
-        src/RemoteAssistant.h
-        src/ScreensaverSettings.cpp
-        src/ScreensaverSettings.h
-        src/SteamLibrary.cpp
-        src/SteamLibrary.h
-        src/SteamLog.cpp
-        src/SteamLog.h
-        src/SponsorBlock.cpp
-        src/SponsorBlock.h
-        src/SystemVolume.cpp
-        src/SystemVolume.h
-        src/ViewerSettings.cpp
-        src/ViewerSettings.h
-        src/ManagedApp.cpp
-        src/ManagedApp.h
-        src/ControllerClient.cpp
-        src/ControllerClient.h
-        src/MotionClient.cpp
-        src/MotionClient.h
-        src/ShellService.cpp
-        src/ShellService.h
-        src/WebKeys.cpp
-        src/WebKeys.h
-        src/YouTubeSettings.cpp
-        src/YouTubeSettings.h
+        Main.qml
+        TopBar.qml
+        SettingsPage.qml
+    DEPENDENCIES
+        TARGET tvshell_common
+        TARGET tvshell_session
+        TARGET tvshell_power
+        TARGET tvshell_audio
+        TARGET tvshell_photos
+        TARGET tvshell_steam
+        TARGET tvshell_apps
+        TARGET tvshell_youtube
+        TARGET tvshell_controllers
+        TARGET tvshell_assistant
 )
-
-# The generated QML type registration includes the headers by name.
-target_include_directories(tvshell PRIVATE src)
 
 target_link_libraries(tvshell
     PRIVATE
-        Qt6::DBus
         Qt6::Gui
-        Qt6::Multimedia
-        Qt6::Network
         Qt6::Quick
         Qt6::WebEngineQuick
-        SDL3::SDL3
         PkgConfig::XCB
-        PkgConfig::PULSE
-        miniaudio
+        # main.cpp sets up the network layer with the photos' rule.
+        tvshell_common
+        tvshell_photos
+        tvshell_commonplugin
+        tvshell_sessionplugin
+        tvshell_powerplugin
+        tvshell_audioplugin
+        tvshell_photosplugin
+        tvshell_steamplugin
+        tvshell_appsplugin
+        tvshell_youtubeplugin
+        tvshell_controllersplugin
+        tvshell_assistantplugin
 )

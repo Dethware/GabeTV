@@ -21,12 +21,40 @@ when the screen's size changes the shell exits with code 75 and systemd starts i
 ask for `sourceSize` times `Screen.devicePixelRatio`. The YouTube page sees 2560x1440 CSS
 pixels at that device pixel ratio.
 
-`qml/Main.qml` holds the pages (`page`: `home`, `settings`, `photos`, `viewer`, `youtube`)
+`Main.qml` holds the pages (`page`: `home`, `settings`, `photos`, `viewer`, `youtube`)
 and wires the C++ objects together; each page and place is its own QML file.
+
+## Layout
+
+The source is laid out by topic. Each folder is one QML module with its C++ and its QML,
+built as a static library and linked into the one program; `main.cpp` imports their
+plugins (`Q_IMPORT_QML_PLUGIN`). A QML file imports the modules whose types it uses, its
+own too when it uses the module's C++ types.
+
+| Folder | Module | What |
+|---|---|---|
+| (top) | `TvShell` | `main.cpp`, `Main.qml`, `TopBar.qml`, `SettingsPage.qml`: what puts the topics together |
+| `common/` | `TvShell.Common` | The network layer, and controls used across topics (`ChoiceDialog`, `FitGrid`, `BarButton`, `SettingRow`) |
+| `session/` | `TvShell.Session` | Taking the screen, global keys, controller input, the session bus service, Steam's log |
+| `power/` | `TvShell.Power` | Idle (screensaver → screen off → sleep), the power dialog |
+| `audio/` | `TvShell.Audio` | The system volume and its display, what plays in the background |
+| `photos/` | `TvShell.Photos` | Immich, the photos place, the viewer, the screensaver, place names |
+| `steam/` | `TvShell.Steam` | Steam's installed games and the games place |
+| `apps/` | `TvShell.Apps` | Programs the shell starts and shows (`ManagedApp`), the Home place, app tiles and logos |
+| `youtube/` | `TvShell.YouTube` | The YouTube page, its settings, SponsorBlock, the key filter |
+| `controllers/` | `TvShell.Controllers` | The controller service's client, the Controllers settings, the motion test |
+| `assistant/` | `TvShell.Assistant` | The remote's Assistant button and voice |
+
+Dependencies point one way: topics may use `common/` (and `audio/` uses `apps/` for the
+logos); `common/` knows none of them. Where `common/` needs something of a topic, the topic
+hands it over at start: the network layer adds the Immich API key through a rule the photos
+module gives it (`NetworkAccessManager::addRequestRule`, set up in `main.cpp`). The build
+puts all modules under `build/qml/TvShell/…` for the tools; at run time they come from the
+program's resources.
 
 ## Components
 
-### Taking the screen (`src/BaseLayer.*`)
+### Taking the screen (`session/BaseLayer.*`)
 
 Tags the window `STEAM_GAME=2113929217` (`0x7E000001`) and puts that ID first in
 gamescope's root property `GAMESCOPECTRL_BASELAYER_APPID`. Steam rewrites that list when a
@@ -42,10 +70,10 @@ ID, then the shell's. `frontAppOnScreen` follows the focus like `onScreen`.
 Steam keeps the Steam and … buttons and draws its menu and Quick Access in its own window,
 behind the shell. The shell steps aside when Steam opens its menu (Steam writes root
 `GAMESCOPE_BLUR_MODE`) or Quick Access (only visible in Steam's `logs/webhelper.txt`,
-followed by `src/SteamLog.*`). If Steam closes Quick Access right after the handoff, the
+followed by `session/SteamLog.*`). If Steam closes Quick Access right after the handoff, the
 shell re-opens it with Steam's Ctrl+2 shortcut (XTest).
 
-### Global keys (`src/BaseLayer.*`, `../system/`)
+### Global keys (`session/BaseLayer.*`, `../system/`)
 
 Home (`XF86HomePage`), Power, YouTube, Netflix and Mute (`XF86AudioMute`) are passive grabs on the root window, so they
 arrive whichever window has focus (Steam's screens included). Several remote keys send evdev
@@ -61,7 +89,7 @@ own window and Power looked stuck down. A held key auto-repeats as release/press
 after a resume (logind `PrepareForSleep`). The shell holds a logind `handle-suspend-key`
 inhibitor lock so logind doesn't suspend on Power itself.
 
-### Controller and keys (`src/GamepadInput.*`)
+### Controller and keys (`session/GamepadInput.*`)
 
 Each controller's sticks are kept by themselves, and the one pushed furthest decides the
 direction. Steam's virtual pad of a controller that lies untouched still sends its
@@ -82,7 +110,7 @@ while the shell is fully awake (`sticks`): a
 thumb resting on a Steam Controller trackpad that Steam maps to the stick ended the
 screensaver.
 
-### Idle (`src/IdleController.*`)
+### Idle (`power/IdleController.*`)
 
 States Active → Screensaver → ScreenOff, then suspend. Counts only while the shell is on
 screen. Activity: keys reaching the shell, controller input (also during games), gamescope's
@@ -103,7 +131,7 @@ resume, then three more times two seconds apart: sent once right after a resume 
 unheeded, and the screen then stays dark (see the log, 2026-11-22). Videos and YouTube keep
 it awake while playing (a timer in `Main.qml` reporting activity).
 
-### Screensaver (`qml/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`, `PhotoInfo.qml`, `src/ScreensaverSettings.*`)
+### Screensaver (`photos/Screensaver.qml`, `ScreensaverLayer.qml`, `PhotoBackdrop.qml`, `PhotoInfo.qml`, `photos/ScreensaverSettings.*`)
 
 `ImmichClient::loadScreensaver` collects all chosen albums (timeline buckets, images only, no
 duplicates) and shuffles them once. That happens when a run ends (and at startup, and when
@@ -120,7 +148,7 @@ crossfades in place (500 ms): Immich's thumbnail decoded at 96×54 (blur) or 3×
 blurred with `MultiEffect` and darkened. Date and place sit above the layers (z 2) and drift
 to a nearby spot every 5 minutes (OLED).
 
-### Photos (`src/ImmichClient.*`, `src/ImmichConfig.*`, `qml/PhotosPlace.qml`, `AlbumGroups.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`, `PhotoTile.qml`, `PhotoLayer.qml`)
+### Photos (`photos/ImmichClient.*`, `photos/ImmichConfig.*`, `photos/PhotosPlace.qml`, `AlbumGroups.qml`, `PhotoGrid.qml`, `PhotoViewer.qml`, `PhotoTile.qml`, `PhotoLayer.qml`)
 
 Albums sorted by their newest photo (`endDate`), newest first, with its `year`; memories for
 today; album contents a month bucket at a time
@@ -145,7 +173,7 @@ the screensaver's model (`index`/`shownIndex`, one at a time, 250 ms OutCubic); 
 stops for 0.2 s. Images are requested with Immich's edits (`edited=true`) and EXIF rotation
 (`autoTransform`).
 
-Videos play in Qt Multimedia (ffmpeg backend) through `src/ImmichMediaProxy.*`, a loopback
+Videos play in Qt Multimedia (ffmpeg backend) through `photos/ImmichMediaProxy.*`, a loopback
 HTTP proxy that adds the API key (Qt's player can't send headers) and passes Range requests
 through; a random token in its URLs keeps other local programs out.
 While a video is loaded (playing or paused) the viewer's Left and Right set the player's
@@ -158,17 +186,17 @@ The viewer's player is a `MediaPlayer` with its own `AudioOutput` whose `device`
 default when it was created, and stays silent when the sound has since moved (the soundbar
 connecting over Bluetooth after the shell started).
 
-`src/NetworkAccess.*` is the shell's network layer, QML images included: it adds the key to
+`common/NetworkAccess.*` is the shell's network layer, QML images included: it adds the key to
 requests for the Immich server only, and caches on disk (`~/.cache/tvshell/network`, up to
 2 GiB; asset images are served from the cache when present).
 
-Place names (`src/PlaceLookup.*`): the nearest populated place to the photo's GPS and its
+Place names (`photos/PlaceLookup.*`): the nearest populated place to the photo's GPS and its
 town, from `places.tsv` next to the program, made by `./make-places.py` from GeoNames
 (CC BY 4.0). Sweden and the Czech Republic only: each country needs a rule there for which
 administrative level is the town. Elsewhere, or without the list, Immich's `city, country`.
 Immich's own names are too coarse; see the log, "Place names".
 
-### YouTube (`qml/HomePlace.qml`, `qml/YouTubePage.qml`, `src/WebKeys.*`)
+### YouTube (`apps/HomePlace.qml`, `youtube/YouTubePage.qml`, `youtube/WebKeys.*`)
 
 `youtube.com/tv` in a Qt WebEngine `WebEngineView`, created on first open and kept. Its
 profile (`storageName` "youtube", forced persistent cookies) lives in
@@ -190,7 +218,7 @@ becomes active (YouTube opened, the screensaver or the power dialog closed over 
 everything from the page until the next fresh key press: the repeats and the release of the
 press that got us there would otherwise count as OK in YouTube and start a video.
 
-Resolution (`qml/mediacaps.js`): YouTube's TV player asks `MediaSource.isTypeSupported()`
+Resolution (`youtube/mediacaps.js`): YouTube's TV player asks `MediaSource.isTypeSupported()`
 about width, height, frame rate, bitrate and more, including trick questions (`width=99999`,
 `eotf=catavision`) that a TV's browser answers with no. Chromium ignores those parameters
 and says yes to all of it, so the player distrusts every answer and stays at 720p. The
@@ -212,7 +240,7 @@ the player reports a short stop between two tracks; `aboutToSleep` pauses it. A 
 through `Main.launchGame()`, which asks with a `ChoiceDialog` while music plays in the
 background. A photo's video pauses it.
 
-SponsorBlock (`src/SponsorBlock.*`, `src/YouTubeSettings.*`, `qml/sponsorskip.js`): the page's
+SponsorBlock (`youtube/SponsorBlock.*`, `youtube/YouTubeSettings.*`, `youtube/sponsorskip.js`): the page's
 address carries the video (`#/watch?v=<id>`), which `YouTubePage.videoId` reads. `SponsorBlock`
 asks sponsor.ajay.app for the segments by the first four hex characters of the ID's SHA-256
 (the service's privacy mode), for the categories switched on in Settings, and keeps the
@@ -223,7 +251,7 @@ second, seeks past a segment and shows a note. Its `console.log` lines starting 
 `tvshell:` go to the shell's log. Our own script rather than the SponsorBlock browser
 extension (Qt 6.10+ can load extensions): that one is written for the desktop site.
 
-### Managed apps: Jellyfin (`src/ManagedApp.*`, `qml/Main.qml`, `../apps/jellyfin-desktop`)
+### Managed apps: Jellyfin (`apps/ManagedApp.*`, `Main.qml`, `../apps/jellyfin-desktop`)
 
 A managed app is a separate program the shell starts and shows itself, without Steam:
 Jellyfin Desktop, and Eden with a Switch game (`../apps/eden`). It runs as its own user service
@@ -252,7 +280,7 @@ YouTube a page that has been opened (frozen or not, it comes back where it was l
 to the app's window, so the shell sees input there only through gamescope's input counter.
 
 The other direction, the program asking for the shell, goes through `ShellService`
-(`src/ShellService.*`): the shell owns `local.tvshell` on the session bus, and its `LeaveApp`
+(`session/ShellService.*`): the shell owns `local.tvshell` on the session bus, and its `LeaveApp`
 method does what Home does to the app. Jellyfin calls it when Back is pressed with nowhere
 to go back to: its web interface then asks the host to exit, and a patch in
 `../apps/jellyfin-desktop/patches` turns that into running a profile script that makes the
@@ -282,7 +310,7 @@ unloaded), Force close kills the unit's processes (`ManagedApp::kill()`). `Choic
 takes no repeats of OK, so the key that is still held when the menu opens doesn't pick its
 first answer.
 
-### Controllers in Settings (`src/ControllerClient.*`, `qml/ControllersPane.qml`)
+### Controllers in Settings (`controllers/ControllerClient.*`, `controllers/ControllersPane.qml`)
 
 Nintendo's controllers belong to the controller service (`../controllers/DEVELOPMENT.md`);
 the shell only shows them and asks. `ControllerClient` is the session-bus client of
@@ -314,8 +342,8 @@ OK or Back lets go, and it stays where it is. `ControllerClient` only announces 
 when the service's answer differs from the last one, so the five-second battery refresh
 doesn't rebuild the list.
 
-The motion test (`qml/ControllerTest.qml`, `qml/ControllerModel.qml`,
-`src/MotionClient.*`) reads motion the way an emulator does: `MotionClient` is a client of
+The motion test (`controllers/ControllerTest.qml`, `controllers/ControllerModel.qml`,
+`controllers/MotionClient.*`) reads motion the way an emulator does: `MotionClient` is a client of
 the controller service's cemuhook server on localhost:26760 (subscribing every second,
 since the server drops a silent client), so the test also tests that server. Each
 `MotionPad` keeps the latest acceleration and rotation and an orientation: the gyroscope's
@@ -355,7 +383,7 @@ calibrating.
 In `SettingsPage`, an option without a `change` function is a button (the screensaver's
 album picker): its value is shown without the ‹ › that mean "Left and Right change this".
 
-### Power (`src/PowerActions.*`, `qml/PowerDialog.qml`)
+### Power (`power/PowerActions.*`, `power/PowerDialog.qml`)
 
 Power short press toggles the screen; held 0.8 s it opens the dialog (Sleep, Power off, Turn
 off controllers, Cancel). "Turn off controllers" sends the Steam Controller "turn off"
@@ -363,7 +391,7 @@ feature report (`01 9F 04 "off!"`, 64 bytes) to each HID interface of a Steam Co
 puck (`28de:1304`/`1305`) through hidraw, which `deck` may open alongside Steam, and
 disconnects Bluetooth gamepads through bluez (not the remote).
 
-### Assistant (`src/RemoteAssistant.*`, `src/ImaAdpcm.*`, `src/AudioPlayer.*`, `qml/AssistantIndicator.qml`)
+### Assistant (`assistant/RemoteAssistant.*`, `assistant/ImaAdpcm.*`, `assistant/AudioPlayer.*`, `assistant/AssistantIndicator.qml`)
 
 The remote's Android TV Voice GATT service over bluez D-Bus (no root). On (re)subscribing it
 asks the remote for the hold-to-talk model. While Assistant is held, the audio (IMA ADPCM,
@@ -373,24 +401,24 @@ notes: the log, "Voice protocol details".
 
 ### Other
 
-- **Settings** (`qml/SettingsPage.qml`, `SettingRow.qml`, `AlbumPicker.qml`,
-  `src/ScreensaverSettings.*`, `src/ViewerSettings.*`): categories on the left, values
+- **Settings** (`SettingsPage.qml`, `SettingRow.qml`, `AlbumPicker.qml`,
+  `photos/ScreensaverSettings.*`, `photos/ViewerSettings.*`): categories on the left, values
   changed with left/right and saved at once through `QSettings` (`tvshell.conf`).
-- **Steam games** (`src/SteamLibrary.*`, `qml/GamesPlace.qml`, `GameTile.qml`): installed
+- **Steam games** (`steam/SteamLibrary.*`, `steam/GamesPlace.qml`, `GameTile.qml`): installed
   games from Steam's manifests and its cached cover art; launched with
   `steam://rungameid/<id>`.
-- **Top bar** (`qml/TopBar.qml`, `BarButton.qml`): one tab per place; the highlight moves
+- **Top bar** (`TopBar.qml`, `BarButton.qml`): one tab per place; the highlight moves
   freely, OK switches the place showing and the focus stays on the bar. Only Down, LB/RB and
   Back move the focus between the bar and a place (the places' `focus` isn't bound to the
   selected tab, which would pull it into the place on every switch).
-- **Volume** (`src/SystemVolume.*`, `qml/VolumeIndicator.qml`): Steam handles volume up and
+- **Volume** (`audio/SystemVolume.*`, `audio/VolumeIndicator.qml`): Steam handles volume up and
   down; the shell follows the default output's volume and mute through PipeWire's PulseAudio
   interface (libpulse, its own thread) and shows the indicator when they change on the same
   output, or when a volume key press reaches the window (an event filter; so it also shows
   at 0 % and 100 %). Nothing handles Mute, so the shell grabs it globally and toggles the
   output's mute itself. In the screensaver the volume keys pass without ending it
   (`IdleController`).
-- **Card grids** (`qml/FitGrid.qml`): as many columns as fit at the design card size, then
+- **Card grids** (`common/FitGrid.qml`): as many columns as fit at the design card size, then
   the cards grow so rows end flush with the right margin. Used by Home, Games and the photo
   grid; the albums use the same rule in `AlbumGroups`.
 
@@ -404,7 +432,7 @@ notes: the log, "Voice protocol details".
 Lint QML in the toolchain image:
 
     docker run --rm -v "$PWD:/src:ro" -v "$PWD/build:/out" tv/toolchains/steamos-3.9:dev \
-        /usr/lib/qt6/bin/qmllint -I /out /src/qml/<File>.qml
+        /usr/lib/qt6/bin/qmllint -I /out/qml /src/<folder>/<File>.qml
 
 `deploy/tvshell.service` is a user unit that belongs to the Gaming Mode session
 (`PartOf=graphical-session.target`, reads `%t/gamescope-environment`). `--enable` links it
@@ -434,10 +462,6 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   soon as they have the focus, and values get changed by accident on the way through (the
   idle times, more than once). Make them work like a combo box: the row only shows its
   value; OK opens the list of choices, and nothing changes until one is picked there.
-- The source laid out by topic, not by kind of file: `src/` and `qml/` side by side tell
-  nobody what belongs together. One module per subject, with its C++ and its QML in it
-  (photos; Steam's games; the programs the shell shows; controllers; idle and power; …),
-  and a common one for the controls and code they share.
 - YouTube as a program of its own, shown like Jellyfin and Eden, in place of a page inside
   the shell: today every restart of the shell (every deploy) loads it again, and it has
   its own interface for a TV screen anyway. What the shell does with it now has to cross
