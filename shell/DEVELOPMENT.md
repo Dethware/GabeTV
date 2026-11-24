@@ -476,6 +476,13 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   Settings to show. Not designed yet on purpose: what it needs to say gets clearer with
   every app added (Jellyfin, Eden, YouTube, a library of Switch games). Until then the
   logos stay in the shell.
+- The core and the modules talk through a few general contracts, not by name. Today the
+  topic modules depend on `common` at most, but `Main.qml` creates every module's objects
+  and holds every rule that spans them (what counts as watching for idle, pausing
+  everything before sleep, what Home does, asking about a parked game), and
+  `SettingsPage` knows every module's settings. Candidates: something that plays (playing,
+  music, pause), a place (its tab and page), a settings section. Not designed ahead: kept
+  in mind and shaped as things are added; the installed-app manifests are one such step.
 - An overlay layer: one place for what is shown on top of whatever has the screen (the
   volume display, probably the Assistant's ring).
 - Hand the Assistant audio to speech recognition.

@@ -2459,6 +2459,13 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   QtQuick as a dependency (for the `QWindow` of their `window` properties); a headless
   run starts with no QML errors. Not deployed yet.
 
+- The dependencies after the move, as the user asked: a star. The topic modules depend on
+  `common` at most (`audio` on `apps` for one logo); the top module imports all ten, and
+  `Main.qml` (678 lines) creates their objects and holds 64 places of cross-module glue.
+  The user: "there are definitely some opportunities for decoupling and generalizing the
+  communication between the core and the modules. let's keep that in mind as we add more
+  things." Noted in `shell/DEVELOPMENT.md` (Next), not designed ahead.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
