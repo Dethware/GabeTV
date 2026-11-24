@@ -2430,6 +2430,15 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   device addresses and internal host names stay; secrets (keys, tokens, sign-in details)
   stay out, as before. `CLAUDE.md` says so.
 
+- Shell layout agreed in conversation (2026-11-24): one QML module per topic (shell,
+  common, session, power, audio, photos, steam, apps, youtube, controllers, assistant).
+  The user's corrections: the volume display doesn't belong with power ("they seem like
+  something that should go into some sort of overlay we don't have yet"), so `audio/`
+  for now and an overlay layer later; NowPlayingButton to `audio/`; the app logos stay in
+  `apps/` until apps are defined outside the shell: "a definition of what an 'installed'
+  app is, which includes a manifest with its name and other details along with an icon
+  file".
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

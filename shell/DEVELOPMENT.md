@@ -445,11 +445,15 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   it is music (the top bar, the screensaver, music carrying on in the background), the
   key filter. Its settings (what SponsorBlock skips) stay in the shell's Settings and are
   handed to it; they don't move into something bolted onto YouTube's own pages.
-- A description of each program the shell shows, in place of naming each one in the
-  shell's code: how to start, pause, continue and close it, what its tile is, and which
-  settings it has for the shell's Settings to show. Not designed yet on purpose: what it
-  needs to say gets clearer with every program added (Jellyfin, Eden, YouTube, a library
-  of Switch games).
+- Installed apps, defined outside the shell: an app is installed when it has a manifest
+  (its name and other details) and an icon file, and the shell reads those in place of
+  naming each app in its code and drawing its logo itself. The manifest would also say how
+  to start, pause, continue and close the app and which settings it has for the shell's
+  Settings to show. Not designed yet on purpose: what it needs to say gets clearer with
+  every app added (Jellyfin, Eden, YouTube, a library of Switch games). Until then the
+  logos stay in the shell.
+- An overlay layer: one place for what is shown on top of whatever has the screen (the
+  volume display, probably the Assistant's ring).
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.
