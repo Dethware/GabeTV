@@ -430,6 +430,26 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 
 ## Next
 
+- Settings: the rows with a choice (`SettingRow`) change their value with Left and Right as
+  soon as they have the focus, and values get changed by accident on the way through (the
+  idle times, more than once). Make them work like a combo box: the row only shows its
+  value; OK opens the list of choices, and nothing changes until one is picked there.
+- The source laid out by topic, not by kind of file: `src/` and `qml/` side by side tell
+  nobody what belongs together. One module per subject, with its C++ and its QML in it
+  (photos; Steam's games; the programs the shell shows; controllers; idle and power; …),
+  and a common one for the controls and code they share.
+- YouTube as a program of its own, shown like Jellyfin and Eden, in place of a page inside
+  the shell: today every restart of the shell (every deploy) loads it again, and it has
+  its own interface for a TV screen anyway. What the shell does with it now has to cross
+  to that program: opening and leaving it, pausing, whether something plays and whether
+  it is music (the top bar, the screensaver, music carrying on in the background), the
+  key filter. Its settings (what SponsorBlock skips) stay in the shell's Settings and are
+  handed to it; they don't move into something bolted onto YouTube's own pages.
+- A description of each program the shell shows, in place of naming each one in the
+  shell's code: how to start, pause, continue and close it, what its tile is, and which
+  settings it has for the shell's Settings to show. Not designed yet on purpose: what it
+  needs to say gets clearer with every program added (Jellyfin, Eden, YouTube, a library
+  of Switch games).
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.

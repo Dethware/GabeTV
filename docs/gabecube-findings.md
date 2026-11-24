@@ -2402,6 +2402,27 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   `tvcontrollers`). The local checkout's remote still says `Dethware/SteamTV`, the name
   before; GitHub redirects it.
 
+- For next time, from the user (2026-11-24): "Those choice controls in the settings.
+  Maybe they could instead be more like classical combo boxes, and not automatically
+  capture the input/cursor when they are focused. I have gone in those power menus and
+  accidentally changed the timeouts too many times." Noted in `shell/DEVELOPMENT.md`
+  under Next. It is the same wish as with reordering the controllers: nothing changes
+  without a deliberate step.
+- And: "I think youtube should be a separate process/app so we stop rebooting it every
+  time we make a change to the shell". Noted there too. With it: "it is about the shape
+  of things. YouTube already has its own TV screen form factor and wouldn't integrate
+  into the shell anyway"; "The shell should still carry configuration for youtube,
+  because I don't want to put that in some youtube web ui hack."
+- On the shell's structure: "I'd split take src and qml and split them by topic instead of
+  by file type. nobody looking at this cares about the file types too much, but
+  semantically, certain things belong together. like all the photos stuff should be in a
+  photos module. everything dealing with Steam games should be in a steam module, etc.
+  There might be some common controls and code. that can be in a common module".
+- On describing apps: "There is probably some more structured way to describe the apps,
+  and what configuration they have, that the shell could consume. We can just keep that
+  in mind as we add more and have more information about what such an interface would
+  need." So: wanted, deliberately not designed yet.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

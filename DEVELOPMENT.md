@@ -108,8 +108,10 @@ with Google Play licensing, so it also needs Google's services and a registered 
 
 Larger pieces, roughly in order. Each part's own `DEVELOPMENT.md` has its smaller ones.
 
-1. A pass over the controller service, the Eden source and the shell's app handling for
-   refactoring and architecture.
+1. A pass over the controller service, the Eden source and the shell for refactoring and
+   architecture. For the shell the direction is set: its source by topic and not by kind
+   of file, YouTube as a program of its own, and in time one description per program in
+   place of code that names each (`shell/DEVELOPMENT.md`, Next).
 2. Rumble in Eden, then the Joy-Con's IR camera.
 3. A library of Switch games in the shell's Games place, with each game's own art.
 4. User profiles: a system of its own, to be built from the ground up. They apply to
