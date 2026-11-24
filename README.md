@@ -28,7 +28,7 @@ placeholders, and nothing is packaged for anyone else's setup.
 | `controllers/` | The service that owns the Joy-Cons and the Pro Controller | [controllers/README.md](controllers/README.md) |
 | `apps/eden/` | The Eden emulator, built for this machine | [apps/eden/README.md](apps/eden/README.md) |
 | `apps/jellyfin-desktop/` | Jellyfin's player, built for this machine | [apps/jellyfin-desktop/README.md](apps/jellyfin-desktop/README.md) |
-| `system/` | Small things on the machine itself: the remote's keys and pairing, a watchdog for Steam's interface | [system/steam-ui-watchdog/README.md](system/steam-ui-watchdog/README.md) |
+| `system/` | Small things on the machine itself: the remote's keys and pairing, a watchdog for Steam's interface, a log of what wakes the machine | [system/steam-ui-watchdog/README.md](system/steam-ui-watchdog/README.md), [system/wake-log/README.md](system/wake-log/README.md) |
 | `toolchains/` | The build environment that matches the machine's SteamOS | [toolchains/README.md](toolchains/README.md) |
 
 ## Building and installing

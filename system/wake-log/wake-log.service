@@ -1,0 +1,11 @@
+[Unit]
+Description=Writes down what may have woken the machine, at every resume
+
+[Service]
+Type=exec
+ExecStart=%h/.local/share/wake-log/wake-log.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

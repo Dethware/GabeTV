@@ -2466,6 +2466,42 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   communication between the core and the modules. let's keep that in mind as we add more
   things." Noted in `shell/DEVELOPMENT.md` (Next), not designed ahead.
 
+- Deployed with the user's go-ahead (23:09). The shell came up and took the screen, and
+  the screensaver loaded "4445 photos, shuffled" from Immich: the API key now goes through
+  the photos module's rule, as intended.
+
+### Wake-ups on 2026-11-24
+
+- Before that deploy gabecube didn't resolve: it was asleep. The user woke it, "with the
+  remote?", and "The front LEDs were lit up", and noted that "earlier today, it looked
+  like it got randomly woken up by something".
+- The day in the journal: suspended at 00:11:32, 03:58, 11:12, 11:43, 12:45, 20:49,
+  21:34; woke at 00:12:11 (39 s later), 10:42, 11:13:47 (80 s later), 12:15, 19:32,
+  21:03:50 and 23:08:10. Each time it went to sleep again 30 minutes after a wake with
+  nobody there, which is the shell's idle chain. The remote connected 80 to 90 ms after
+  every resume, so its connecting says nothing about what woke the machine: it is always
+  calling (see "Waking the machine with the remote").
+- The kernel doesn't say what woke it: no wake-source line in the log, the wakeup
+  counters in `/sys/class/wakeup` last changed about 25 hours after boot (the Bluetooth
+  adapter `1-5` at 13 events, the power button `PNP0C0C` at 2), so none of today's
+  wakes counted there, and `/sys/power/pm_wakeup_irq` says 9 (the ACPI interrupt, which
+  most wake-ups go through).
+- The 39 s and 80 s wakes look like the remote waking it by itself, as on 2026-11-22
+  (then: after it had been disconnected at suspend). Whether a remote button press woke
+  it at 23:08, or its calls did and the press only came after, can't be told from this.
+  Earlier the conclusion was that a button press can't wake it.
+
+- The user wanted wake-ups logged ("Yes, log wake-ups"). `system/wake-log`: a user service
+  that follows logind's `PrepareForSleep` (through `gdbus monitor`) and at each resume
+  writes a report to the journal: time asleep, `/sys/power/pm_wakeup_irq`, the wake
+  counters that moved, the kernel's lines from the sleep, and the first seconds after
+  (inputs appearing, Bluetooth connections, controller presses). Installed 23:12. A dry
+  run of the report for the 23:08 wake: 5911 s asleep, interrupt 9 (ACPI), no counter
+  moved, nothing in the kernel log between "suspend entry" and "suspend exit". For the
+  kernel to name the wake event, `/sys/power/pm_debug_messages` must be 1 (it is 0); the
+  user runs the printed sudo commands once (a tmpfiles.d entry and a keep-list entry).
+  Not seen on a real resume yet.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,
