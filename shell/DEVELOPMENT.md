@@ -504,4 +504,11 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - Jellyfin: text entry with the remote, interface size by resolution, its paused film in the
   top bar, a way to sign in from the shell.
 - YouTube: check video decoding (GPU or CPU, 4K), the remote's media keys, memory use.
+- A quick double press of a direction goes all the way that way: to the end of a row, or
+  down to the bottom (YouTube's recommended rows and its refresh button take long runs of
+  presses today). The first press acts at once as now; only the second, if it comes
+  quickly, jumps. An idea, not designed: how a jump is made in YouTube's page (keys it
+  already knows, or repeating the press until the focus stops moving), how quick counts
+  as quick, whether the shell's own grids and places get it too, and that it travels
+  with YouTube's key filter when YouTube becomes a program of its own.
 - Home, the YouTube and Netflix keys and the power dialog over a running game.
