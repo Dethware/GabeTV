@@ -2560,6 +2560,70 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   lines). Open: does a disconnected remote wake the machine soon after a sleep starts and
   then never by itself; does the power button with the remote untouched for 30 minutes
   give LED off and a remote that wakes it.
+- The new wake log, installed 09:11, saw two sleeps, both from the shell's idle:
+  - 09:26:09 → 09:35:53 (584 s). "Bluetooth connected: nothing" (the shell's "remote
+    gone" at 09:26:02). Interrupt 9; counters moved on the Bluetooth adapter `1-5`, and
+    also on the second USB controller `0000:07:00.4` (with nothing plugged in) and its
+    bridge; the kernel named GPIO 58 active at resume, where the other resumes name GPIO 0
+    or 18. Nobody was around (the machine went to sleep again by the idle chain at
+    10:05:54). Not known what woke it.
+  - 10:05:54 → 10:32:00 (1566 s). "Bluetooth connected: nothing" (remote gone at
+    10:05:50). Interrupt 1 (i8042) first, `1-5` counted one. The user: "Picked up the
+    remote, again with no button presses. The machine woke up by me just picking it up."
+    The remote connected 148 ms after the resume.
+- So twice now, picking up a remote that had disconnected before the sleep woke the
+  machine, and a remote left alone didn't wake it for 26 minutes or 7 hours. The remote
+  disconnects itself 4 to 7 s before the shell's 30-minute suspend each time.
+- The user asked whether the remote has a "ready" state it wakes to when touched, without
+  a press. Looked up: a Google Store spec sheet for the Chromecast with Google TV voice
+  remote reportedly lists an accelerometer; Google never announced a feature for it, and
+  users on Google's forum report the remote turning their TV and Chromecast back on when
+  merely moved (sources: gizmochina.com/?p=354319, mobilesyrup.com 2020-11-17,
+  googlenestcommunity.com "Chromecast Remote Draining Batteries Quickly"). One forum
+  answer by a community specialist says it has no motion sensor; the observations here
+  disagree.
+- Seen here while the machine was awake (2026-11-24): the remote dropped its connection
+  at 02:58:27, connected again at 03:16:46, and the first key arrived only at 03:17:20,
+  34 s later. So it reconnects on being picked up, before any press.
+- *Inferred:* the remote sleeps after about 30 minutes untouched and drops its
+  connection; moved, it wakes and calls the host to reconnect, so the first press works
+  at once. That call is what wakes gabecube. It never calls while lying still, which is
+  why the machine sleeps for hours. (The 2026-11-22 trace of continuous calls was a
+  remote that had just been blocked, before it went to sleep itself.)
+- Useful later: a remote that connects while the machine is awake means someone picked
+  it up, before they press anything (DEVELOPMENT.md decision 4).
+- The user has never seen a Chromecast turn the screen on from this movement. Their
+  reading: the Chromecast, "a very underpowered device", uses the pickup to wake into a
+  state where it can answer the buttons quickly, so that the wake-up feels quicker; the
+  screen stays as it is until a press. On gabecube the same signal wakes the whole
+  machine, and the shell then turns the screen on and stays awake for its 30 minutes.
+- Decided by the user: the remote needs a ready state ("if I keep using it, does need the
+  ready state"): a wake by picking up the remote leaves the screen off until a press, and
+  goes back to sleep without one. The other controllers keep their behaviour: "I don't
+  think the other controllers have such a feature at all, so I don't think we should
+  change their behavior without more thought put into it."
+- The user also asked for more observation of the ways to put the machine to sleep, which
+  all behave differently. What each does, read from the code and today's journal, with
+  what to expect (*inferred* where not seen):
+
+  | Way | What happens | LED strip | Remote at sleep | Remote wakes it |
+  |---|---|---|---|---|
+  | Power on the remote | The shell turns the screen off; the machine stays awake (then the shell's idle timer, below) | — | — | — |
+  | The shell's idle timer | 30 minutes idle with the screen off: the shell suspends through logind | On (seen) | Disconnected (seen four times) | Yes, when picked up (seen) |
+  | Hold Power on the remote → power dialog → Sleep | The shell suspends through logind at once (`PowerActions::suspend`) | On (*inferred*: Steam isn't involved) | Connected (*inferred*) | No (*inferred*, duplicate filter) |
+  | Power button on the machine | logind → `steamos-powerbuttond` → Steam's own suspend, 2 s later | Off (seen) | Connected if used in the last 30 min (seen once) | No (user) |
+  | Steam's own power menu → Sleep | Not looked at; *inferred:* Steam's own suspend, as for the power button | ? | ? | ? |
+
+  The user: "What workarounds we did with the remote up to now was done based on incomplete
+  information, so I think we need to just drop it and do it based on what's true."
+  What rests on "the remote can't wake the machine": Power as screen off (the shell's
+  `handle-suspend-key` lock, `togglePower`), the key map sending Power as the sleep key,
+  the power dialog leaving the remote connected when it switches off controllers, and the
+  plans to wake through an IR receiver or CEC. Decided: these stay as they are until the
+  redesign; the redesign is built on what the observations show.
+
+  The wake log's "going to sleep" and "asked by" lines tell these apart; the power dialog's
+  Sleep shows as `tvshell` with no "idle for 1800 s" line before it.
 
 ## Waydroid prerequisites
 

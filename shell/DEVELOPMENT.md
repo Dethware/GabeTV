@@ -485,6 +485,15 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   in mind and shaped as things are added; the installed-app manifests are one such step.
 - An overlay layer: one place for what is shown on top of whatever has the screen (the
   volume display, probably the Assistant's ring).
+- The remote and sleep, redesigned from what is observed (log, "Two ways of going to
+  sleep"). The remote can wake the machine after all, so what was built on it not being
+  able to goes: Power as screen off, the power dialog keeping the remote connected, and
+  IR or CEC as the way to wake. It stays until the redesign. Part of it: a ready state
+  for the remote, where a wake by picking it up (it reconnects when moved, before any
+  press) leaves the screen off until a press and goes back to sleep without one. Other
+  controllers keep waking it fully. Open: what each way of sleeping does (the five in the
+  log), telling a pickup from other wakes, whether Steam lights the display on resume by
+  itself, how long to wait.
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.
