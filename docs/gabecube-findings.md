@@ -2675,6 +2675,34 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
     machine's radio, and nothing at that level can let one through and not the other.
     They differ only once connected, by whether a key follows within a moment. That is
     what the ready state has to go by.
+- The user asked whether the time the remote stays connected (30 minutes) can be
+  changed, since after a walk-by the machine has to stay awake until the remote lets go.
+  Nothing on the remote sets it (none of its services has anything for it, listed
+  above). Google's reference firmware, for comparison (`vendor/827x_ble_remote/app.c`),
+  uses much shorter times: it drops an idle connection after 30 s
+  (`CONN_IDLE_ENTER_DEEP_TIME`); when the host drops the connection it calls to come
+  back for 2 minutes (`ADV_IDLE_ENTER_DEEP_TIME`, 120 s) and otherwise for 5 × 2 minutes
+  ("adv 10 mins"), then sleeps until a key wakes it. The Chromecast remote's own times
+  differ (30 minutes connected), but it may follow the same pattern after the host drops
+  it: on 2026-11-22, cut off with `bluetoothctl block`, it was still calling after 10
+  minutes, which is where that watch ended. Not measured: when it goes quiet. That time
+  is the only lever on our side: the host can drop the remote and keep it out until it
+  is quiet, then sleep; the remote can't be used in between.
+- The redesign, proposed from the above and agreed (the user, on the 30 minutes awake
+  after a walk-by: "Accept 30 minutes"):
+  - The shell sleeps only once the remote has let go of its connection by itself (at
+    once if it isn't connected). Then the remote is quiet, and moving it wakes the machine.
+  - The remote's Power and the power dialog's Sleep turn the screen off at once and put
+    the machine to sleep as soon as the remote lets go, at most 30 minutes later.
+  - After a sleep with the remote disconnected, a wake where the remote connects within
+    about 2 s is the remote's: the screen stays off. Any key or button, from anything,
+    wakes it fully; without one the machine sleeps again when the remote lets go. A wake
+    where the remote doesn't connect is from something else and wakes fully, as before.
+  - Left as they are: the machine's power button and Steam's power menu (Steam suspends
+    at once, and the remote can't wake the machine afterwards).
+  - Rejected: dropping the remote from the machine's side to sleep sooner. It keeps
+    calling for an unknown time (over 10 minutes on 2026-11-22), every call would wake
+    the machine, and it can't be used while kept out.
 
 ## Waydroid prerequisites
 
