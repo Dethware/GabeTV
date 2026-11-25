@@ -242,6 +242,8 @@ Window {
         // Music (in YouTube, shown or in the background): screensaver and a black screen as
         // usual, but the sound's signal stays and the machine doesn't sleep.
         audioPlaying: youtube.playing && youtube.music
+        // The machine sleeps only once the remote has let go: then the remote can wake it.
+        remoteConnected: remoteLink.connected
         onAboutToSleep: {
             youtube.pause()
             jellyfin.pause()
@@ -315,6 +317,11 @@ Window {
 
     PowerActions {
         id: powerActions
+    }
+
+    // Whether the remote holds its Bluetooth connection, for the idle chain.
+    RemoteLink {
+        id: remoteLink
     }
 
     // The remote's Assistant button and microphone. Only shown for now.
@@ -603,6 +610,7 @@ Window {
         actions: powerActions
 
         onClosed: root.showPage(root.page)
+        onSleepRequested: idle.sleep()
     }
 
     ScreensaverSettings {

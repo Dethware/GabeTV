@@ -36,7 +36,7 @@ own too when it uses the module's C++ types.
 | (top) | `TvShell` | `main.cpp`, `Main.qml`, `TopBar.qml`, `SettingsPage.qml`: what puts the topics together |
 | `common/` | `TvShell.Common` | The network layer, and controls used across topics (`ChoiceDialog`, `FitGrid`, `BarButton`, `SettingRow`) |
 | `session/` | `TvShell.Session` | Taking the screen, global keys, controller input, the session bus service, Steam's log |
-| `power/` | `TvShell.Power` | Idle (screensaver → screen off → sleep), the power dialog |
+| `power/` | `TvShell.Power` | Idle (screensaver → screen off → sleep), the remote's connection for sleep, the power dialog |
 | `audio/` | `TvShell.Audio` | The system volume and its display, what plays in the background |
 | `photos/` | `TvShell.Photos` | Immich, the photos place, the viewer, the screensaver, place names |
 | `steam/` | `TvShell.Steam` | Steam's installed games and the games place |
@@ -124,6 +124,27 @@ idle time counts from that moment. Background (`audioPlaying`, music) lets the s
 and a black screen come but keeps the signal and the machine awake. The time since the last
 input is kept separate from the other two, so a sleep timer that ignores what is playing can
 be added on top of it.
+
+Sleep waits for the remote (`power/RemoteLink.*`, bound to `remoteConnected` in
+`Main.qml`): the remote can wake the machine only if it let go of its Bluetooth connection
+by itself before the machine went to sleep, which it does about 30 minutes after it was
+last used (see the log, "Two ways of going to sleep"). So `sleepIfDue()` puts the machine
+to sleep only with the screen off, nothing playing or watched, and the remote not
+connected; until then it waits. Sleep is due when the idle time is up or when it was asked
+for: the remote's Power and the power dialog's Sleep call `sleep()`, which turns the screen
+off at once. Any input before the sleep calls it off. `RemoteLink` knows the remote as the
+paired device offering the Android TV Voice service and follows its `Connected` through
+bluez's signals, so a connection is seen as it happens.
+
+The ready state: logind's `PrepareForSleep` notes whether the remote was connected as the
+machine went to sleep. If it wasn't, it may be what woke the machine: at resume the screen
+stays off for 2 s, and if the remote connects in that time (it took 64 to 148 ms), the
+wake is the remote's. A pickup and a press look the same until then; a press arrives as
+its key about 0.2 s after the connection. The screen then stays off as after `sleep()`:
+any key or button wakes it, otherwise the machine sleeps again once the remote lets go
+(30 minutes after the pickup). If the remote doesn't connect within 2 s, or it was
+connected at sleep, something else woke the machine, and the screen comes on as usual.
+`XF86WakeUp`, which the shell gets at a resume, isn't a key press.
 
 Screen off is
 `gamescopectl drm_sleep_external_screen 1`. Screen on (`0`) is sent on waking and after every
@@ -385,8 +406,10 @@ album picker): its value is shown without the ‹ › that mean "Left and Right 
 
 ### Power (`power/PowerActions.*`, `power/PowerDialog.qml`)
 
-Power short press toggles the screen; held 0.8 s it opens the dialog (Sleep, Power off, Turn
-off controllers, Cancel). "Turn off controllers" sends the Steam Controller "turn off"
+Power short press asks for sleep (`IdleController::sleep()`: screen off now, asleep once the
+remote lets go) or, with the screen off, turns it on; held 0.8 s it opens the dialog (Sleep,
+Power off, Turn off controllers, Cancel). The dialog's Sleep also goes through
+`IdleController::sleep()`; Power off goes to logind. "Turn off controllers" sends the Steam Controller "turn off"
 feature report (`01 9F 04 "off!"`, 64 bytes) to each HID interface of a Steam Controller
 puck (`28de:1304`/`1305`) through hidraw, which `deck` may open alongside Steam, and
 disconnects Bluetooth gamepads through bluez (not the remote).
@@ -485,18 +508,17 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   in mind and shaped as things are added; the installed-app manifests are one such step.
 - An overlay layer: one place for what is shown on top of whatever has the screen (the
   volume display, probably the Assistant's ring).
-- The remote and sleep, redesigned from what is observed (log, "Two ways of going to
-  sleep"). The remote can wake the machine after all, so what was built on it not being
-  able to goes: Power as screen off, the power dialog keeping the remote connected, and
-  IR or CEC as the way to wake. It stays until the redesign. Part of it: a ready state
-  for the remote, where a wake by picking it up (it reconnects when moved, before any
-  press) leaves the screen off until a press and goes back to sleep without one. Other
-  controllers keep waking it fully. Over the air a pickup and a press are the same call;
-  they differ only after the remote has connected, when a press arrives as its key about
-  0.2 s later. So the ready state waits for a key from the remote, and nothing can stop
-  a pickup from waking the machine in the first place. Open: what each way of sleeping
-  does (the five in the log), telling a remote wake from other wakes, whether Steam
-  lights the display on resume by itself, how long to wait for a key.
+- The remote and sleep, open after the redesign: the machine's power button and Steam's
+  power menu still suspend at once with the remote connected, so the remote can't wake the
+  machine afterwards (the shell could take the power key from logind as it does the
+  sleep key). Not known yet whether Steam lights the screen by itself after a resume, and
+  whether gamescope's input counter moves on its own then (it would end the ready state).
+- Remotes behind one interface. The TV's own remote (IR, once the LG TV is here) may be
+  used instead of or next to this one. Each remote has its own quirks (this one: wakes
+  the machine only if it let go of its connection first, and when merely moved), so each
+  gets its own module that handles them, and the idle chain asks a common interface: can
+  the machine sleep now, did a remote wake it. `RemoteLink` and `RemoteAssistant` are this
+  remote's pieces today.
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.

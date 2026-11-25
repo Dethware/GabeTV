@@ -32,6 +32,9 @@ constexpr int AudioStoppedMs = 20000;
 // "Screen on" is sent again this often, this many times, after waking.
 constexpr int ScreenWakeRepeatMs = 2000;
 constexpr int ScreenWakeRepeats = 3;
+// After a resume the remote didn't hold, the remote connecting within this long makes it the
+// remote's wake. It connected 64 to 148 ms after the resumes it caused (log, 2026-11-25).
+constexpr int ReadyWindowMs = 2000;
 
 } // namespace
 
@@ -59,6 +62,10 @@ IdleController::IdleController(QObject *parent)
         sendScreenSleeping();
     });
 
+    m_readyWindow.setSingleShot(true);
+    m_readyWindow.setInterval(ReadyWindowMs);
+    connect(&m_readyWindow, &QTimer::timeout, this, &IdleController::readyWindowEnded);
+
     m_sinceActivity.start();
     m_tick.setInterval(TickMs);
     connect(&m_tick, &QTimer::timeout, this, &IdleController::tick);
@@ -76,17 +83,60 @@ IdleController::IdleController(QObject *parent)
 void IdleController::prepareForSleep(bool start)
 {
     if (start) {
+        m_remoteHeldSleep = m_remoteConnected;
         emit aboutToSleep();
-    } else {
-        qCInfo(lcIdle) << "resumed";
-        activity();
-        // Also when we were awake already (a sleep started by Steam): the screen has to come
-        // back either way.
-        if (!m_screenSleeping) {
-            sendScreenSleeping();
-            repeatScreenWake();
-        }
+        return;
     }
+    m_suspended = false;
+    m_waitingForRemote = false;
+    if (!m_remoteHeldSleep) {
+        // The remote may have woken us. It may even have connected before this signal came.
+        if (m_state != State::ScreenOff)
+            setState(State::ScreenOff);
+        else
+            sendScreenSleeping();
+        if (m_remoteConnected) {
+            enterReady();
+        } else {
+            qCInfo(lcIdle) << "resumed; waiting" << ReadyWindowMs << "ms to see whether the remote woke us";
+            m_readyWindow.start();
+        }
+        return;
+    }
+    qCInfo(lcIdle) << "resumed (the remote held on at sleep, so something else woke us)";
+    activity();
+    // Also when we were awake already (a sleep started by Steam): the screen has to come
+    // back either way.
+    if (!m_screenSleeping) {
+        sendScreenSleeping();
+        repeatScreenWake();
+    }
+}
+
+void IdleController::enterReady()
+{
+    m_readyWindow.stop();
+    qCInfo(lcIdle) << "the remote woke us (picked up or moved): screen stays off until a key,"
+                   << "asleep again once the remote lets go";
+    m_sleepAsked = true;
+}
+
+void IdleController::readyWindowEnded()
+{
+    qCInfo(lcIdle) << "the remote didn't connect: something else woke us";
+    wake();
+}
+
+void IdleController::setRemoteConnected(bool connected)
+{
+    if (m_remoteConnected == connected)
+        return;
+    m_remoteConnected = connected;
+    emit remoteConnectedChanged();
+    if (connected && m_readyWindow.isActive())
+        enterReady();
+    else if (!connected)
+        sleepIfDue();
 }
 
 void IdleController::setWatching(bool watching)
@@ -187,6 +237,12 @@ void IdleController::activity()
 void IdleController::wake()
 {
     m_sinceActivity.restart();
+    m_readyWindow.stop();
+    if (m_sleepAsked) {
+        m_sleepAsked = false;
+        qCInfo(lcIdle) << "sleep called off";
+    }
+    m_waitingForRemote = false;
     if (m_suspended) {
         m_suspended = false;
         qCInfo(lcIdle) << "back from suspend";
@@ -203,7 +259,15 @@ void IdleController::togglePower()
     if (m_state == State::ScreenOff || justWoke)
         wake();
     else
-        screenOff();
+        sleep();
+}
+
+void IdleController::sleep()
+{
+    qCInfo(lcIdle) << "sleep asked for: screen off now, asleep once the remote lets go";
+    screenOff();
+    m_sleepAsked = true;
+    sleepIfDue();
 }
 
 void IdleController::screenOff()
@@ -219,6 +283,10 @@ bool IdleController::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) {
         // Browsing keys go to the screensaver itself: it stays, the idle time restarts.
         const int key = static_cast<QKeyEvent *>(event)->key();
+        // Sent to us by the system at a resume, not pressed by anyone: it must not end the
+        // remote's ready state.
+        if (key == Qt::Key_WakeUp)
+            return true;
         // Changing the volume doesn't end the screensaver.
         if (m_state == State::Screensaver
             && (key == Qt::Key_VolumeUp || key == Qt::Key_VolumeDown || key == Qt::Key_VolumeMute))
@@ -237,20 +305,24 @@ bool IdleController::eventFilter(QObject *watched, QEvent *event)
     return QObject::eventFilter(watched, event);
 }
 
-void IdleController::tick()
+qint64 IdleController::idleSeconds() const
 {
     // Idle since the last input, or since something stopped being watched if that was later.
-    qint64 idleSeconds = m_sinceActivity.elapsed() / 1000;
+    qint64 seconds = m_sinceActivity.elapsed() / 1000;
     if (m_sinceWatched.isValid())
-        idleSeconds = qMin(idleSeconds, m_sinceWatched.elapsed() / 1000);
+        seconds = qMin(seconds, m_sinceWatched.elapsed() / 1000);
+    return seconds;
+}
+
+void IdleController::tick()
+{
     if (m_state == State::ScreenOff) {
-        if (m_counting && !m_audioPlaying && !m_watching && m_suspendAfter > 0 && !m_suspended
-            && idleSeconds >= m_suspendAfter)
-            suspend();
+        sleepIfDue();
         return;
     }
     if (!m_counting || m_watching)
         return;
+    const qint64 idleSeconds = this->idleSeconds();
     if (m_screenOffAfter > 0 && idleSeconds >= m_screenOffAfter)
         setState(State::ScreenOff);
     else if (m_state == State::Active && m_screensaverAfter > 0 && idleSeconds >= m_screensaverAfter)
@@ -307,7 +379,7 @@ void IdleController::takeSuspendKey()
                                                QStringLiteral("/org/freedesktop/login1"),
                                                QStringLiteral("org.freedesktop.login1.Manager"), QStringLiteral("Inhibit"));
     call << QStringLiteral("handle-suspend-key") << QStringLiteral("tvshell")
-         << QStringLiteral("The remote's Power button turns the screen off") << QStringLiteral("block");
+         << QStringLiteral("The remote's Power turns the screen off, then sleeps once the remote lets go") << QStringLiteral("block");
     const QDBusReply<QDBusUnixFileDescriptor> reply = QDBusConnection::systemBus().call(call);
     if (!reply.isValid()) {
         qCWarning(lcIdle) << "could not take the suspend key from logind:" << reply.error().message();
@@ -317,10 +389,32 @@ void IdleController::takeSuspendKey()
     qCInfo(lcIdle) << "took the suspend key from logind";
 }
 
-void IdleController::suspend()
+void IdleController::sleepIfDue()
 {
-    qCInfo(lcIdle) << "idle for" << m_suspendAfter << "s with the screen off: suspending";
+    // Nothing during the ready window either: whether the remote woke us isn't known yet.
+    if (m_state != State::ScreenOff || m_suspended || m_audioPlaying || m_watching || m_readyWindow.isActive())
+        return;
+    // Asked for (Power, the power dialog, a wake by the remote alone), or the idle chain's time
+    // is up. The idle chain only counts while the shell has the screen; asked for, it sleeps
+    // whatever is on screen.
+    const bool idleDue = m_counting && m_suspendAfter > 0 && idleSeconds() >= m_suspendAfter;
+    if (!m_sleepAsked && !idleDue)
+        return;
+    if (m_remoteConnected) {
+        if (!m_waitingForRemote) {
+            m_waitingForRemote = true;
+            qCInfo(lcIdle) << "sleep is due; waiting for the remote to let go";
+        }
+        return;
+    }
+    suspend(m_sleepAsked ? QStringLiteral("asked for") : QStringLiteral("idle for %1 s").arg(m_suspendAfter));
+}
+
+void IdleController::suspend(const QString &reason)
+{
+    qCInfo(lcIdle).noquote() << "suspending:" << reason << "with the screen off, the remote not connected";
     m_suspended = true;
+    m_waitingForRemote = false;
     auto call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.login1"),
                                                QStringLiteral("/org/freedesktop/login1"),
                                                QStringLiteral("org.freedesktop.login1.Manager"), QStringLiteral("Suspend"));

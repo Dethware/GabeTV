@@ -29,6 +29,12 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   any other key ends it. Without albums: a clock.
 - **Screen off and sleep**: later still, the screen turns off, and later the machine
   sleeps. Defaults: screensaver after 5 minutes, screen off after 30, sleep after 60.
+  The machine goes to sleep only once the remote has been left alone for about 30
+  minutes; until then it waits with the screen off. That way the remote can always wake it.
+- **Waking with the remote**: picking up the remote wakes the machine, but the screen
+  stays off until you press a button. If nobody does (someone only moved it), the machine
+  goes back to sleep about 30 minutes later. Controllers and the machine's power button
+  wake it with the screen on.
 - **Music in the background**: leave YouTube while music is playing (what YouTube itself
   marks as music) and it plays on; anything else pauses. The top bar then shows the title
   and artist: OK there pauses and resumes, the YouTube button goes back to it. While music
@@ -58,7 +64,7 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | YouTube | YouTube, from anywhere | Home → YouTube |
 | Jellyfin | Netflix, from anywhere | Home → Jellyfin |
 | Mute | Mute, from anywhere | |
-| Screen off / on | Power (short press) | |
+| Screen off and sleep / screen on | Power (short press) | |
 | Sleep, power off, controllers off | Power (hold) | |
 | Steam's menu, Quick Access | | Steam, … buttons |
 
@@ -181,6 +187,8 @@ Needs Docker on your computer and SSH access to the Steam Machine as `deck@gabec
 
 - Music that YouTube doesn't mark as music pauses like any video when you leave YouTube.
 - With the screen black for music, changing the volume turns the picture back on.
+- After sleep from the machine's power button or Steam's power menu, the remote can't
+  wake the machine; a controller or the power button can.
 - While a game is running, Home, the YouTube and Netflix buttons and the power dialog don't
   bring up the shell. Use the controller's Steam button, or quit the game.
 - Jellyfin: text can't be typed with the remote (search, sign-in), and its interface has one

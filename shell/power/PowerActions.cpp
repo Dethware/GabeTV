@@ -43,12 +43,6 @@ PowerActions::PowerActions(QObject *parent)
     qDBusRegisterMetaType<ObjectMap>();
 }
 
-void PowerActions::suspend()
-{
-    qCInfo(lcPower) << "suspend";
-    callLogind(QStringLiteral("Suspend"));
-}
-
 void PowerActions::powerOff()
 {
     qCInfo(lcPower) << "power off";

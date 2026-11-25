@@ -29,8 +29,24 @@
 // (the sound travels with it) and the shell shows black instead, and the machine doesn't
 // suspend. When the music stops, the signal goes off and the time to suspend starts.
 //
+// Sleep and the remote (../docs/gabecube-findings.md, "Two ways of going to sleep"): the
+// remote can wake the machine only if it let go of its connection by itself before the
+// machine went to sleep. So the machine is put to sleep only while `remoteConnected` is
+// false, which happens about 30 minutes after the remote was last used; until then it waits
+// with the screen off. Two ways to get there:
+//   idle         screen off, then suspendAfter seconds without input;
+//   sleep()      asked for (the remote's Power, the power dialog's Sleep): screen off now,
+//                asleep as soon as the remote lets go.
+//
+// The ready state: after a sleep the remote didn't hold, a wake where the remote connects
+// within ReadyWindowMs is the remote's (picked up, or moved by someone walking by; both look
+// the same until a key arrives). The screen stays off, as after sleep(): a key or button from
+// anything wakes it fully, otherwise the machine sleeps again once the remote lets go. A wake
+// where the remote doesn't connect in time is from something else and wakes fully at once.
+//
 // It also takes the sleep key (the remote's Power) over from logind with a
-// "handle-suspend-key" inhibitor lock, so Power can mean "screen off" instead of suspend.
+// "handle-suspend-key" inhibitor lock, so Power can mean "screen off, then sleep" instead of
+// sleeping at once (with the remote still connected, which then couldn't wake it).
 class IdleController : public QObject
 {
     Q_OBJECT
@@ -46,6 +62,8 @@ class IdleController : public QObject
     Q_PROPERTY(int screensaverAfter READ screensaverAfter WRITE setScreensaverAfter NOTIFY timesChanged)
     Q_PROPERTY(int screenOffAfter READ screenOffAfter WRITE setScreenOffAfter NOTIFY timesChanged)
     Q_PROPERTY(int suspendAfter READ suspendAfter WRITE setSuspendAfter NOTIFY timesChanged)
+    // The remote holds its connection (RemoteLink, bound in Main.qml).
+    Q_PROPERTY(bool remoteConnected READ remoteConnected WRITE setRemoteConnected NOTIFY remoteConnectedChanged)
 
 public:
     enum class State {
@@ -76,6 +94,9 @@ public:
     int suspendAfter() const { return m_suspendAfter; }
     void setSuspendAfter(int seconds);
 
+    bool remoteConnected() const { return m_remoteConnected; }
+    void setRemoteConnected(bool connected);
+
     // Any user input, from anywhere: restarts the idle time and turns the screen back on, but
     // doesn't end the screensaver (key presses decide that, in eventFilter).
     Q_INVOKABLE void activity();
@@ -83,10 +104,14 @@ public:
     Q_INVOKABLE void wake();
     // The remote's Power: screen off now, wherever we are.
     Q_INVOKABLE void screenOff();
-    // A short Power press: screen off, or on again if it's off. The press itself already counts
+    // A short Power press: sleep() (screen off now, asleep once the remote lets go), or the
+    // screen on again if it's off. The press itself already counts
     // as input and wakes the screen before the press is complete (on release), so "just woke"
     // means the press was meant to turn the screen on.
     Q_INVOKABLE void togglePower();
+    // Sleep, asked for: screen off now, asleep as soon as the remote lets go (at once if it
+    // isn't connected). Any input before that wakes the screen and calls it off.
+    Q_INVOKABLE void sleep();
 
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -96,6 +121,7 @@ signals:
     void timesChanged();
     void audioPlayingChanged();
     void watchingChanged();
+    void remoteConnectedChanged();
     // The machine is about to suspend (whoever asked for it).
     void aboutToSleep();
 
@@ -111,7 +137,17 @@ private:
     void repeatScreenWake();
     void applyAudioPlaying(bool playing);
     void takeSuspendKey();
-    void suspend();
+    // Sleeps now if sleep is due (asked for, or the idle time is up) and nothing holds it
+    // back: music, something watched, the remote still connected. Called every tick and when
+    // the remote lets go.
+    void sleepIfDue();
+    void suspend(const QString &reason);
+    // Since the last input, or since something stopped being watched if that was later.
+    qint64 idleSeconds() const;
+    // The remote woke us: screen off until a key, asleep again once it lets go.
+    void enterReady();
+    // The ready window after a resume ran out without the remote: something else woke us.
+    void readyWindowEnded();
     void saveTime(const QString &key, int &member, int seconds);
 
     bool m_counting = false;
@@ -133,6 +169,17 @@ private:
     QTimer m_screenWake;
     int m_screenWakeRepeats = 0;
     bool m_suspended = false;
+    bool m_remoteConnected = false;
+    // Sleep was asked for (sleep(), or a wake by the remote alone): asleep as soon as the
+    // remote lets go, whatever the idle time. Input clears it.
+    bool m_sleepAsked = false;
+    // The remote was connected at the start of the last sleep (so it can't have woken us).
+    bool m_remoteHeldSleep = false;
+    // "Waiting for the remote" has been logged for this sleep.
+    bool m_waitingForRemote = false;
+    // Runs after a resume the remote didn't hold: the remote connecting before it ends makes
+    // this the remote's wake.
+    QTimer m_readyWindow;
 
     int m_screensaverAfter = 300;
     int m_screenOffAfter = 1800;

@@ -3,8 +3,9 @@
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
 
-// What the power dialog can do: suspend or power off the machine (logind, allowed for the
-// active session without root) and switch off controllers.
+// What the power dialog can do: power off the machine (logind, allowed for the active session
+// without root) and switch off controllers. Sleep goes through the idle chain
+// (IdleController::sleep), which waits for the remote to let go first.
 //
 // Controllers:
 // - Steam Controllers on a wireless puck (28de:1304 / 28de:1305): the classic Steam Controller
@@ -21,7 +22,6 @@ class PowerActions : public QObject
 public:
     explicit PowerActions(QObject *parent = nullptr);
 
-    Q_INVOKABLE void suspend();
     Q_INVOKABLE void powerOff();
     // Returns how many controllers were told to switch off.
     Q_INVOKABLE int turnOffControllers();

@@ -8,6 +8,8 @@ FocusScope {
     required property PowerActions actions
 
     signal closed()
+    // Sleep was picked. Not done here: the idle chain waits for the remote to let go first.
+    signal sleepRequested()
 
     property string message
 
@@ -28,7 +30,7 @@ FocusScope {
         switch (action) {
         case "sleep":
             close()
-            actions.suspend()
+            sleepRequested()
             break
         case "powerOff":
             close()
