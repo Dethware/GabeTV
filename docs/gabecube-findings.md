@@ -2624,6 +2624,57 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
 
   The wake log's "going to sleep" and "asked by" lines tell these apart; the power dialog's
   Sleep shows as `tvshell` with no "idle for 1800 s" line before it.
+- The user asked whether anything exists for reading the remote's accelerometer or setting
+  its sensitivity, suspecting that people walking by wake the machine. Looked up:
+  - Nothing public: no setting on Google's side, no documentation, no project that reads it.
+    The forum thread above asks how to turn the motion wake off and has no answer.
+  - Google's reference remote firmware (`refDesignRcu`, checked out at `66b7eb9`) has no
+    accelerometer at all. The Chromecast remote runs other firmware (TI chip), so its
+    motion code isn't public.
+  - What the reference firmware does have explains how an Android TV box tells a press from
+    a pickup: pressing one of a set of **wake keys** (by default Assistant, Home, Power,
+    Input and the app keys) while disconnected sends a **wake packet**, an advertisement
+    with its own content, before it reconnects as usual (`app_start_send_wakeup`,
+    `app_custom_wakeup_key_load` in `vendor/827x_ble_remote/`). The box, asleep, wakes on
+    that packet only. The wake keys and the packet's format are part of the remote's
+    stored settings, which the reference firmware lets a host rewrite over Bluetooth
+    (`APP_DATA_UPDATE_OVER_BLE`). Our machine's Bluetooth wakes on any advertisement from
+    a device on its accept list (the suspend scan found on 2026-11-21), so a reconnect
+    after a pickup is enough.
+  - *Inferred, not tested:* if the Chromecast remote sends such a wake packet for key
+    presses, a key press and a pickup look different in the air. Observable with `btmon`
+    while the machine is awake and the remote has dropped its connection: pick it up and
+    watch, then press a key and watch.
+  - The remote itself, listed and read over bluez once the user woke the machine: the same
+    services as on 2026-11-21, none for motion. Device Information: model `A0`, firmware
+    `26.7`, hardware `PVT/MP`, software `26.7-GLOBAL`, manufacturer `Google Inc.`. The
+    vendor service `6c6f6701-…` ("log" in its first three bytes) has one readable
+    characteristic, `6c6f6705-…`: 120 bytes, a run of `be` fill, then 32-bit values that
+    read as a Cortex-M fault record (`0xE000ED10` and `0xE000ED08` are the core's system
+    control registers, `0x1000….` ROM and `0x2000….` RAM addresses). *Inferred:* the
+    remote's last crash or reset, kept for Google; nothing to set.
+  - The machine's side has one switch per device, bluez's `WakeAllowed` (yes for the
+    remote). Turning it off stops every wake from the remote, presses included.
+- Over the air, a pickup and a press compared, with `btmon` while the machine was kept
+  awake by a sleep inhibitor (the filter kept only the remote's adverts and connection
+  events, nothing with a key):
+  - 13:26:34 the remote dropped its connection by itself; the machine went back to its
+    passive scan, which starts a fresh duplicate filter. **Not one advert in the next
+    10 minutes**: lying still after dropping, it didn't call at all this time.
+  - 13:36:36.260, picked up without a press (reported): one `ADV_IND`, the same as on
+    2026-11-22 (flags `0x05`, appearance Keyboard, HID and Battery, Google's data all
+    `ff`), RSSI −48 dBm. The kernel connected 28 ms later.
+  - 14:06:36 it dropped its connection again, exactly 30 minutes after that connection,
+    untouched in between.
+  - 14:07:19.170, Home pressed with the remote lying flat (reported): **the same
+    `ADV_IND`, byte for byte**, RSSI −52 dBm; connected 37 ms later. The shell got Home
+    at 14:07:19.404, 0.2 s after the connection: the remote keeps the press and sends
+    it once connected. The release came at 14:07:20.224, and in between X's key repeat
+    turned the one press into seven Home presses in the shell.
+  - So this remote sends no wake packet: a pickup and a press look the same to the
+    machine's radio, and nothing at that level can let one through and not the other.
+    They differ only once connected, by whether a key follows within a moment. That is
+    what the ready state has to go by.
 
 ## Waydroid prerequisites
 

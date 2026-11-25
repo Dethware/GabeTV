@@ -491,9 +491,12 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
   IR or CEC as the way to wake. It stays until the redesign. Part of it: a ready state
   for the remote, where a wake by picking it up (it reconnects when moved, before any
   press) leaves the screen off until a press and goes back to sleep without one. Other
-  controllers keep waking it fully. Open: what each way of sleeping does (the five in the
-  log), telling a pickup from other wakes, whether Steam lights the display on resume by
-  itself, how long to wait.
+  controllers keep waking it fully. Over the air a pickup and a press are the same call;
+  they differ only after the remote has connected, when a press arrives as its key about
+  0.2 s later. So the ready state waits for a key from the remote, and nothing can stop
+  a pickup from waking the machine in the first place. Open: what each way of sleeping
+  does (the five in the log), telling a remote wake from other wakes, whether Steam
+  lights the display on resume by itself, how long to wait for a key.
 - Hand the Assistant audio to speech recognition.
 - Photos: smarter framing for 4:3 and 3:4 on 16:9 (faces? crop/zoom), timeline and people,
   seeking and progress for videos.
