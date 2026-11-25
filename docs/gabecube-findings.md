@@ -2502,6 +2502,65 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   user runs the printed sudo commands once (a tmpfiles.d entry and a keep-list entry).
   Not seen on a real resume yet.
 
+### Two ways of going to sleep (2026-11-25)
+
+- `pm_debug_messages` is 1 since 00:22 (the user ran the sudo commands). The wake log
+  reported three resumes this morning.
+- The user: picking up the remote, without pressing anything, woke the machine. "When it
+  is suspended automatically or from the remote, the LED strip in front is still lit up.
+  It can be woken up from this state by the remote. When done manually by pressing the
+  power button on the machine, the LED strip goes off. It cannot be woken up." Asked
+  whether these are different power states.
+- The reports:
+  - 00:51:41 → 08:08:20 (7 h 17 min): interrupt 9 (ACPI), the Bluetooth adapter `1-5`
+    counted a wake. The remote connected 64 ms after the resume.
+  - 08:38:20 → 08:43:09 (289 s): interrupt 1 (i8042) first, and `1-5` counted a wake too.
+  - 08:55:45 → 08:56:09 (24 s): interrupts 9 and 1, `serio0` counted two, `1-5` nothing.
+    This one was put to sleep by the power button and woken by it again (i8042 is how
+    the button arrives here, besides ACPI).
+- **It is the same sleep every time:** s2idle, the kernel's only choice
+  (`/sys/power/mem_sleep` is `[s2idle]`), with the same PEP transitions and SMU idle mask.
+  What differs is what happens before it:
+  - The shell suspends through logind after 30 minutes of idle with the screen off. The
+    remote's Power button doesn't suspend at all: the shell holds the suspend key and
+    turns the screen off (08:50:54 and 08:51:16 today were that).
+  - The machine's power button goes to logind ("Power key pressed short"), then
+    `steamos-powerbuttond` hands it to Steam, which plays its own suspend ("PrepareForSuspend",
+    the `steam_os_suspend.webm` movie) and suspends through logind (`dbus-send`) 2 s
+    later.
+- **The LED strip** is `valve-leds` (17 LEDs in `/sys/class/leds/valve-leds[0..16]`, a
+  driver of Valve's). Its files `brightness`, `brightness_scale`, `effect`, `enabled`,
+  `multi_intensity` belong to the user `deck`, so Steam drives it itself: `brightness_scale`
+  was last written at 08:56, the resume. *Inferred:* Steam turns the strip off as part of
+  its own suspend and back on at resume; when the shell suspends, Steam only hears of it
+  ("Suspend notification: entering") and leaves the strip alone. Not looked at what it
+  writes.
+- **The remote:** before every one of the shell's suspends, here and on 2026-11-24
+  (20:49, 21:34, 00:51, 08:38), the shell logged "remote gone" 1 to 3 s before "idle for
+  1800 s … suspending". The shell's idle and the remote's own idle both count from the
+  last press on the remote; *inferred:* the remote drops its connection after just under
+  30 minutes untouched, so the shell always suspends with the remote disconnected. At the
+  power button press the remote had been used 4 minutes before and was still connected,
+  so the suspend scan's duplicate filter keeps it from waking the machine, as found on
+  2026-11-21.
+- **But a disconnected remote doesn't call all the time.** The user: "If the remote was
+  waking up the machine by poking it all the time, it wouldn't be a weird coincidence
+  where I pick it up and the machine wakes up at the same moment." The night agrees: from
+  00:51 to 08:08 the remote was disconnected and the machine slept 7 hours, until it was
+  picked up. The conclusion of 2026-11-22 ("always calling") came from a remote that had
+  just been cut off with `bluetoothctl block`, watched for 10 minutes. *Inferred, to be
+  observed:* the remote calls for a while after losing its connection, then sleeps itself
+  until it is moved or pressed, and calls again. The 39 s and 80 s wakes of 2026-11-24
+  would be the first kind, 08:08 today the second.
+- So the LED and the remote are two separate things that happened to go together: the
+  LED shows who put the machine to sleep (Steam or the shell), the remote's wake depends on
+  whether it was connected when the machine went to sleep.
+- To observe this, the wake log now also writes, as the machine goes to sleep, which
+  Bluetooth devices are connected, and in each report who asked for the sleep (logind's
+  lines). Open: does a disconnected remote wake the machine soon after a sleep starts and
+  then never by itself; does the power button with the remote untouched for 30 minutes
+  give LED off and a remote that wakes it.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

@@ -85,7 +85,9 @@ How they meet:
   Bluetooth for navigation while its IR side controls the TV directly (power, volume); two
   pairs of Joy-Cons, a Pro Controller and a Ring-Con with its leg strap. Keyboard and mouse
   are optional. A button on a paired Joy-Con or Pro Controller wakes the machine from
-  sleep; the remote can't.
+  sleep. The remote can wake it only if it had disconnected before the machine went to
+  sleep; then picking it up is enough, and it may wake it by itself too (being observed:
+  log, "Two ways of going to sleep").
 - The Steam Machine is the only source: no HDMI switch, no streaming dongle, no Switch.
 
 ## Apps

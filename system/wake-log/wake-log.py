@@ -8,6 +8,9 @@ collects what there is and writes one report to the journal:
 - how long the machine slept;
 - the kernel's own lines from the sleep (with /sys/power/pm_debug_messages set to 1 they
   include "Triggering wakeup from IRQ …" and the ACPI wake events; see the README);
+- at the start of the sleep: who asked for it (logind's last words on it) and which
+  Bluetooth devices were connected (a remote that is connected can't wake the machine,
+  one that isn't can);
 - the interrupt that ended it (/sys/power/pm_wakeup_irq) and what it belongs to;
 - the wake counters that changed while it slept;
 - what happened in the first seconds after: devices that came (input devices, Bluetooth
@@ -18,7 +21,7 @@ It follows logind's PrepareForSleep signal (through gdbus), needs no root, and o
 """
 
 import glob
-import os
+import json
 import re
 import subprocess
 import sys
@@ -48,6 +51,23 @@ def counters():
     return found
 
 
+def bluetooth_connected():
+    """Names of the Bluetooth devices connected right now."""
+    result = subprocess.run(["busctl", "--system", "--json=short", "call", "org.bluez", "/",
+                             "org.freedesktop.DBus.ObjectManager", "GetManagedObjects"],
+                            capture_output=True, text=True)
+    try:
+        objects = json.loads(result.stdout)["data"][0]
+    except (ValueError, KeyError, IndexError):
+        return ["? (bluez didn't answer)"]
+    names = []
+    for interfaces in objects.values():
+        device = interfaces.get("org.bluez.Device1")
+        if device and device.get("Connected", {}).get("data"):
+            names.append(device.get("Alias", device.get("Address", {})).get("data", "?"))
+    return names
+
+
 def irq_name(number):
     for line in read("/proc/interrupts").splitlines():
         if line.strip().startswith(number + ":"):
@@ -64,10 +84,21 @@ def stamp(seconds):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(seconds))
 
 
+def going_to_sleep():
+    """Written at once: the machine freezes this service a few hundred ms later."""
+    connected = bluetooth_connected()
+    print("going to sleep; Bluetooth connected: " + (", ".join(connected) if connected else "nothing"), flush=True)
+
+
 def report(slept_at, before):
     woke_at = time.time()
     time.sleep(AFTER_SECONDS)
     lines = ["woke after %.0f s asleep (asleep since %s)" % (woke_at - slept_at, stamp(slept_at)[11:])]
+
+    # Who asked: logind says "suspend requested from client …" or "Power key pressed".
+    for line in journal(stamp(slept_at - 5), stamp(slept_at + 1), "-u", "systemd-logind"):
+        if re.search(r"requested|pressed", line):
+            lines.append("asked by: " + line.split(": ", 1)[-1])
 
     irq = read("/sys/power/pm_wakeup_irq")
     if irq:
@@ -86,7 +117,7 @@ def report(slept_at, before):
     for line in journal(stamp(woke_at), stamp(woke_at + AFTER_SECONDS), "--system") + \
             journal(stamp(woke_at), stamp(woke_at + AFTER_SECONDS), "--user"):
         if AFTER.search(line) and seen < 12:
-            lines.append("after: " + line[16:])
+            lines.append("after: " + line[7:])
             seen += 1
 
     for line in lines:
@@ -104,6 +135,7 @@ def main():
         if "PrepareForSleep (true" in line:
             slept_at = time.time()
             before = counters()
+            going_to_sleep()
         elif "PrepareForSleep (false" in line and slept_at is not None:
             report(slept_at, before)
             slept_at = None

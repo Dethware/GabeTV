@@ -22,12 +22,21 @@ boot) and keep it through SteamOS updates.
 
 ## Reading a report
 
-    woke after 5911 s asleep (asleep since 21:34:10)
+    going to sleep; Bluetooth connected: nothing
+    woke after 26199 s asleep (asleep since 00:51:41)
+    asked by: suspend requested from client PID 261962 ('tvshell') …
     wake interrupt: 9 (9-fasteoi acpi)
-    wake counters that moved: none
+    wake counters that moved: … 1-5 13→14 …
     kernel: PM: suspend entry (s2idle)
+    kernel: PM: Triggering wakeup from IRQ 9
+    kernel: ACPI: PM: ACPI non-EC GPE wakeup
     kernel: PM: suspend exit
-    after: … input: Chromecast Remote as …
+    after: 08:08:20.385540 gabecube kernel: input: Chromecast Remote as …
+
+The first line is written as the machine goes to sleep: which Bluetooth devices were
+connected then. `asked by:` is who put it to sleep: the TV shell after its idle time, or
+the power button (`Power key pressed`, then Steam). `1-5` is the Bluetooth adapter: when its
+counter moves, something over Bluetooth woke the machine.
 
 Interrupt 9 is ACPI, which most wake-ups go through; the kernel's debug lines then say which
 ACPI event it was. The remote connects right after every wake, whatever woke the machine, so
