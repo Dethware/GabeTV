@@ -59,6 +59,10 @@ To remove it, delete the folder (and those two for its data).
 - `controller-only-with-focus.patch`: controller buttons count only while the player's
   window has the focus. The original reads the controller all the time, so buttons pressed
   in the shell or in a game also acted on a player loaded in the background.
+- `focus-recovery.patch`: when the selection has been lost (nothing highlighted, and the
+  arrows and OK do nothing), the next arrow or OK selects the first item on screen. Jellyfin's
+  web client sometimes leaves it on something no longer shown, for example after Back from a
+  show's page. Not while a video plays, where Left and Right seek.
 - `stick-one-direction.patch`: a stick gives one direction at a time. The original treats
   its two axes separately, so a push to the side that is also a little up or down moved
   twice.

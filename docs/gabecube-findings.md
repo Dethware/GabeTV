@@ -2743,6 +2743,33 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   resume. Fixed: input counts for nothing between the shell's suspend and logind's word
   that it's back; that resume handling decides.
 
+## Jellyfin stops answering the remote (2026-11-25)
+
+- The user: Jellyfin took no more input from the remote. "Going back from a show screen
+  was the last input that worked." Only Back and Home still did anything.
+- The shell's log: 22:37:31 Jellyfin stopped playing; 22:37:43 and 22:37:55 Jellyfin's
+  Back at its start screen handed the screen to the shell (`LeaveApp`), and each time the
+  user opened Jellyfin again a second later. So Back still reached the page; the arrows
+  and OK did nothing.
+- The keys did reach the player: gamescope's focus (`GAMESCOPE_FOCUSED_WINDOW`) and X's
+  keyboard focus (`xdotool getwindowfocus`) were both on its window, `0x340002c`.
+- A screenshot (`gamescopectl screenshot`) showed Jellyfin's start page with no card
+  highlighted. `xdotool key Down` to the window changed nothing; `xdotool key Tab` put the
+  focus on the first card (Movies), and the remote worked from there.
+- So the web page's focus was left on an element that isn't shown, most likely on the
+  show page that Back had just left. In `--tv` the player turns the remote's arrows and OK
+  into commands for jellyfin-web's input manager (`native/inputPlugin.js`), which moves
+  the focus from the focused element; from one that isn't shown it finds nowhere to go.
+  Back doesn't depend on the focus, so it kept working. Tab isn't one of the player's
+  commands, so it went to the page as a plain key.
+- Leaving to the shell and coming back didn't cause it: it started before the first
+  `LeaveApp`, and coming back didn't fix it either.
+- Worked around in the player (`apps/jellyfin-desktop/patches/focus-recovery.patch`,
+  agreed with the user): when an arrow or OK arrives and the focused element isn't shown,
+  that press focuses the first element on screen instead (in an open dialog first, the
+  header last). Not while a video plays, where the arrows seek. Deployed; not yet tried, as
+  the state can't be brought about at will.
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

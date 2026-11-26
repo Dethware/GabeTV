@@ -1,0 +1,60 @@
+diff --git a/native/inputPlugin.js b/native/inputPlugin.js
+index 610e1d3..cc0e07e 100644
+--- a/native/inputPlugin.js
++++ b/native/inputPlugin.js
+@@ -13,6 +13,42 @@ const remap = {
+     "enter": "select",
+ }
+ 
++// The web client sometimes leaves the focus on an element that is no longer shown (after Back
++// from a show's page). Its arrows and OK move the focus from that element and find nowhere
++// to go, so the remote does nothing until something else takes the focus.
++const navigation = new Set(["up", "down", "left", "right", "select"]);
++const focusableQuery = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .focusable';
++
++function isShown(element) {
++    return element.isConnected && element.getClientRects().length > 0;
++}
++
++function focusLost() {
++    const element = document.activeElement;
++    return !element || element === document.body || !isShown(element);
++}
++
++// Focuses the first usable element on screen: in an open dialog if there is one, else on the
++// page, the header last. Returns whether it found one.
++function recoverFocus() {
++    const dialogs = [...document.querySelectorAll('.dialogContainer')].filter(isShown);
++    const scope = dialogs.length ? dialogs[dialogs.length - 1] : document;
++    const candidates = [...scope.querySelectorAll(focusableQuery)]
++        .filter(element => !element.disabled && isShown(element));
++    const inView = element => {
++        const rect = element.getBoundingClientRect();
++        return rect.bottom > 0 && rect.top < window.innerHeight;
++    };
++    const header = element => element.closest('.skinHeader');
++    const target = candidates.find(element => inView(element) && !header(element))
++        || candidates.find(element => !header(element))
++        || candidates[0];
++    if (!target)
++        return false;
++    target.focus();
++    return true;
++}
++
+ class inputPlugin {
+     constructor({ inputManager, playbackManager }) {
+         this.name = 'Input Plugin';
+@@ -50,6 +86,12 @@ class inputPlugin {
+                         if (remap.hasOwnProperty(action)) {
+                             action = remap[action];
+                         }
++                        // The first press only brings the focus back where it can be seen.
++                        // Not while a video plays: there Left and Right seek.
++                        if (navigation.has(action) && !playbackManager.isPlayingVideo()
++                            && focusLost() && recoverFocus()) {
++                            return;
++                        }
+                         inputManager.handleCommand(action, {});
+                     }
+                 });
