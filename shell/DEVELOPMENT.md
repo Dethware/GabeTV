@@ -144,7 +144,11 @@ its key about 0.2 s after the connection. The screen then stays off as after `sl
 any key or button wakes it, otherwise the machine sleeps again once the remote lets go
 (30 minutes after the pickup). If the remote doesn't connect within 2 s, or it was
 connected at sleep, something else woke the machine, and the screen comes on as usual.
-`XF86WakeUp`, which the shell gets at a resume, isn't a key press.
+Two things arrive at every resume that aren't anyone's input: `XF86WakeUp`, which isn't
+taken as a key press, and one move of gamescope's input counter, which comes before logind
+says the machine is back. Input counts for nothing from the shell's own suspend until then,
+so that resume handling decides alone (otherwise the screen came on for a moment at every
+resume).
 
 Screen off is
 `gamescopectl drm_sleep_external_screen 1`. Screen on (`0`) is sent on waking and after every
@@ -511,8 +515,10 @@ Gaming Mode, before Steam has started, and takes the screen when Steam finishes 
 - The remote and sleep, open after the redesign: the machine's power button and Steam's
   power menu still suspend at once with the remote connected, so the remote can't wake the
   machine afterwards (the shell could take the power key from logind as it does the
-  sleep key). Not known yet whether Steam lights the screen by itself after a resume, and
-  whether gamescope's input counter moves on its own then (it would end the ready state).
+  sleep key). Not known yet whether Steam lights the screen by itself after a resume.
+  A bumped table, maybe even a vibrating floor, is enough for the remote to wake the
+  machine (most likely three times in one evening of someone packing nearby), and each
+  such wake keeps the machine up for the remote's next 30 minutes.
 - Remotes behind one interface. The TV's own remote (IR, once the LG TV is here) may be
   used instead of or next to this one. Each remote has its own quirks (this one: wakes
   the machine only if it let go of its connection first, and when merely moved), so each

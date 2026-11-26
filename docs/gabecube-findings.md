@@ -2703,6 +2703,45 @@ service, in place of SDL, cemuhook and separate routes for ring, rumble and came
   - Rejected: dropping the remote from the machine's side to sleep sooner. It keeps
     calling for an unknown time (over 10 minutes on 2026-11-22), every call would wake
     the machine, and it can't be used while kept out.
+- The redesign's first run on the machine (the shell deployed at 15:58:50, the remote
+  connected then). The user came back after well over 30 minutes and found the machine
+  awake. The shell's log and wake-log tell the story:
+  - 16:08:51 the screen went off (idle); 16:27:16 the remote let go by itself; 16:28:51
+    the shell suspended, "idle for 1800 s with the screen off, the remote not connected".
+    The idle path, not Power: no Power press is in the log before 16:57.
+  - 16:47:15.33 resumed (wake interrupt 9, the USB Bluetooth adapter's wake counter
+    moved); the remote connected at 16:47:15.41, 80 ms after, and the shell took it as
+    the remote's wake: screen kept off, waiting for the remote to let go. No key came,
+    so the remote was moved, not pressed. The user didn't know of anyone touching it
+    ("Maybe the remote got bumped?").
+  - 16:57:18 Home: screen on, sleep called off. 16:57:33 Power: screen off, sleep asked
+    for, waiting for the remote to let go.
+  - So it worked as designed, and showed the design's cost: one bump (or a walk-by)
+    after 18 minutes asleep kept the machine awake, screen off, for the remote's 30
+    minutes.
+- The evening after that, from the same logs. The user used the TV 17:02–17:10, then
+  left the house and came back at 22:10:
+  - 17:35:26 the remote let go; 17:40:32 the shell suspended (idle).
+  - 18:07:57 a wake, the remote connected at once, no key: ready state. 18:37:54 the
+    remote let go and the shell suspended at once ("asked for").
+  - 19:07:30 the same again; 19:37:26 asleep again.
+  - 22:10:55 the same, as the user came home.
+  - The two wakes while the user was out came 32 and 30 minutes after the remote let go;
+    the next sleep then lasted 2.5 hours. Someone was home: the user's wife was packing
+    for a trip, "so I guess the table got bumped, or it just picked up the floor
+    vibrating". So these were most likely the remote being moved, not calling by itself. Each one kept
+    the machine awake for the remote's 30 minutes. Wake interrupts: 9 (ACPI) at 16:47,
+    7 (`pinctrl_amd`) at 18:07 and 19:07, 1 (`i8042`) at 22:10; the USB Bluetooth
+    adapter's wake counter (`1-5`) moved every time.
+- **The screen blinks at every resume.** The user, coming home at 22:10: "the screen
+  definitely blinked". The shell's log shows why: gamescope's input counter
+  (`GAMESCOPE_INPUT_COUNTER`) moves once by itself 6 ms after the kernel resumes, before
+  logind's `PrepareForSleep(false)` reaches the shell. The shell took it as input and
+  turned the screen on; 3 to 150 ms later its resume handling turned it off again, and
+  the TV lost and found the signal (gamescope logged DP-1 disconnected and back). So the
+  open question from the redesign is answered: the input counter does move by itself at
+  resume. Fixed: input counts for nothing between the shell's suspend and logind's word
+  that it's back; that resume handling decides.
 
 ## Waydroid prerequisites
 

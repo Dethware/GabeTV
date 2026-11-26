@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QDBusReply>
 #include <QKeyEvent>
 #include <QLoggingCategory>
@@ -222,6 +223,11 @@ void IdleController::saveTime(const QString &key, int &member, int seconds)
 
 void IdleController::activity()
 {
+    // Between our suspend and logind's word that we're back: gamescope's input counter moves
+    // once by itself as the machine resumes, before prepareForSleep(false). Taken as input, it
+    // lit the screen for a moment at every resume. prepareForSleep(false) decides instead.
+    if (m_suspended)
+        return;
     if (m_state == State::ScreenOff && m_sinceScreenOffRequest.isValid()
         && m_sinceScreenOffRequest.elapsed() < IgnoreAfterScreenOffMs)
         return;
@@ -419,5 +425,13 @@ void IdleController::suspend(const QString &reason)
                                                QStringLiteral("/org/freedesktop/login1"),
                                                QStringLiteral("org.freedesktop.login1.Manager"), QStringLiteral("Suspend"));
     call << false;
-    QDBusConnection::systemBus().asyncCall(call);
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
+        watcher->deleteLater();
+        if (!watcher->isError())
+            return;
+        // Not suspended after all: input has to count again, and sleepIfDue may try later.
+        qCWarning(lcIdle) << "logind didn't suspend:" << watcher->error().message();
+        m_suspended = false;
+    });
 }
