@@ -3129,6 +3129,216 @@ The user on the rumble in Ring Fit: "Rumble feels fine." The soundbar moves to t
 over HDMI ARC (2026-11-27), so Bluetooth audio leaves the adapter; the Joy-Cons with
 Bluetooth audio on are to be tested again later.
 
+## HDMI sound through the TV (2026-11-27)
+
+The LG OLED G6 is connected on HDMI (`HDMI-A-1`, the DisplayPort monitor is gone), the
+soundbar on the TV's ARC port. The machine had no HDMI sound: PipeWire played to "Dummy
+Output", the HDMI card's profile was "off" and every HDMI port "not available".
+
+- The machine side was fine: the connector connected, the HDA ATI HDMI card present and
+  bound to amdgpu.
+- No ELD on any of the card's four pins (`/proc/asound/card0/eld#0.*`: `monitor_present
+  0`, `eld_valid 0`), so the sound driver never heard of a monitor.
+- The cause was the TV's EDID (`/sys/class/drm/card0-HDMI-A-1/edid`, name "LG TV SSCR2"):
+  its CTA block sets "basic audio support" but its Audio Data Block is empty (`20`, tag 1
+  with length 0), no formats at all. amdgpu gives no ELD for a sink without audio formats.
+- The TV's sound settings (audio input and output) were bitstream and pass-through. The
+  user set both to PCM; the EDID then lists Linear PCM, 2 channels, 32–192 kHz, 16–24
+  bits, the ELD is valid with one format, and PipeWire switched to "HDMI / DisplayPort
+  Digital Stereo (HDMI)" by itself. Nothing changed on the machine.
+- *Inferred:* in pass-through, the TV fills the audio block with what the ARC device
+  takes, and it hadn't learnt the soundbar's formats (HDMI-CEC/SIMPLINK). Not tested.
+- Seen in passing: the EDID's video block goes up to 4K30 and 1080p120, no 4K60 or
+  4K120. LG offers more only with "HDMI Ultra HD Deep Colour" on for that input.
+
+The volume, the same day. The remote's volume buttons change the soundbar's volume, but
+the shell's indicator stays at 100 %. The remote sends no IR at all (the user); its
+buttons reach only the machine, over Bluetooth.
+
+- SteamOS has the path: `cecd` (D-Bus `com.steampowered.CecDaemon1`, owns `/dev/cec0`)
+  and `cec-audio-control` (user service, started 11:52 when the TV came up). The latter
+  serves PipeWire's `org.pipewire.ExternalVolume` over varlink for route `hdmi-output-0`:
+  PipeWire hands the HDMI output's volume and mute to it, and it sends them over CEC to
+  the audio system (logical address 5, the soundbar behind the TV's ARC).
+- So the HDMI route has no volume of its own in PipeWire (`volumeStep` FLT_MAX,
+  `volumeControlFlags` set), the sink stays at 1.0 (`wpctl set-volume 0.9` leaves it at
+  1.00), and WirePlumber logs "spa.alsa: Failed to write volume: Invalid argument" at
+  each press.
+- The level can't be read: `cec-audio-control` logs "Can read: false, Volume: 0, Mute:
+  true" at start, and cecd's `GetAudioStatus` times out for address 5 and for the TV (0).
+  The soundbar (or the TV in between) doesn't answer Give Audio Status. Mute is a toggle
+  the machine can't check either.
+- cecd also wakes the TV over CEC (`WakeTv` and `SuspendTv` true): "TV did not respond
+  to wake immediately" several times at 11:52–11:53.
+
+Deeper, the same day:
+
+- The bus (`cec-ctl --show-topology`; the adapter is `cros-ec-cec`, the machine is
+  3.0.0.0, Playback Device 1): the TV `OLED55G64L` (LG, CEC 1.4) and the soundbar
+  `HTL3310` at 2.0.0.0, Audio System (CEC 1.4, vendor 0x525352). The soundbar answers
+  Give System Audio Mode Status in 50 ms ("on"), its name and power.
+- Give Audio Status (0x71) to the soundbar, and to the TV: acknowledged, never answered,
+  not even late (cecd's `ReceivedMessage` signal watched for 12 s; only the TV's own
+  broadcasts arrive). Volume Up and Down sent to the soundbar change its volume, but it
+  sends no Report Audio Status after them either. *Inferred:* it reports its level only
+  to the TV, if at all. The adapter has no Monitor All, so messages to the TV can't be
+  seen.
+- `cec-audio-control`'s capabilities (`GetCapabilities` over varlink): `writeVolumeRelative`
+  and `writeMuteToggle` only; no reading, no absolute volume, no `writeMuteValue`.
+- Mute: the shell sets the sink's mute through libpulse. PipeWire turns that into a mute
+  value, which the service doesn't take, so nothing is sent and the mute flips back (the
+  "blink" in the shell). PipeWire's own device command (`pw-cli send-command 42
+  VolumeControl '{ "muteToggle": true }'`) didn't reach the service either. Calling the
+  service's `WriteMuteToggle` directly makes cecd send Mute to the soundbar, and the
+  soundbar mutes (the user); a second call unmutes it.
+- The external volume code isn't in PipeWire's upstream source (the GitHub mirror,
+  2026-11-27): it is SteamOS's own (`pipewire 1:1.6.8-1.7`, `cec-audio-control 0.1.0-7`,
+  `cecd 0.3.0-2`).
+- The TV shows no number either: at a volume press it shows + or − and an icon, which
+  turns into a mute icon when the volume gets very low (the user). *Inferred:* the TV
+  hears something of the soundbar's level, but nobody shows a number. That is with the
+  LG remote: with the machine's remote (volume over CEC from the machine), the TV shows
+  nothing at all.
+- With the TV's audio input on bitstream and its output on auto (12:37): the EDID's audio
+  block is empty again and HDMI sound gone, and Give Audio Status to the soundbar and the
+  TV still goes unanswered, as do the volume presses. So the audio setting doesn't decide
+  whether the soundbar reports its level.
+- Input back on PCM, output left on auto: the audio block lists Linear PCM again and HDMI
+  sound is back. So the TV's audio *input* setting decides what it offers the machine.
+- The TV's "Universal Control Settings" (HDMI 2, Sound Bar, pick a manufacturer) teaches
+  the LG remote IR codes for the soundbar. Not used.
+
+Decision: volume by infrared to the TV, not over CEC from the machine. The user's idea:
+with CEC from the machine the TV shows nothing, and the shell would need to take the
+volume keys from everywhere to show anything itself.
+
+- `system/remote-ir.py` writes the codes over the remote's IR programming service (see
+  "IR programming service", 2026-11-22): LG's NEC codes, address 0x04, `0x20DF40BF`
+  volume up, `0x20DFC03F` down, `0x20DF906F` mute; 38 kHz, 33 % duty. Volume as type 3
+  (the frame, then NEC's repeat frame while held, each filling 108 ms), Mute as type 1
+  (once per press). Loaded 13:10.
+- The TV changes the soundbar's volume and shows its + or − and mute indicator (the
+  user). No level there either: the soundbar seems not to report one at all.
+- The buttons no longer reach the machine over Bluetooth: no volume call to cecd in the
+  10 minutes after 13:10 while the user pressed volume and Mute. So the keys with a code
+  go out as IR only (Suppress left empty).
+- A shell change that sent its Mute through `cec-audio-control`'s `WriteMuteToggle`
+  itself was built but dropped unused: Mute no longer reaches the machine.
+- Not checked: whether the codes survive a battery change or a new pairing (they are in
+  the remote's flash, by the reference firmware).
+- Mute pressed three times in a row opens a TV menu over the picture ("Select a menu
+  item": model, software version webOS26 43.21.98, Reset, Auto Tuning, Set-Top Box Power,
+  Auto Power Sync, Show LG logo, No Signal Image). It is the TV's own reaction to three
+  mutes, which LG's remote would trigger the same way. Left as it is.
+- Tried instead: Mute as the soundbar's own IR mute, so the TV wouldn't see it. No code for
+  the HTL3310 is published. Philips soundbars in the Flipper IR database
+  (Lucaslhm/Flipper-IRDB) all use RC6 mode 0, Mute command 0x0D: address 0x10 (HTL2163,
+  TAB5105, the HTS8010S's volume and mute), 0x20 (HTL2060). Sent as RC6 at 36 kHz, one
+  frame per press and as two frames alternating the toggle bit; then three frames per
+  press at addresses 0x20, 0x15, 0x11 on Mute and 0x04, 0x05, 0x14 on Input. The remote
+  blinks in a phone camera, the soundbar reacts to none of them (13:42–13:45). Not known
+  whether the encoding is right: no device here is known to take RC6. The machine has no
+  IR receiver (`/sys/class/rc` only has CEC) to read the soundbar's own remote. LG's Mute
+  loaded back at 13:45.
+
+A click at the start of sounds, the same day: Steam's UI sounds have a short impulse at
+their start that isn't part of them (first heard as "eats the first fraction of a second").
+
+- PipeWire only allows 48 kHz (`clock.allowed-rates = [ 48000 ]`), so no rate switch.
+- SteamOS's own settings already keep the HDMI output running between sounds
+  (`node.pause-on-idle = false`, `session.suspend-timeout-seconds = 3600`); setting them
+  again in a WirePlumber rule changed nothing. Adding `dither.noise = 2` (never exact
+  digital silence) didn't help either. Both removed again.
+- Short beeps played from the machine (`pw-play`, 0.25 s) came through.
+- With the TV's own speakers in place of the soundbar, no click (the user, though the TV
+  speakers are faint). So it happens between the TV and the soundbar, or in the soundbar.
+- Still there after rebooting everything.
+- The `dither.noise = 2` above proved nothing: PipeWire counts it in steps of the output
+  format (here s32), and HDMI carries 24 bits at most, so it was cut off. Tried again with
+  16 (the maximum, about −96 dB), the output running with Steam's stream: still clicks.
+  So the soundbar doesn't click for coming out of digital silence. Removed again.
+- With the TV's own speakers the TV also shows its volume level (the user). So the missing
+  level, like the click, belongs to the soundbar (HTL3310).
+- No firmware for it: Philips's support page lists it as discontinued, with no software
+  section. Decision (the user): replace it with an LG soundbar; an LG NS90 is ordered.
+- Two other suspects: the TV's audio *output* went from PCM to Auto at 12:37 (for the
+  bitstream test) and stayed there, and the clicks were reported after that; set back to
+  PCM, the clicks stay. And static, not tested: the user got shocks from everything that
+  day (a sofa cover off), and the soundbar took one at some point.
+- Steam's UI sounds played with `pw-play` (navigation, OK, tab, toggles, bumper, modal;
+  normal and at full scale; at 100 ms and at 256 samples of latency): no click.
+- A recording of the HDMI output's monitor while moving through Steam's menus: Steam's
+  stream ("Chromium", 512/48000, the same quantum as the rest) plays its navigation sound,
+  `steamui/sounds/deck_ui_misc_10.wav` (correlation 1.0), exactly as stored, nothing
+  added. The file has a 2 ms tick at its start (−31 dB, 1–3 ms), then near silence until
+  20 ms, but the click isn't that: played on its own, with or without the tick, no click.
+- The user: moving through Steam's menus without a break, no clicks; after a pause, the
+  first sound clicks.
+- With a 20 Hz tone at −50 dBFS playing all the time (inaudible), no clicks after pauses
+  either. So the soundbar (or the TV's ARC output) goes quiet on silence and clicks when
+  sound starts again; −96 dB of dither is below whatever it listens for.
+- Decision: `system/soundbar-keepalive`, a user service playing that tone all the time
+  (pw-cat, stream "soundbar-keepalive", role Notification), until the LG NS90 replaces the
+  soundbar; then to be tried without it first. Installed 16:48. Not checked yet: whether
+  a stream playing all the time keeps the machine from sleeping.
+
+### The keep-alive doesn't keep the machine awake (2026-11-27)
+
+Left idle from 16:53 with the keep-alive playing:
+
+- 16:58:41 screensaver; 17:03:41 screen off, the shell sends the TV to standby. With the
+  TV in standby the HDMI sink is gone and PipeWire falls back to "Dummy Output"
+  (`auto_null`), so the keep-alive plays into nothing.
+- 17:23:41 sleep (the remote had let go long before); the shell doesn't count the
+  keep-alive as music playing.
+- 18:16:29 the remote woke the machine, screen kept off; Home a second later turned the
+  screen and the TV on. The HDMI sink came back and the keep-alive is linked to it again
+  by itself.
+- Steam's "Turn on TV when resuming from sleep" is now off too (`wake_tv = false`).
+
+## The TV off with the screen (2026-11-27)
+
+The power menu's Turn off screen (the shell's ScreenOff, DPMS off) leaves the TV on,
+showing "No Signal" with LG's animation. The user: no signal should mean off.
+
+- 15:04:20, cecd's D-Bus `CecDevice1.Standby(0)` (Standby to the TV): the TV went off,
+  and 0.6 s later cecd asked logind to suspend the machine ("suspend requested from client
+  PID 2787 ('cecd')"). The machine slept until 15:06:00 (woken by the power button: wake
+  counter `serio0`). At the resume cecd tried to wake the TV ("TV did not respond to wake
+  immediately").
+- *Inferred:* the TV answered by sending Standby to all (LG's "Auto Power Sync" is on in
+  its menu), and cecd, with `allow_standby = true`, put the machine to sleep for it.
+- cecd's settings come from SteamOS Manager (`~/.config/cecd/config.d/99-steamos-manager.toml`:
+  `wake_tv`, `suspend_tv`, `uinput`, `allow_standby`, all true), which follows Steam's
+  HDMI-CEC setting (`SteamOSManager1.HdmiCec1.HdmiCecState` = 3).
+- The user switched off in Steam (Settings, Power, HDMI CEC): "Enable remote control
+  input", "Resume from sleep when turning on the TV", "Sleep when turning off the TV".
+  The file then has `uinput = false`, `allow_standby = false`. The TV is to be just a
+  screen; the LG remote only for when it does something by itself.
+- 15:13:03, `Standby(0)` again: TV and soundbar report `standby` (Give Device Power
+  Status), the machine stays awake. `CecDevice1.Wake()`: the TV reports `on` within 2 s
+  and shows the machine (cecd still logs "TV did not respond to wake immediately").
+- Decision: the TV follows the shell's screen. TvPower in the shell sends Standby when
+  the screen sleeps and Wake when it wakes, and wakes the TV again after a resume with the
+  screen on. "Turn on TV when resuming from sleep" has to be off too, or cecd lights the TV
+  at a resume where the shell keeps the screen off (the remote's ready state).
+- Deployed 15:48: the power menu's Turn off screen sends TV and soundbar to standby, a key
+  brings them back with the shell (the user: "it works"). "Turn on TV when resuming from
+  sleep" was still on at that point (`wake_tv = true`).
+
+## A SteamOS update (2026-11-27)
+
+Before it, at 3.9.5 (build 20261023.100), kernel 7.2.7-valve2-2-neptune-72: Qt 6.11.1
+(base 6.11.1-1, declarative 6.11.1-3, webengine 6.11.1-4, multimedia 6.11.1-1), pipewire
+1:1.6.8-1.7, wireplumber 0.5.18-1.2, cecd 0.3.0-2, cec-audio-control 0.1.0-7, gamescope
+3.16.30.1-2, bluez 5.87-2.4. Keep-list in `/etc/atomic-update.conf.d/`: tv-controllers,
+tv-remote, tv-wake-log-keep.
+
+It was Steam's own client update, not SteamOS: Steam restarted itself at 16:51, SteamOS
+stayed 3.9.5 and the machine didn't reboot. Afterwards the shell, the controller service,
+the keep-alive, the wake log and the watchdog all running, and cecd's settings as the user
+set them (`uinput = false`, `allow_standby = false`).
+
 ## Waydroid prerequisites
 
 - Kernel has the Rust binder driver built in (`CONFIG_ANDROID_BINDER_IPC_RUST=y`,

@@ -3,7 +3,7 @@
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
 
-// What the power dialog can do: power off the machine (logind, allowed for the active session
+// What the power dialog can do: power off or restart the machine (logind, allowed for the active session
 // without root) and switch off controllers. Sleep goes through the idle chain
 // (IdleController::sleep), which waits for the remote to let go first.
 //
@@ -23,6 +23,7 @@ public:
     explicit PowerActions(QObject *parent = nullptr);
 
     Q_INVOKABLE void powerOff();
+    Q_INVOKABLE void restart();
     // Returns how many controllers were told to switch off.
     Q_INVOKABLE int turnOffControllers();
 

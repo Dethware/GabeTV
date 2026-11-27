@@ -412,9 +412,21 @@ album picker): its value is shown without the ‹ › that mean "Left and Right 
 ### Power (`power/PowerActions.*`, `power/PowerDialog.qml`)
 
 Power short press asks for sleep (`IdleController::sleep()`: screen off now, asleep once the
-remote lets go) or, with the screen off, turns it on; held 0.8 s it opens the dialog (Sleep,
-Power off, Turn off controllers, Cancel). The dialog's Sleep also goes through
-`IdleController::sleep()`; Power off goes to logind. "Turn off controllers" sends the Steam Controller "turn off"
+remote lets go) or, with the screen off, turns it on; held 0.8 s it opens the dialog (Turn off
+screen, Sleep, Restart, Power off, Turn off controllers, Cancel), which closes itself after 20 s
+without a key. Its Turn off screen is `IdleController::screenOff()`: only the screen, the
+machine sleeps later by the usual idle times. The dialog's Sleep also goes through
+`IdleController::sleep()`; Restart and Power off go to logind.
+
+The TV follows the screen (`power/TvPower.*`): whenever IdleController tells gamescope to put
+the screen to sleep (`screenSleeping`), TvPower sends the TV to standby over HDMI-CEC
+through SteamOS's cecd (D-Bus `CecDevice1.Standby(0)`), and wakes it when the screen wakes
+(`Wake`: Image View On and Active Source); the soundbar follows the TV. After a resume with
+the screen meant to be on (a sleep Steam started, which cecd turned the TV off for), it
+wakes the TV again. This needs Steam's HDMI CEC settings set so the TV can't act on the
+machine: "Sleep when turning off the TV" off (the TV's answer to our standby would put the
+machine to sleep) and "Turn on TV when resuming from sleep" off (the ready state keeps the
+screen off after a wake by the remote). Log, "The TV off with the screen". "Turn off controllers" sends the Steam Controller "turn off"
 feature report (`01 9F 04 "off!"`, 64 bytes) to each HID interface of a Steam Controller
 puck (`28de:1304`/`1305`) through hidraw, which `deck` may open alongside Steam, and
 disconnects Bluetooth gamepads through bluez (not the remote).

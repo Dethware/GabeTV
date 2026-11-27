@@ -41,10 +41,11 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
   plays, the screensaver and the screen-off time work as usual, but the screen only goes
   black (the sound stays) and the machine doesn't sleep. Starting a game asks whether to
   pause the music first; a photo's video pauses it. Paused for 10 minutes, it's put away.
-- **Volume**: the remote's volume buttons show a small indicator in the top right corner,
-  over whatever is on screen, also when the volume is already at either end. Mute mutes and
-  unmutes, from anywhere; the indicator turns red and says "Muted". Neither ends the
-  screensaver.
+- **Volume**: with the remote's volume and Mute buttons sending infrared to the TV (see
+  Remote, below), the TV changes the sound and shows it; the shell doesn't hear them. Otherwise, volume buttons show a small indicator in the top right
+  corner, over whatever is on screen, also when the volume is already at either end. Mute
+  mutes and unmutes, from anywhere; the indicator turns red and says "Muted". Neither ends
+  the screensaver.
 - **Any resolution**: the interface keeps its proportions from 1080p to 4K, and photos and
   YouTube are shown at the screen's full resolution. When the resolution changes, the shell
   restarts itself (a couple of seconds).
@@ -65,7 +66,12 @@ How it's built: [DEVELOPMENT.md](DEVELOPMENT.md).
 | Jellyfin | Netflix, from anywhere | Home → Jellyfin |
 | Mute | Mute, from anywhere | |
 | Screen off and sleep / screen on | Power (short press) | |
-| Sleep, power off, controllers off | Power (hold) | |
+| Screen off, sleep, restart, power off, controllers off | Power (hold); the menu goes away by itself after 20 s | |
+
+When the screen goes off, the TV goes to standby (over HDMI-CEC), and it comes back on with
+the screen. For that, in Steam's Settings, Power, HDMI CEC, switch off "Enable remote
+control input", "Resume from sleep when turning on the TV", "Sleep when turning off the TV"
+and "Turn on TV when resuming from sleep".
 | Steam's menu, Quick Access | | Steam, … buttons |
 
 The top bar holds the places (Home, Games, Photos) and Settings: left/right move along it,
@@ -119,6 +125,11 @@ desktop mode; that is described there too.
 **Remote:** the Chromecast with Google TV remote, paired over Bluetooth. Pair it with
 `system/pair-remote.sh` (hold Back + Home on the remote until its light pulses). If pairing
 keeps failing, take its batteries out for a few seconds.
+
+Its volume and Mute buttons can control the TV directly by infrared, with the TV showing the
+change: with the remote connected, run `ssh deck@gabecube 'python3 - lg' <
+system/remote-ir.py` once (an LG TV; the remote keeps the codes). `clear` in place of `lg`
+removes them, and the buttons reach the machine again.
 
 ## Settings
 

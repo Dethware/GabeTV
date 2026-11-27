@@ -13,6 +13,8 @@ qt_add_qml_module(tvshell_power
         PowerActions.h
         RemoteLink.cpp
         RemoteLink.h
+        TvPower.cpp
+        TvPower.h
 )
 
 # The generated type registration includes the headers by name.

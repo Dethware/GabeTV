@@ -231,6 +231,11 @@ Window {
         onInputActivity: idle.activity()
     }
 
+    // The TV is just a screen: off when the screen sleeps, on when it wakes.
+    TvPower {
+        on: !idle.screenSleeping
+    }
+
     IdleController {
         id: idle
         // Also over a managed app: a paused film or an untouched menu gets the screensaver too.
@@ -610,6 +615,7 @@ Window {
         actions: powerActions
 
         onClosed: root.showPage(root.page)
+        onScreenOffRequested: idle.screenOff()
         onSleepRequested: idle.sleep()
     }
 

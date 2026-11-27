@@ -72,17 +72,32 @@ How they meet:
 
 - **Steam Machine**, hostname `gabecube`, reachable with `ssh deck@gabecube`. HDMI 2.1 with
   VRR, its output capped at 4K120 until a SteamOS update that Valve has announced. Its
-  HDMI-CEC is unreliable (spurious wake-ups), so nothing depends on it.
-- **Display.** For now, and only for now, an older 40" 4K monitor (60 Hz) on DisplayPort.
-  The target is an LG OLED G6 55" (`OLED55G64LW`), wall-mounted and kept offline, possibly
-  with its radio module removed, which leaves an IR-only remote; it should boot to its last
-  HDMI input. Anything about HDMI, refresh rates, VRR, HDR or CEC waits for that TV. On an
-  OLED nothing static may stay on screen for hours.
-- **Sound.** A Philips HTL3310 soundbar. For now over Bluetooth: it goes to sleep when
-  idle and doesn't wake with the machine by itself. In the target setup it is on the TV's
-  eARC port.
+  HDMI-CEC goes one way only: the machine turns the TV off and on with its screen
+  (`shell/DEVELOPMENT.md`, Power), and the TV may not act on the machine (Steam's HDMI CEC
+  settings: no remote control input, no sleep or resume with the TV). Wake-ups from CEC
+  were spurious earlier.
+- **Display.** An LG OLED G6 55" (`OLED55G64LW`) on HDMI, to be wall-mounted and kept
+  offline, possibly with its radio module removed, which leaves an IR-only remote; it
+  should boot to its last HDMI input. On an OLED nothing static may stay on screen for
+  hours. Its HDMI input offers only up to 4K30 so far (refresh rates, VRR and HDR are
+  still to be set up). It is just a screen: the LG remote is only for when the TV does
+  something by itself.
+- **Sound.** A Philips HTL3310 soundbar on the TV's ARC port; the machine's sound goes to
+  the TV over HDMI. The TV's audio input setting must be PCM, not bitstream (its output
+  can be auto): otherwise it tells the machine it takes no sound formats and the machine
+  has no HDMI sound at all (log, "HDMI sound through the TV"). The soundbar doesn't report
+  its volume to anyone, so no level is shown anywhere, not even by the TV. It goes quiet
+  during silence and clicks when sound starts again, so `system/soundbar-keepalive` plays
+  an inaudible tone (20 Hz, −50 dB) all the time. It has no firmware updates. An LG NS90
+  is ordered to replace it, which should fit the TV better; with it, try without the
+  keep-alive first. The machine's own volume stays at 100 %.
+- **Volume.** The remote's volume and Mute buttons send LG's infrared codes to the TV
+  (`system/remote-ir.py` loads them into the remote), and the TV passes them to the
+  soundbar over CEC and shows + or − and mute. Those buttons don't reach the machine. The
+  machine's own way, SteamOS's `cec-audio-control` sending volume steps over CEC, works
+  for volume but leaves the TV showing nothing, and its mute never gets through PipeWire.
 - **Input.** The Steam Controller; the Google TV remote, paired to the Steam Machine over
-  Bluetooth for navigation while its IR side controls the TV directly (power, volume); two
+  Bluetooth for everything but volume and Mute, which go to the TV as infrared; two
   pairs of Joy-Cons, a Pro Controller and a Ring-Con with its leg strap. Keyboard and mouse
   are optional. A button on a paired Joy-Con or Pro Controller wakes the machine from
   sleep. The remote can wake it only if it let go of its connection by itself (about 30
@@ -131,7 +146,6 @@ Larger pieces, roughly in order. Each part's own `DEVELOPMENT.md` has its smalle
 
 - How user profiles work.
 - Which server music comes from (Navidrome, Jellyfin, other).
-- Turning the TV off without the Steam Machine's CEC.
 
 ## Ideas, not now
 

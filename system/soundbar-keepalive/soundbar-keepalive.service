@@ -1,0 +1,12 @@
+[Unit]
+Description=Inaudible tone so the soundbar doesn't go quiet and click between sounds
+After=pipewire.service
+
+[Service]
+Type=exec
+ExecStart=%h/.local/share/soundbar-keepalive/soundbar-keepalive.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

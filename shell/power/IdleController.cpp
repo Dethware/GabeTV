@@ -358,6 +358,7 @@ void IdleController::setScreenSleeping(bool sleeping)
         m_screenWake.stop();
     else
         repeatScreenWake();
+    emit screenSleepingChanged();
 }
 
 void IdleController::sendScreenSleeping()

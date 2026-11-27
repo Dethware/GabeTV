@@ -54,6 +54,9 @@ class IdleController : public QObject
 
     Q_PROPERTY(bool counting READ counting WRITE setCounting NOTIFY countingChanged)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    // gamescope is told to put the screen to sleep (ScreenOff without music); the TV follows
+    // it (TvPower, bound in Main.qml).
+    Q_PROPERTY(bool screenSleeping READ screenSleeping NOTIFY screenSleepingChanged)
     // Something on screen is being watched (a playing video): foreground activity.
     Q_PROPERTY(bool watching READ watching WRITE setWatching NOTIFY watchingChanged)
     // Sound that should go on while nobody touches anything (music in the background).
@@ -80,6 +83,7 @@ public:
     void setCounting(bool counting);
 
     State state() const { return m_state; }
+    bool screenSleeping() const { return m_screenSleeping; }
 
     bool watching() const { return m_watching; }
     void setWatching(bool watching);
@@ -118,6 +122,7 @@ public:
 signals:
     void countingChanged();
     void stateChanged();
+    void screenSleepingChanged();
     void timesChanged();
     void audioPlayingChanged();
     void watchingChanged();

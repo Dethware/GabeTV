@@ -1,13 +1,15 @@
 import QtQuick
 import TvShell.Power
 
-// Opened by holding the remote's Power. Back or Cancel closes it.
+// Opened by holding the remote's Power. Back or Cancel closes it, and so does a while without
+// a key.
 FocusScope {
     id: dialog
 
     required property PowerActions actions
 
     signal closed()
+    signal screenOffRequested()
     // Sleep was picked. Not done here: the idle chain waits for the remote to let go first.
     signal sleepRequested()
 
@@ -19,15 +21,21 @@ FocusScope {
         choices.currentIndex = choices.count - 1
         visible = true
         forceActiveFocus()
+        untouched.restart()
     }
 
     function close() {
+        untouched.stop()
         visible = false
         closed()
     }
 
     function activate(action) {
         switch (action) {
+        case "screenOff":
+            close()
+            screenOffRequested()
+            break
         case "sleep":
             close()
             sleepRequested()
@@ -35,6 +43,10 @@ FocusScope {
         case "powerOff":
             close()
             actions.powerOff()
+            break
+        case "restart":
+            close()
+            actions.restart()
             break
         case "controllers": {
             const count = actions.turnOffControllers()
@@ -52,6 +64,13 @@ FocusScope {
     }
 
     visible: false
+
+    Timer {
+        id: untouched
+
+        interval: 20000
+        onTriggered: dialog.close()
+    }
 
     Keys.onBackPressed: close()
     Keys.onEscapePressed: close()
@@ -95,7 +114,9 @@ FocusScope {
                 keyNavigationEnabled: true
 
                 model: [
+                    { action: "screenOff", label: qsTr("Turn off screen") },
                     { action: "sleep", label: qsTr("Sleep") },
+                    { action: "restart", label: qsTr("Restart") },
                     { action: "powerOff", label: qsTr("Power off") },
                     { action: "controllers", label: qsTr("Turn off controllers") },
                     { action: "cancel", label: qsTr("Cancel") },
@@ -126,6 +147,12 @@ FocusScope {
                     }
                 }
 
+                // Any key, before the list moves on it: the dialog stays a while longer.
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: event => {
+                    untouched.restart()
+                    event.accepted = false
+                }
                 Keys.onReturnPressed: dialog.activate(model[currentIndex].action)
                 Keys.onEnterPressed: dialog.activate(model[currentIndex].action)
             }

@@ -49,6 +49,12 @@ void PowerActions::powerOff()
     callLogind(QStringLiteral("PowerOff"));
 }
 
+void PowerActions::restart()
+{
+    qCInfo(lcPower) << "restart";
+    callLogind(QStringLiteral("Reboot"));
+}
+
 int PowerActions::turnOffControllers()
 {
     return turnOffSteamControllers() + turnOffBluetoothControllers();
