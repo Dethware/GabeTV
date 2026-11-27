@@ -30,8 +30,16 @@ int main(int argc, char *argv[])
     // A switched-off Joy-Con leaves a dead connection that the machine keeps for 20 s, and
     // until it is gone a button press can't reconnect. Drop it at once.
     QObject::connect(&watcher, &DeviceWatcher::joyConSwitchedOff, &bluetooth, &Bluetooth::switchOff);
-    QObject::connect(&watcher, &DeviceWatcher::joyConAdded, &bluetooth,
-                     [&bluetooth](JoyCon *joyCon) { bluetooth.follow(joyCon->address()); });
+    QObject::connect(&watcher, &DeviceWatcher::joyConAdded, &bluetooth, [&bluetooth](JoyCon *joyCon) {
+        bluetooth.follow(joyCon->address());
+        // Rumble needs the connection kept active (JoyCon::setRumbleWanted). The emulator
+        // server hears of a Joy-Con first and may already want it, so the state as it is
+        // now counts too.
+        QObject::connect(joyCon, &JoyCon::activeLinkWanted, &bluetooth,
+                         [&bluetooth, joyCon](bool wanted) { bluetooth.setSniffAllowed(joyCon->address(), !wanted); });
+        if (joyCon->wantsActiveLink())
+            bluetooth.setSniffAllowed(joyCon->address(), false);
+    });
 
     qCInfo(lcMain) << "started";
     return app.exec();

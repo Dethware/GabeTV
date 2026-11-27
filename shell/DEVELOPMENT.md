@@ -40,6 +40,7 @@ own too when it uses the module's C++ types.
 | `audio/` | `TvShell.Audio` | The system volume and its display, what plays in the background |
 | `photos/` | `TvShell.Photos` | Immich, the photos place, the viewer, the screensaver, place names |
 | `steam/` | `TvShell.Steam` | Steam's installed games and the games place |
+| `switch/` | `TvShell.Switch` | A Switch game's name and icon, read from its file by the shell itself (`format/`, also built into the `switch-gameinfo` tool) |
 | `apps/` | `TvShell.Apps` | Programs the shell starts and shows (`ManagedApp`), the Home place, app tiles and logos |
 | `youtube/` | `TvShell.YouTube` | The YouTube page, its settings, SponsorBlock, the key filter |
 | `controllers/` | `TvShell.Controllers` | The controller service's client, the Controllers settings, the motion test |
@@ -434,6 +435,18 @@ notes: the log, "Voice protocol details".
 - **Steam games** (`steam/SteamLibrary.*`, `steam/GamesPlace.qml`, `GameTile.qml`): installed
   games from Steam's manifests and its cached cover art; launched with
   `steam://rungameid/<id>`.
+- **A Switch game's icon** (`switch/`): `SwitchGame` takes a game file (`.xci` or `.nsp`,
+  relative to `~/Games/Emulators/Switch/`) and gives its name and its 256 px icon. Ring Fit's
+  tile on Home uses it (`AppTile`'s `icon`: in place of a drawn logo, the picture fills
+  the top of the tile, the name under it). The file is read
+  by the shell's own reader (`switch/format/`, plain C++ with libcrypto and zlib, written
+  from switchbrew's descriptions, nothing from Eden), on a thread of its own, with the keys
+  from the newest version folder in `~/Games/Emulators/Switch/keys/` (not Eden's copy),
+  loaded for that read and dropped after it. What it read is cached in
+  `~/.cache/tvshell/switch/<hash of the path>/` (`game.json`, `icon.jpg`) and read again only
+  when the file's size or date changes. Not covered: updates that change a game's name or
+  icon, tickets made for one console, NSZ and XCZ. `switch-gameinfo <file> [icon.jpg]`
+  prints what the reader gets from one file.
 - **Top bar** (`TopBar.qml`, `BarButton.qml`): one tab per place; the highlight moves
   freely, OK switches the place showing and the focus stays on the bar. Only Down, LB/RB and
   Back move the focus between the bar and a place (the places' `focus` isn't bound to the

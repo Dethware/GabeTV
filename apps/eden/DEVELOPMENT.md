@@ -57,9 +57,13 @@ so that layer is bypassed:
   because it was formed late or formed again after the machine slept, is taken apart
   again through a callback the HID service sets, which does what the game's own request
   does.
-- **What the game asks of a controller.** `SetPollingMode` and `SetLedPattern` go to
-  `TvControllers`: switching the ring on or off becomes a request to the service, so the
-  Joy-Con's second processor runs only while a game uses the ring.
+- **What the game asks of a controller.** `SetPollingMode`, `SetLedPattern` and
+  `SetVibration` go to `TvControllers`: switching the ring on or off becomes a request to
+  the service, so the Joy-Con's second processor runs only while a game uses the ring.
+  Every new vibration value goes to the service as the game sets it, for the half it is
+  meant for (and on a Pro Controller the grip); Eden's vibration settings and its filter
+  of values close together are bypassed, since the service paces what it writes to the
+  controller itself and stops the rumble when the game is parked or Eden goes away.
 - **The ring.** The game gets the ring's raw value. Eden's pretend ring
   (`hid_core/hidbus/ringcon.h`) reports the numbers of our real ring (`TvRingRest`,
   `TvRingRange`) in place of its own, and `TvControllers` gives the raw value as its share
@@ -114,14 +118,12 @@ for `user/`.
 
 1. A pass over all of this for refactoring and architecture: it was built in one long
    evening of trying things on the TV, and was meant to be gone over afterwards.
-2. Rumble from the game: Ring Fit uses it. The message exists in the protocol; neither
-   Eden's side nor the service's does anything with it yet.
-3. The IR camera (Ring Fit reads a pulse with it).
-4. More games, with their own art: a library of Switch games in the shell's Games place
-   (name and icon read from each game file, which needs Eden's own loader and the keys),
-   and one unit per game in place of `eden.service` naming Ring Fit.
-5. A Joy-Con held sideways in a game (its buttons and stick are passed as held upright).
-6. User profiles pass through to Eden (its user, and with it the saves, follows who is
+2. The IR camera (Ring Fit reads a pulse with it).
+3. More games: one unit per game in place of `eden.service` naming Ring Fit, and a place
+   for them in the shell (`../../DEVELOPMENT.md`, Next). The shell reads a game's name and
+   icon itself.
+4. A Joy-Con held sideways in a game (its buttons and stick are passed as held upright).
+5. User profiles pass through to Eden (its user, and with it the saves, follows who is
    using the TV), once the TV has them: a system of its own, see `../../DEVELOPMENT.md`.
 
 Not pursued: the stray geometry the user saw once or twice in Ring Fit's first level

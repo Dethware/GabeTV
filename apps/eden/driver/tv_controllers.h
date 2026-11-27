@@ -36,7 +36,7 @@ constexpr s16 TvRingRange = 2600;
 // and timed (tv_emulator_protocol.h). This class takes that and writes it into the
 // EmulatedControllers as the state of a Switch's own controllers: no bindings, no devices
 // by GUID, no dead zones or smoothing of its own. What a game asks of a controller (the
-// ring, the lights) goes back to the service.
+// ring, the lights, rumble) goes back to the service.
 //
 // Which player has which controller starts as the service says. A game may take a pair of
 // Joy-Cons apart and put them together again; the halves then go where the game puts
@@ -57,6 +57,10 @@ public:
                                                EmulatedDeviceIndex device_index,
                                                Common::Input::PollingMode polling_mode);
     void SetLeds(EmulatedController& controller);
+    // Every vibration value the game sets, as it sets it: the service paces what it writes
+    // to the controller itself and keeps short pulses.
+    bool SetVibration(EmulatedController& controller, DeviceIndex device_index,
+                      const VibrationValue& vibration);
 
     // A game is being played, or it is paused or there is none: passed on to the service,
     // which keeps the controllers to the game while one is. Call it before the game

@@ -13,7 +13,7 @@ index c740cdb..5ecaa39 100644
      hidbus/hidbus_base.h
      hidbus/ringcon.cpp
 diff --git a/src/hid_core/frontend/emulated_controller.cpp b/src/hid_core/frontend/emulated_controller.cpp
-index ef841e2..258600d 100644
+index ef841e2..daf7c76 100644
 --- a/src/hid_core/frontend/emulated_controller.cpp
 +++ b/src/hid_core/frontend/emulated_controller.cpp
 @@ -12,6 +12,7 @@
@@ -35,7 +35,23 @@ index ef841e2..258600d 100644
      const auto player_index = Service::HID::NpadIdTypeToIndex(npad_id_type);
      const auto& player = Settings::values.players.GetValue()[player_index];
  
-@@ -1345,6 +1350,9 @@ Common::Input::DriverResult EmulatedController::SetPollingMode(
+@@ -1249,6 +1254,15 @@ bool EmulatedController::SetVibration(DeviceIndex device_index, const VibrationV
+         return false;
+     }
+     const std::size_t index = static_cast<std::size_t>(device_index);
++    if (tv_controllers) {
++        // Every value goes to the controller service, which paces its writes itself: the
++        // settings below and the filter of values close together are not for it.
++        if (last_vibration_value[index] == vibration) {
++            return true;
++        }
++        last_vibration_value[index] = vibration;
++        return tv_controllers->SetVibration(*this, device_index, vibration);
++    }
+     if (!output_devices[index]) {
+         return false;
+     }
+@@ -1345,6 +1359,9 @@ Common::Input::DriverResult EmulatedController::SetPollingMode(
      if (!is_initialized) {
          return Common::Input::DriverResult::InvalidHandle;
      }
@@ -45,7 +61,7 @@ index ef841e2..258600d 100644
  
      auto& left_output_device = output_devices[static_cast<std::size_t>(DeviceIndex::Left)];
      auto& right_output_device = output_devices[static_cast<std::size_t>(DeviceIndex::Right)];
-@@ -1555,6 +1563,10 @@ void EmulatedController::SetLedPattern() {
+@@ -1555,6 +1572,10 @@ void EmulatedController::SetLedPattern() {
      if (!is_initialized) {
          return;
      }

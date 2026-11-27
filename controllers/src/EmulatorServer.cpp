@@ -52,6 +52,7 @@ EmulatorServer::EmulatorServer(DeviceWatcher *watcher, UnitManager *units, QObje
     connect(watcher, &DeviceWatcher::joyConAdded, this, &EmulatorServer::watch);
     connect(watcher, &DeviceWatcher::joyConRemoved, this, &EmulatorServer::forget);
     connect(units, &UnitManager::changed, this, &EmulatorServer::announce);
+    connect(units, &UnitManager::changed, this, &EmulatorServer::stopRumbleOutsideUnits);
     const QList<JoyCon *> joyCons = watcher->joyCons();
     for (JoyCon *joyCon : joyCons)
         watch(joyCon);
@@ -172,10 +173,17 @@ void EmulatorServer::read(int fd)
             if (client.playing != (playing.on != 0)) {
                 client.playing = playing.on != 0;
                 qCInfo(lcEmulator).noquote() << client.name << (client.playing ? "is playing" : "is not playing");
+                // A game paused in the middle of a rumble sends nothing more.
+                if (!client.playing)
+                    stopRumble(client);
                 updatePlaying();
             }
-        } else if (header.type == Emulator::Type::SetLights || header.type == Emulator::Type::Rumble) {
-            // Lights and rumble from the game: not built yet.
+        } else if (header.type == Emulator::Type::Rumble && size >= ssize_t(sizeof(Emulator::Rumble))) {
+            Emulator::Rumble request;
+            std::memcpy(&request, buffer, sizeof request);
+            rumble(client, request);
+        } else if (header.type == Emulator::Type::SetLights) {
+            // The lights as the game sets them: left alone, they only change the look.
         } else {
             qCDebug(lcEmulator).noquote() << client.name << "sent a message we don't know:" << int(header.type) << "of"
                                           << size << "bytes";
@@ -201,6 +209,10 @@ void EmulatorServer::drop(int fd)
         qCInfo(lcEmulator).noquote() << client.name << "disconnected";
     for (JoyCon *ring : client.rings)
         updateRing(ring);
+    for (JoyCon *rumbled : client.rumbled) {
+        if (m_ids.contains(rumbled))
+            rumbled->stopRumble();
+    }
     updatePlaying();
     if (m_clients.isEmpty())
         m_refresh.stop();
@@ -220,6 +232,39 @@ void EmulatorServer::wantRing(int fd, JoyCon *joyCon, bool on)
     updateRing(joyCon);
 }
 
+void EmulatorServer::rumble(Client &client, const Emulator::Rumble &request)
+{
+    JoyCon *target = joyCon(request.id);
+    if (!target)
+        return;
+    const bool on = request.lowAmplitude > 0 || request.highAmplitude > 0;
+    if (on)
+        client.rumbled.insert(target);
+    target->setRumble(request.motor == Emulator::Motor::Right ? JoyCon::Motor::Right : JoyCon::Motor::Left,
+                      {request.lowAmplitude, request.lowFrequency, request.highAmplitude, request.highFrequency});
+}
+
+void EmulatorServer::stopRumble(Client &client)
+{
+    for (JoyCon *rumbled : std::as_const(client.rumbled)) {
+        if (m_ids.contains(rumbled))
+            rumbled->stopRumble();
+    }
+    client.rumbled.clear();
+}
+
+// A controller that was taken apart (L+R, SL+SR again) is no longer anybody's in the game.
+void EmulatorServer::stopRumbleOutsideUnits()
+{
+    const QList<JoyCon *> waiting = m_units->unassigned();
+    for (Client &client : m_clients) {
+        for (JoyCon *joyCon : waiting) {
+            if (client.rumbled.remove(joyCon))
+                joyCon->stopRumble();
+        }
+    }
+}
+
 void EmulatorServer::updatePlaying()
 {
     bool playing = false;
@@ -228,6 +273,9 @@ void EmulatorServer::updatePlaying()
     if (playing == m_playing)
         return;
     m_playing = playing;
+    // A game may make the controllers rumble while it is played (JoyCon::setRumbleWanted).
+    for (auto it = m_ids.cbegin(); it != m_ids.cend(); ++it)
+        it.key()->setRumbleWanted(JoyCon::RumbleUser::Emulator, playing);
     emit playingChanged(playing);
 }
 
@@ -267,13 +315,17 @@ void EmulatorServer::adopt(JoyCon *joyCon)
     while (m_ids.values().contains(id))
         ++id;
     m_ids.insert(joyCon, id);
+    if (m_playing)
+        joyCon->setRumbleWanted(JoyCon::RumbleUser::Emulator, true);
     announce();
 }
 
 void EmulatorServer::forget(JoyCon *joyCon)
 {
-    for (Client &client : m_clients)
+    for (Client &client : m_clients) {
         client.rings.remove(joyCon);
+        client.rumbled.remove(joyCon);
+    }
     if (m_ids.remove(joyCon) > 0)
         announce();
 }

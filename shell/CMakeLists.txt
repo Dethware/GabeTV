@@ -15,6 +15,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb xcb-xtest)
 pkg_check_modules(PULSE REQUIRED IMPORTED_TARGET libpulse)
 find_package(Threads REQUIRED)
+# Reading Switch game files (switch/format).
+find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
+find_package(ZLIB REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.11)
 
@@ -41,6 +44,8 @@ target_link_libraries(miniaudio
 add_subdirectory(common)
 add_subdirectory(session)
 add_subdirectory(power)
+# Before apps, whose Home shows a Switch game's icon.
+add_subdirectory(switch)
 add_subdirectory(apps)
 add_subdirectory(audio)
 add_subdirectory(photos)
@@ -67,6 +72,7 @@ qt_add_qml_module(tvshell
         TARGET tvshell_audio
         TARGET tvshell_photos
         TARGET tvshell_steam
+        TARGET tvshell_switch
         TARGET tvshell_apps
         TARGET tvshell_youtube
         TARGET tvshell_controllers
@@ -88,6 +94,7 @@ target_link_libraries(tvshell
         tvshell_audioplugin
         tvshell_photosplugin
         tvshell_steamplugin
+        tvshell_switchplugin
         tvshell_appsplugin
         tvshell_youtubeplugin
         tvshell_controllersplugin

@@ -20,7 +20,7 @@ class UnitManager;
 // for what a game asks of a real Joy-Con. It stands next to the virtual pads, which are
 // for everything that isn't an emulator of the Switch.
 //
-// What a program asked for (the ring) ends when its connection does.
+// What a program asked for (the ring, rumble) ends when its connection does.
 class EmulatorServer : public QObject
 {
     Q_OBJECT
@@ -42,6 +42,8 @@ private:
         bool greeted = false;
         // The Joy-Cons whose ring it asked for.
         QSet<JoyCon *> rings;
+        // The controllers it made rumble: stopped when it stops playing or goes away.
+        QSet<JoyCon *> rumbled;
         // It has a game being played (not paused).
         bool playing = false;
     };
@@ -64,6 +66,9 @@ private:
     void wantRing(int fd, JoyCon *joyCon, bool on);
     void updateRing(JoyCon *joyCon);
     void updatePlaying();
+    void rumble(Client &client, const TvControllers::Emulator::Rumble &request);
+    void stopRumble(Client &client);
+    void stopRumbleOutsideUnits();
 
     DeviceWatcher *m_watcher;
     UnitManager *m_units;

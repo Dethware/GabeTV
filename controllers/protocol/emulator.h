@@ -27,7 +27,7 @@ constexpr char SocketDirectory[] = "tvcontrollers";
 constexpr char SocketName[] = "emulator";
 
 // Raised when a message changes shape. The service refuses a Hello with another one.
-constexpr std::uint16_t Version = 1;
+constexpr std::uint16_t Version = 2;
 
 enum class Type : std::uint16_t {
     // Emulator to service.
@@ -189,11 +189,24 @@ struct SetLights
 
 // Rumble for one controller: a low and a high band, each an amplitude from 0 to 1 and a
 // frequency in Hz, as a Switch game gives them. It lasts until the next one; all zero
-// amplitudes stop it.
+// amplitudes stop it. Only while a game is played (Playing): the controllers' connections
+// are kept ready for it then. The service also stops it when the emulator says it is not
+// playing, when the controller leaves its controller and when the connection ends.
+//
+// Send every value the game sets, as it sets it (repeats may be left out): the service
+// writes to the controller at its own pace (every 30 ms at most, a Joy-Con's limit) and
+// keeps the strongest value since the last write, so a short pulse isn't lost.
+enum class Motor : std::uint8_t {
+    Left = 0,
+    Right = 1,
+};
+
 struct Rumble
 {
     Header header{Type::Rumble};
     std::uint8_t id;
+    // A Pro Controller has one in each grip. A Joy-Con has one; this is ignored for it.
+    Motor motor;
     float lowAmplitude;
     float lowFrequency;
     float highAmplitude;
@@ -215,5 +228,6 @@ static_assert(sizeof(Header) == 4);
 static_assert(sizeof(Controller) == 14);
 static_assert(sizeof(MotionReading) == 32);
 static_assert(sizeof(Input) == 4 + 8 + 16 + MotionReadings * 32);
+static_assert(sizeof(Rumble) == 4 + 2 + 16);
 
 } // namespace TvControllers::Emulator

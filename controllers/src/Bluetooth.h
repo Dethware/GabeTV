@@ -36,7 +36,8 @@ private:
 // The Bluetooth side of a Joy-Con, through bluez on the system D-Bus: searching for
 // Joy-Cons held in sync mode and pairing them, forgetting one, and dropping a connection.
 // The connection itself and the pairing keys stay bluez's business; a connected Joy-Con
-// reaches the service as a HID node (DeviceWatcher).
+// reaches the service as a HID node (DeviceWatcher). One thing bluez doesn't offer, the
+// connection's link policy, goes to the adapter directly (setSniffAllowed).
 class Bluetooth : public QObject
 {
     Q_OBJECT
@@ -56,6 +57,11 @@ public:
     void forget(const QString &address);
     // Logs what bluez reports about this device from now on: connected, disconnected and why.
     void follow(const QString &address);
+    // Whether its connection may use sniff mode, the low-power rhythm a Joy-Con keeps it in
+    // (a slot every 15 ms). Refused while it rumbles (JoyCon::activeLinkWanted). Sets the
+    // connection's link policy with an HCI command, which needs CAP_NET_RAW (the unit
+    // grants it); lasts as long as the connection.
+    void setSniffAllowed(const QString &address, bool allowed);
 
 signals:
     void searchingChanged();

@@ -14,6 +14,7 @@ qt_add_qml_module(tvshell_apps
         ManagedApp.h
     DEPENDENCIES
         TARGET tvshell_common
+        TARGET tvshell_switch
 )
 
 # The generated type registration includes the headers by name.
@@ -27,4 +28,5 @@ target_link_libraries(tvshell_apps
         Qt6::Quick
         PkgConfig::XCB
         tvshell_common
+        tvshell_switch
 )

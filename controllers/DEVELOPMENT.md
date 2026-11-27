@@ -38,7 +38,8 @@ talk to the Joy-Con too. Two files stop that:
 - **`system/72-tv-joycon.rules`** removes the user-access tag from the hidraw and input
   nodes of a Joy-Con or Pro Controller connected over Bluetooth and gives them to group `input`, which the `deck` user is not in. The service
   is a system unit that runs as `deck` with `SupplementaryGroups=input`, so it is the only
-  process that can open them. The file must sort after `70-steam-jupiter-input.rules` and
+  process that can open them. (The unit also grants `CAP_NET_RAW`, for one HCI command:
+  see Rumble.) The file must sort after `70-steam-jupiter-input.rules` and
   `70-uaccess.rules`, which set the tag, and before `73-seat-late.rules`, which applies it.
 - **`system/tv-no-hid-nintendo.conf`** (in `/etc/modprobe.d`) switches `hid_nintendo` off.
   A Joy-Con then gets `hid-generic`, which only provides the hidraw node and writes
@@ -132,6 +133,13 @@ the bus every three seconds.
   second ((reading − origin) × 936 / (sensitivity − origin)). The axes are the same for
   every controller held upright: x to its top, y to its left, z out of its face; a right
   Joy-Con's y and z are turned, because its sensor is mounted the other way round.
+  Each reading gets its time from the report's own timer (its second byte), which ticks
+  every 5 ms: a report's three readings are spread evenly over the ticks since the report
+  before. That is 3 ticks (15 ms, 67 reports a second) while the connection sleeps in
+  sniff mode, and 2 or 3 (89 reports a second) while it is kept active for rumble, so the
+  readings are not always 5 ms apart (measured: the motion clock ran 1.33 times fast when
+  they were taken as such). A step well beyond the usual one (which follows the rhythm)
+  means lost reports; a silence of over a second is measured on the service's clock.
 - **`MotionCalibration`** is the service's own motion calibration, like a Switch's
   "calibrate motion controls". The calibration stored in a controller leaves the strength
   at rest up to 7 % off 1 g (measured: 1.07, 1.03 and 1.02 on three controllers; Eden and
@@ -155,16 +163,14 @@ the bus every three seconds.
   (https://v1993.github.io/cemuhook-protocol/). Each Joy-Con is a pad of its own, since a
   pair has two sensors: pads 0 and 1 are player 1's left (or only) and right, pads 2 and 3
   player 2's; players 3 and 4 aren't served yet. Every reading carries its own time
-  (`JoyCon::Motion::time`), and that is the packet's timestamp, so a client can add up
-  rotation exactly: 5 ms after the reading before, plus 15 ms for every report lost in
-  between. Lost reports are told by the report's own timer (its second byte), which
-  counts one per reading, so 3 from one report to the next and 6 across a lost one; when
-  a report arrives says little, the radio delivers them unevenly. Their readings are
-  filled in (up to 8 reports in a row) on a straight line between the readings either
-  side of the gap and sent first, so the stream is complete; `lostReports` in `Describe`
-  says how many. The readings go out
+  (`JoyCon::Motion::time`, see Motion), and that is the packet's timestamp, so a client can
+  add up rotation exactly; when a report arrives says little, the radio delivers them
+  unevenly. The readings of lost reports are filled in (up to 8 reports in a row) on a
+  straight line between the readings either side of the gap and sent first, so the stream
+  is complete; `lostReports` in `Describe` says how many. The readings go out
   from a queue, one every 5 ms and in order, two at a time when a burst from the radio
-  has built up a backlog: sent as they arrive they would come in bursts, which matters to
+  has built up a backlog (and all the time while a connection is kept active, 267
+  readings a second): sent as they arrive they would come in bursts, which matters to
   a client that takes the time between packets as the time between readings (Eden), and
   sent by a timer each they arrived out of order. Only motion, battery and identity are filled in; buttons and sticks
   go through the virtual controller. The protocol's reference doesn't say which way its
@@ -182,11 +188,14 @@ the bus every three seconds.
   motion readings with their times and the ring's raw flex. It asks for the ring with
   `SetRing` and says with `Playing` when a game is being played: the units' virtual pads
   are then held neutral (`UnitManager::setPadsHeld`), so that the controllers are the
-  game's alone, while Home still reaches the shell. Lights and rumble are in the protocol
-  and not acted on yet. A program that
-  disconnects is taken out of the list before anything it asked for is given up: giving
-  up a ring announces a change to every client, and that must not reach the one being
-  dropped.
+  game's alone, while Home still reaches the shell. While a game is played the server
+  wants rumble on every controller it knows (`JoyCon::setRumbleWanted`), and `Rumble`
+  passes the game's vibration on (below); the lights a game sets are ignored. A rumble a program
+  started is stopped when it says it isn't playing (a game paused in the middle of one
+  says nothing more), when the controller's unit is ended and when the program goes
+  away. A program that disconnects is taken out of the list before anything it asked for
+  is given up: giving up a ring announces a change to every client, and that must not
+  reach the one being dropped.
 - **The Ring-Con** hangs on a right Joy-Con's rail and is read through the Joy-Con's
   second processor, which also drives the IR camera and NFC. `JoyCon::setRingWanted(who, true)`
   (the shell's test and an emulator may each want it; it is read while either does)
@@ -201,6 +210,34 @@ the bus every three seconds.
   reports. The flex is passed on as it comes, about 3700 at rest and 1500 to 6200 at the
   ends: the game calibrates it for the player. The second processor costs battery, so it
   runs only while the ring is wanted; when nobody wants it any more it is switched off.
+- **Rumble.** A Joy-Con keeps its connection in sniff mode, a low-power rhythm with a
+  slot every 15 ms. For every packet the computer sends it there, the kernel's Bluetooth
+  stack first wakes the link ("Exit Sniff Mode") and the Joy-Con puts it back to sleep
+  some 20 ms later; written to steadily, the link flaps, loses reports, delivers them in
+  bunches and drops. So rumble is only written while something wants it
+  (`JoyCon::setRumbleWanted`, now the emulator while a game is played): `JoyCon` then
+  emits `activeLinkWanted(true)`, and `Bluetooth::setSniffAllowed` sets the connection's
+  link policy to refuse sniff, so that the first write wakes the link and it stays
+  awake. Half a second after the last one lets go (and the last "off" is out), sniff is
+  allowed again and the Joy-Con goes back to it by itself. Awake, it sends 89 reports a
+  second instead of 67 (see Motion) and uses a bit more battery than asleep, far less
+  than the actuator. `setRumble` takes what a Switch game sets: a low and a high band,
+  each an amplitude from 0 to 1 and a frequency, for one actuator (a Joy-Con has one, a
+  Pro Controller one in each grip); it is ignored while nobody wants rumble.
+  `encodeRumble` (`JoyConProtocol.h`) turns that into the four bytes the actuator takes;
+  a Joy-Con alone gets them in both halves of the rumble data. Both bands move one
+  actuator, so when their amplitudes add up to more than 1 both are scaled down. Rumble
+  goes out in output report 0x10 right after one of the Joy-Con's reports (when it
+  listens best; the kernel's `hid_nintendo` does the same), at most every 30 ms and again
+  every 40 ms while it vibrates, since the actuator stops without (both figures from SDL);
+  "off" is written three times, since nothing confirms a write. Between writes each band
+  keeps the strongest value since the last write, so a pulse shorter than that is still
+  felt. A subcommand carries the current rumble too and counts as a write: with "no
+  vibration" in its bytes it would cut the rumble. Vibration is switched on (subcommand
+  `0x48`) when the Joy-Con is opened. A Joy-Con that goes quiet has its rumble stopped.
+  At debug level each rumble is logged with what the game sent (values, the shortest gap
+  between them, writes, ranges). The facts and the measurements are in the log, "Rumble
+  from the game" and "Rumble wears down the Joy-Cons' link".
 - **Stick calibration** comes from the Joy-Con's memory (subcommand `0x10`): the factory
   values, replaced by the user's own if those are marked valid. An answer to a memory
   read only counts if it repeats the address and length asked for: a slow Joy-Con
@@ -214,7 +251,12 @@ the bus every three seconds.
   is the service's own bluez agent (`NoInputNoOutput`): a Joy-Con pairs without a code, and
   the agent agrees only for a device the service is pairing. `Bluetooth` also disconnects
   and forgets a device, and logs bluez's connect and disconnect events, with the reason,
-  for every Joy-Con the service has seen.
+  for every Joy-Con the service has seen. The one thing bluez doesn't offer, a
+  connection's link policy (`setSniffAllowed`), goes to the adapter as an HCI command on
+  a raw socket: the connection's handle is found by address (`HCIGETCONNINFO`) on each
+  adapter in turn, and "Write Link Policy Settings" sets role switch, with or without
+  sniff. Sending HCI commands needs `CAP_NET_RAW`, which the unit grants; the policy lasts
+  as long as the connection. Only bluez's headers are used, nothing of its library.
 - **`ControllerService`** is the shell's view: `Describe()` (JSON, units in player order),
   `Changed`, `HomePressed`, the search and switch-off calls, `EndUnit`, `SwapPlayers`,
   `CalibrateMotion` with its answer `MotionCalibrated`, and `WatchRing` with the signal
@@ -242,9 +284,11 @@ differ from the repository's.
 - State from outside: `busctl --user call local.tvcontrollers /local/tvcontrollers
   local.tvcontrollers Describe`.
 - `tools/` has small clients to run on the Steam Machine (copy them over; they need only
-  Python): `emulator-client.py [seconds] [ring]` says Hello on the emulator socket, prints
-  the controllers, each one's report rate and last report, and with `ring` asks for the
-  ring and prints its range. The others read the motion server as an emulator would:
+  Python): `emulator-client.py [seconds] [ring] [rumble] [hold]` says Hello on the
+  emulator socket, prints the controllers, each one's report rate and last report, with
+  `ring` asks for the ring and prints its range, and with `rumble` says it is playing
+  (rumble counts only then) and plays a test pattern on every controller in a unit
+  (`hold` leaves its last part on and disconnects, which the service must stop). The others read the motion server as an emulator would:
   `dsu-client.py` (pads, packet rate and timing, mean acceleration and rotation),
   `dsu-loss.py` and `dsu-watch.py` (readings lost, from the steps between their times;
   once, or every ten seconds), `dsu-noise.py` (how quiet the sensors are at rest).
@@ -255,16 +299,24 @@ differ from the repository's.
 
 1. In the shell's Controllers settings (`ControllersPane`): forgetting a controller, and
    why one left (switched off, battery empty, out of reach).
-2. For the emulator (`EmulatorServer`): rumble as the game sets it (Ring Fit uses it),
-   then the IR camera. (The player lights as a game sets them are left alone: they only
+2. Rumble: Bluetooth audio on the same adapter (the soundbar over A2DP) and the
+   Joy-Cons. With the soundbar on they lost reports and dropped in Ring Fit, kept awake
+   or not (only tried before a bug was fixed; with it off a whole level played without
+   a drop; the log has the runs). The soundbar now goes to the TV over HDMI ARC; to be
+   tried again later with Bluetooth audio, and if it still fails, a separate Bluetooth
+   adapter for audio or for the controllers. Then wanting rumble as a lease, the user's idea:
+   a rumble asked for wakes the link and keeps it awake for some seconds, so that no one
+   has to say in advance (Playing) that they will rumble, and haptics in the shell can
+   use it the same way.
+3. For the emulator (`EmulatorServer`): the IR camera. (The player lights as a game sets them are left alone: they only
    change the look.) Units that survive a restart of the service.
-3. An idea, not decided: the Ring-Con as the way to steer outside games too (squeeze to
+4. An idea, not decided: the Ring-Con as the way to steer outside games too (squeeze to
    confirm, pull to cancel, turn it left or right, point it up or down), as one more
    mapping onto the virtual pad. It needs the ring read the whole time, which keeps the
    Joy-Con's second processor on.
-4. Lost reports, later and not urgent: their readings are filled in on a straight line
+5. Lost reports, later and not urgent: their readings are filled in on a straight line
    once the next report is there. Worth reading up on what is done elsewhere (loss
    concealment for inertial sensors) and trying prediction, so that a reader gets
    something sensible during the gap and not only after it.
-5. Motion pads for players 3 and 4 (a second server port).
-6. The Pro Controller on a USB cable.
+6. Motion pads for players 3 and 4 (a second server port).
+7. The Pro Controller on a USB cable.

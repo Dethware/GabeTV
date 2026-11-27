@@ -2,6 +2,9 @@
 
 #include <QtTypes>
 
+#include <algorithm>
+#include <cmath>
+
 // The Joy-Con's HID protocol over Bluetooth, as far as the service uses it. Reference:
 // dekuNukem's Nintendo_Switch_Reverse_Engineering (bluetooth_hid_notes.md and
 // bluetooth_hid_subcommands_notes.md).
@@ -16,8 +19,63 @@ constexpr quint16 ProductPro = 0x2009;
 // and its arguments.
 constexpr quint8 OutputSubcommand = 0x01;
 constexpr int SubcommandOffset = 10;
-// Rumble data for "no vibration" on both sides.
-constexpr quint8 RumbleOff[8] = {0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40};
+// Output report 0x10: a packet counter and the eight bytes of rumble data alone.
+constexpr quint8 OutputRumble = 0x10;
+
+// Rumble data: four bytes for the left Joy-Con's actuator, then four for the right's (a
+// Pro Controller has one in each grip; a Joy-Con alone is given the same in both). Each
+// actuator plays two sine waves at once, a high band (81.75 to 1252.57 Hz) and a low band
+// (40.875 to 626.28 Hz), each with an amplitude from 0 to 1, as a Switch game sets them.
+// Reference: dekuNukem's rumble_data_table.md and bluetooth_hid_notes.md.
+constexpr int RumbleSize = 4;
+// "No vibration": 320 Hz and 160 Hz, both silent.
+constexpr quint8 RumbleOff[RumbleSize] = {0x00, 0x01, 0x40, 0x40};
+
+inline void encodeRumble(float lowAmplitude, float lowFrequency, float highAmplitude, float highFrequency,
+                         quint8 out[RumbleSize])
+{
+    // Both bands move the same actuator, so its swing is their sum: kept within 1. Above
+    // an amplitude of 1 the reference warns of damaging the actuator.
+    lowAmplitude = std::max(lowAmplitude, 0.0f);
+    highAmplitude = std::max(highAmplitude, 0.0f);
+    const float sum = lowAmplitude + highAmplitude;
+    if (sum > 1.0f) {
+        lowAmplitude /= sum;
+        highAmplitude /= sum;
+    }
+    // Amplitude as a step from 0 to 100 (0.0 to 1.0). The reference gives two of the three
+    // pieces; the lowest one (below 0.12) is fitted to its table, where each step is
+    // 2^(1/4) more than the one before.
+    const auto amplitude = [](float a) {
+        float step;
+        if (a > 0.23f)
+            step = std::log2(a * 8.7f) * 32.0f;
+        else if (a > 0.12f)
+            step = std::log2(a * 17.0f) * 16.0f;
+        else
+            step = a > 0.0f ? std::log2(a * 120.0f) * 4.0f : 0.0f;
+        return std::clamp(int(std::lround(step)), 0, 100);
+    };
+    // Frequency as 32 steps an octave above 10 Hz.
+    const auto frequency = [](float hz, float lowest, float highest) {
+        if (!(hz >= lowest)) // also a NaN
+            hz = lowest;
+        return int(std::lround(std::log2(std::min(hz, highest) / 10.0f) * 32.0f));
+    };
+    const int high = (frequency(highFrequency, 81.75f, 1252.57f) - 0x60) * 4; // 0x004 to 0x1fc
+    const int low = frequency(lowFrequency, 40.875f, 626.28f) - 0x40; // 0x01 to 0x7f
+    const int highStep = amplitude(highAmplitude);
+    const int lowStep = amplitude(lowAmplitude);
+    // The high band's frequency and the low band's amplitude are nine bits each: their
+    // ninth bit is the lowest of the high band's amplitude byte and the top of the low
+    // band's frequency byte.
+    const int highAmp = highStep * 2; // 0x00 to 0xc8
+    const int lowAmp = ((lowStep & 1) << 15) | (lowStep / 2 + 0x40); // 0x40 to 0x72
+    out[0] = quint8(high & 0xff);
+    out[1] = quint8(highAmp | ((high >> 8) & 0x01));
+    out[2] = quint8(low | ((lowAmp >> 8) & 0x80));
+    out[3] = quint8(lowAmp & 0xff);
+}
 
 // Input reports. 0x21 and 0x30 start the same way: timer, battery and connection, three
 // bytes of buttons, three bytes per stick, the vibrator state.

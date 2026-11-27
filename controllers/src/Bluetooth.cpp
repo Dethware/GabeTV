@@ -7,7 +7,15 @@
 #include <QDBusVariant>
 #include <QLoggingCategory>
 
+#include <cerrno>
+#include <cstring>
 #include <functional>
+
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 Q_LOGGING_CATEGORY(lcBluetooth, "tvcontrollers.bluetooth")
 
@@ -216,6 +224,67 @@ void Bluetooth::forget(const QString &address)
     qCInfo(lcBluetooth).noquote() << "forgetting" << address;
     call(this, AdapterPath, AdapterInterface, QStringLiteral("RemoveDevice"),
          {QVariant::fromValue(QDBusObjectPath(devicePath(address)))});
+}
+
+// With bluez's headers for the structures only; nothing of its library is linked.
+void Bluetooth::setSniffAllowed(const QString &address, bool allowed)
+{
+    const QStringList parts = address.split(QLatin1Char(':'));
+    if (parts.size() != 6)
+        return;
+    bdaddr_t bdaddr;
+    // Bluetooth addresses are stored backwards.
+    for (int i = 0; i < 6; ++i)
+        bdaddr.b[5 - i] = quint8(parts.at(i).toUInt(nullptr, 16));
+
+    // The adapters there are; the one that has a connection to this address is asked.
+    const int control = ::socket(AF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC, BTPROTO_HCI);
+    if (control < 0) {
+        qCWarning(lcBluetooth).noquote() << "no HCI socket:" << std::strerror(errno);
+        return;
+    }
+    // Both requests end in an array of answers: room for them right behind.
+    alignas(hci_dev_list_req) char listBuffer[sizeof(hci_dev_list_req) + HCI_MAX_DEV * sizeof(hci_dev_req)] = {};
+    auto *list = reinterpret_cast<hci_dev_list_req *>(listBuffer);
+    list->dev_num = HCI_MAX_DEV;
+    const int count = ::ioctl(control, HCIGETDEVLIST, list) == 0 ? list->dev_num : 0;
+    ::close(control);
+
+    for (int i = 0; i < count; ++i) {
+        const int fd = ::socket(AF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC, BTPROTO_HCI);
+        if (fd < 0)
+            continue;
+        sockaddr_hci bound{};
+        bound.hci_family = AF_BLUETOOTH;
+        bound.hci_dev = list->dev_req[i].dev_id;
+        bound.hci_channel = HCI_CHANNEL_RAW;
+        alignas(hci_conn_info_req) char infoBuffer[sizeof(hci_conn_info_req) + sizeof(hci_conn_info)] = {};
+        auto *info = reinterpret_cast<hci_conn_info_req *>(infoBuffer);
+        info->bdaddr = bdaddr;
+        info->type = ACL_LINK;
+        if (::bind(fd, reinterpret_cast<sockaddr *>(&bound), sizeof bound) != 0
+            || ::ioctl(fd, HCIGETCONNINFO, info) != 0) {
+            ::close(fd);
+            continue;
+        }
+        // Write Link Policy Settings: the connection's handle and what it may do. Allowed
+        // again it gets role switch and sniff, the policy it had (hold and park are long
+        // gone from use).
+        const quint16 handle = info->conn_info[0].handle;
+        const quint16 policy = allowed ? HCI_LP_RSWITCH | HCI_LP_SNIFF : HCI_LP_RSWITCH;
+        const quint16 opcode = cmd_opcode_pack(OGF_LINK_POLICY, OCF_WRITE_LINK_POLICY);
+        const quint8 command[] = {HCI_COMMAND_PKT,       quint8(opcode),        quint8(opcode >> 8), 4,
+                                  quint8(handle),        quint8(handle >> 8),   quint8(policy),      quint8(policy >> 8)};
+        if (::write(fd, command, sizeof command) == ssize_t(sizeof command))
+            qCInfo(lcBluetooth).noquote() << address << (allowed ? "may sleep again (sniff mode allowed)"
+                                                                 : "is kept active (sniff mode refused)");
+        else
+            qCWarning(lcBluetooth).noquote() << "cannot set the link policy of" << address << ":" << std::strerror(errno)
+                                             << (errno == EPERM ? "- the unit must grant CAP_NET_RAW (system/install.sh)" : "");
+        ::close(fd);
+        return;
+    }
+    qCInfo(lcBluetooth).noquote() << "no connection to" << address << "for its link policy";
 }
 
 void Bluetooth::follow(const QString &address)

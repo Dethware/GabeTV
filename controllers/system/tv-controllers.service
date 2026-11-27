@@ -9,6 +9,10 @@ Type=exec
 User=deck
 Group=deck
 SupplementaryGroups=input
+# Sending one HCI command, the link policy that keeps a Joy-Con's connection out of sniff
+# mode while it rumbles (Bluetooth::setSniffAllowed), needs this; nothing else does.
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
 # The shell talks to the service on the user's session bus.
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus

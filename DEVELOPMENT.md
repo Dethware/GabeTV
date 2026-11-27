@@ -100,7 +100,7 @@ How they meet:
 | Jellyfin | Jellyfin Desktop in its TV layout, built from source with patches | In the shell |
 | Photos | Built into the shell with the Immich API: albums, memories, viewer, screensaver. It uses a dedicated TV account that sees the albums shared with it and owns no photos | In the shell |
 | Steam games | Steam's library, started through Steam | In the shell |
-| Ring Fit Adventure, other Switch games | Eden, built from source, with the real Joy-Cons and Ring-Con through the controller service | Ring Fit plays; a library of games is next |
+| Ring Fit Adventure, other Switch games | Eden, built from source, with the real Joy-Cons and Ring-Con through the controller service | Ring Fit plays; more games are next |
 | Music (Symfonium) | Android only, so Waydroid | Not started |
 
 Waydroid, if it comes to that: it needs binder in the kernel, and the install scripts for
@@ -116,8 +116,13 @@ Larger pieces, roughly in order. Each part's own `DEVELOPMENT.md` has its smalle
    architecture. For the shell the direction is set: its source by topic and not by kind
    of file, YouTube as a program of its own, and in time one description per program in
    place of code that names each (`shell/DEVELOPMENT.md`, Next).
-2. Rumble in Eden, then the Joy-Con's IR camera.
-3. A library of Switch games in the shell's Games place, with each game's own art.
+2. The Joy-Con's IR camera in Eden.
+3. More Switch games than Ring Fit, each with its own tile and its own unit for Eden in
+   place of `eden.service` naming Ring Fit. The shell reads a game's name and icon from the
+   game file itself, not through the emulator, which may be exchanged one day: Ring Fit's
+   tile on Home shows its icon (`shell/DEVELOPMENT.md`, "A Switch game's icon"). Where more
+   games go is open: not a group in the Games place for now ([log](docs/gabecube-findings.md),
+   "One tile with its icon").
 4. User profiles: a system of its own, to be built from the ground up. They apply to
    photos (each person's own Immich photos and memories), YouTube, Eden (its user and
    saves) and probably some of the settings.
@@ -136,5 +141,19 @@ Larger pieces, roughly in order. Each part's own `DEVELOPMENT.md` has its smalle
   (https://fcast.org/). Other candidates: YouTube's "link with TV code" and DIAL, AirPlay
   (UxPlay), DLNA/UPnP rendering, Spotify Connect (librespot). Google Cast needs device keys
   and is out.
+- The machine in Home Assistant, starting small and growing: what is playing; the loaded
+  apps and the running game, with a way to stop each; power (wake, sleep, power off); the
+  controllers; the history of wake-ups and what caused them. Each part knows its own piece
+  (the shell what plays and runs, the controller service the controllers, wake-log the
+  wake-ups). Not decided:
+  - The connection. Probably MQTT with Home Assistant's discovery, so the entities appear
+    without anything installed in Home Assistant. That needs a broker, which Home
+    Assistant doesn't have yet: it will be a Docker container of its own beside it.
+  - Whether one bridge program gathers the parts' states over D-Bus, or each part connects
+    by itself.
+  - Asleep, the machine can't answer. It has to say so before it sleeps and again when it
+    wakes, and someone has to wake it from outside. It is on Wi-Fi: whether wake-on-WLAN
+    works from s2idle is not known.
+  - The sign-in for the broker stays on the machine, like the Immich key.
 - The Ring-Con as a way to steer outside games: squeeze to confirm, pull to cancel, turn and
   point to move.

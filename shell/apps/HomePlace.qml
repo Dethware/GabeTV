@@ -2,10 +2,10 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import TvShell.Common
+import TvShell.Switch
 
 // The first place: apps, at stable positions. YouTube and Jellyfin for now; music and others
-// join later. Ring Fit Adventure (in Eden) stands here until the Games place can hold games
-// that aren't Steam's.
+// join later. Ring Fit Adventure (in Eden) stands here too, with the icon from its game file.
 FocusScope {
     id: place
 
@@ -43,6 +43,7 @@ FocusScope {
 
         delegate: AppTile {
             logo: appId === "youtube" ? youtubeLogo : appId === "jellyfin" ? jellyfinLogo : null
+            icon: appId === "ringfit" ? ringFit.icon : ""
             running: place.runningApps.includes(appId)
         }
 
@@ -92,6 +93,13 @@ FocusScope {
                     place.menuRequested(tile.appId, tile.name)
             }
         }
+    }
+
+    // The game eden.service starts.
+    SwitchGame {
+        id: ringFit
+
+        file: "ringfit/ROM.xci"
     }
 
     Component {

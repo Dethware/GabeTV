@@ -548,6 +548,34 @@ void TvControllers::SetLeds(EmulatedController& controller) {
     }
 }
 
+bool TvControllers::SetVibration(EmulatedController& controller, DeviceIndex device_index,
+                                 const VibrationValue& vibration) {
+    const std::size_t player = Service::HID::NpadIdTypeToIndex(controller.npad_id_type);
+    Seat seat;
+    {
+        std::scoped_lock lock{mutex};
+        if (player >= Players) {
+            return false;
+        }
+        seat = seats[player];
+    }
+    // A Joy-Con is the half of its side; a Pro Controller is both, with a motor in each grip.
+    const bool right = device_index == DeviceIndex::Right;
+    const u8 id = right ? seat.right : seat.left;
+    if (device_index == DeviceIndex::None || id == Nobody) {
+        return false;
+    }
+    TvProtocol::Rumble message{};
+    message.id = id;
+    message.motor = right ? TvProtocol::Motor::Right : TvProtocol::Motor::Left;
+    message.lowAmplitude = vibration.low_amplitude;
+    message.lowFrequency = vibration.low_frequency;
+    message.highAmplitude = vibration.high_amplitude;
+    message.highFrequency = vibration.high_frequency;
+    Send(&message, sizeof(message));
+    return true;
+}
+
 void TvControllers::SetPlaying(bool playing_) {
     if (playing_ && !playing) {
         std::scoped_lock lock{mutex};

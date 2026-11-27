@@ -16,8 +16,7 @@ class QSocketNotifier;
 // One physical controller, reached through its raw HID node: a Joy-Con, or a Pro
 // Controller, which speaks the same protocol and is both halves in one piece. This is the only place that
 // reads from or writes to a Joy-Con: it keeps the last known buttons, stick and battery,
-// and sends subcommands (lights now; motion, rumble and the Ring-Con later) one at a time,
-// each waiting for its reply.
+// sends subcommands one at a time, each waiting for its reply, and rumble.
 class JoyCon : public QObject
 {
     Q_OBJECT
@@ -123,6 +122,31 @@ public:
     // The four player lights: bit 0 is the first. A light in `flashing` flashes.
     void setPlayerLights(quint8 lit, quint8 flashing = 0);
 
+    // Rumble as a Switch game sets it: two bands, each an amplitude from 0 to 1 and a
+    // frequency in Hz. It lasts until the next one; all zero stops it.
+    struct Vibration
+    {
+        float lowAmplitude = 0;
+        float lowFrequency = 160;
+        float highAmplitude = 0;
+        float highFrequency = 320;
+    };
+    // A Joy-Con has one actuator and takes either; a Pro Controller has one in each grip.
+    // Ignored while nobody wants rumble (setRumbleWanted).
+    enum class Motor { Left, Right };
+    void setRumble(Motor motor, const Vibration &vibration);
+    void stopRumble();
+    // Whether something may make it rumble: a game (the emulator), later perhaps the shell.
+    // Rumble needs the connection kept active: written to while the link may sleep (sniff
+    // mode), the computer wakes the link for every packet and the Joy-Con puts it back to
+    // sleep, and that flapping loses reports and ends in a dropped connection. Being
+    // active costs battery and makes it send 89 reports a second instead of 67, so only
+    // while wanted (activeLinkWanted).
+    enum class RumbleUser { Emulator = 1, Shell = 2 };
+    void setRumbleWanted(RumbleUser who, bool wanted);
+    // What activeLinkWanted() said last.
+    bool wantsActiveLink() const { return m_rumbleUsers != 0 || m_rumbleRelease.isActive(); }
+
 signals:
     // The device answered: firmware known, full reports on.
     void ready();
@@ -141,6 +165,9 @@ signals:
     void inRingChanged();
     // The ring's flex as the Joy-Con reports it, every 15 ms while a ring is attached.
     void ringFlex(int raw);
+    // Its connection should be kept out of sniff mode (Bluetooth::setSniffAllowed), or may
+    // sleep again: while rumble is wanted, and a moment after.
+    void activeLinkWanted(bool wanted);
     // It went quiet from a perfectly regular stream of reports: that is what a Joy-Con
     // being switched off looks like (it says nothing when it does). One that drifts out
     // of reach has late and missing reports first.
@@ -170,6 +197,9 @@ private:
     void setRing(bool ring);
     void applyRingWanted(bool wanted);
     void setInRing(bool inRing);
+    void writeRumble();
+    QByteArray takeRumbleData();
+    void traceRumble(const Vibration &vibration);
 
     // The stick's raw values at rest and how far it reaches from there in each direction.
     struct Calibration
@@ -218,6 +248,7 @@ private:
         double sum[3] = {};
         float strengthLow = 0;
         float strengthHigh = 0;
+        qint64 start = 0; // the first reading's time
     };
     RestWindow m_restWindow;
     Motion m_lastMotion;
@@ -235,6 +266,9 @@ private:
     // The time of the last motion reading (Motion::time), and the clock it is held to.
     qint64 m_motionTime = 0;
     int m_lastTimer = 0;
+    // Timer ticks from one report to the next, as they usually are: 3 in sniff mode, about
+    // 2.25 while the connection is kept active.
+    double m_usualTicks = 3;
     qint64 m_lastArrived = 0;
     int m_lostReports = 0;
     QElapsedTimer m_motionClock;
@@ -245,6 +279,39 @@ private:
     int m_lightChecks = 0;
     QTimer m_lightsTimer;
     QTimer m_quietTimer;
+    // Rumble, by motor: what the game set last, and what goes out with the next write,
+    // which keeps each band at the strongest it was since the last write, so that a pulse
+    // shorter than the time between writes is still felt.
+    std::array<Vibration, 2> m_rumble{};
+    std::array<Vibration, 2> m_rumbleNext{};
+    // Something changed since the last write; the last write made it vibrate.
+    bool m_rumbleChanged = false;
+    bool m_rumbling = false;
+    // "Off" writes still to go after a rumble ended.
+    int m_stopsLeft = 0;
+    // Who wants rumble (RumbleUser bits); after the last lets go, the link may sleep again.
+    int m_rumbleUsers = 0;
+    QTimer m_rumbleRelease;
+    // Since the last output report of any kind.
+    QElapsedTimer m_sinceWrite;
+    // For the log (debug level): what the game sent during one rumble, from its first
+    // value to the write that stopped it.
+    struct RumbleTrace
+    {
+        QElapsedTimer clock;
+        int values = 0;
+        int writes = 0;
+        qint64 lastUs = 0;
+        qint64 shortestGapUs = -1;
+        float lowMost = 0;
+        float highMost = 0;
+        // Lowest and highest frequency while the band was heard.
+        float lowFrequency[2] = {};
+        float highFrequency[2] = {};
+        // The first values: milliseconds since the first, low and high amplitude.
+        QString shape;
+    };
+    RumbleTrace m_rumbleTrace;
     QElapsedTimer m_sinceReport;
     bool m_quiet = false;
     // For telling a Joy-Con that was switched off (an abrupt stop) from one drifting out

@@ -45,7 +45,7 @@ quint8 crc8(const QByteArray &data, int from, int count)
 // Up to this many lost reports in a row are filled in (120 ms).
 constexpr int MostFilledReports = 8;
 // Following the gyroscope's error at rest: see trackRest().
-constexpr int RestWindowReadings = 200;
+constexpr qint64 RestWindowUs = 1000000;
 constexpr float RestTurningSpread = 0.6f; // degrees a second, lowest to highest
 constexpr float RestStrengthSpread = 0.01f; // g
 constexpr float RestTurningMost = 1.0f; // degrees a second
@@ -60,6 +60,16 @@ constexpr int QuietMs = 1000;
 // of reach 252 and 255 ms, with eight or nine reports over 40 ms.
 constexpr int LateGapMs = 100;
 constexpr int MaxLightChecks = 5;
+// Rumble is written only while something wants it (setRumbleWanted), which keeps the
+// connection out of sniff mode (main.cpp). Written right after a report, at most this
+// often (SDL's figure), again this often while it vibrates (SDL: the actuator stops
+// without, within 50 ms), and "off" this many times, since nothing confirms a write.
+constexpr int RumbleWriteMs = 30;
+constexpr int RumbleRefreshMs = 40;
+constexpr int RumbleStops = 3;
+// After the last one lets go of the rumble, the connection may go back to sniff mode once
+// the last "off" is surely out.
+constexpr int RumbleReleaseMs = 500;
 
 // Around the stick's centre, as a fraction of its reach, nothing is reported.
 constexpr double DeadZone = 0.15;
@@ -97,6 +107,12 @@ JoyCon::JoyCon(const QString &node, Side side, const QString &address, QObject *
     m_lightsTimer.setSingleShot(true);
     m_lightsTimer.setInterval(LightsCheckMs);
     connect(&m_lightsTimer, &QTimer::timeout, this, &JoyCon::checkLights);
+    m_rumbleRelease.setSingleShot(true);
+    m_rumbleRelease.setInterval(RumbleReleaseMs);
+    connect(&m_rumbleRelease, &QTimer::timeout, this, [this] {
+        if (m_rumbleUsers == 0)
+            emit activeLinkWanted(false);
+    });
     m_quietTimer.setSingleShot(true);
     m_quietTimer.setInterval(QuietMs);
     connect(&m_quietTimer, &QTimer::timeout, this, [this] {
@@ -107,6 +123,7 @@ JoyCon::JoyCon(const QString &node, Side side, const QString &address, QObject *
                                    << (late == 0 ? "an abrupt stop, taken as switched off" : "a fading link, left alone")
                                    << "- battery" << m_state.battery << "of 4";
         m_quiet = true;
+        stopRumble();
         emit quietChanged();
         if (late == 0)
             emit switchedOff();
@@ -143,6 +160,7 @@ bool JoyCon::open()
     readMotionCalibration(FactoryMotion, false);
     readMotionCalibration(UserMotion, true);
     send(EnableMotion, QByteArray(1, char(0x01)));
+    send(EnableVibration, QByteArray(1, char(0x01)));
     // A Joy-Con starts in the simple mode, which only reports button changes.
     send(SetInputMode, QByteArray(1, char(InputFull)), [this](const QByteArray &) {
         qCInfo(lcJoyCon).noquote() << name() << m_address << "ready, firmware" << m_firmware << "battery"
@@ -348,13 +366,15 @@ void JoyCon::trackRest(const MotionReport &samples, bool gap)
             w.high[axis] = qMax(w.high[axis], sample.gyro[axis]);
             w.sum[axis] += sample.gyro[axis];
         }
-        if (w.count == 0)
+        if (w.count == 0) {
             w.strengthLow = w.strengthHigh = strength;
+            w.start = sample.time;
+        }
         w.strengthLow = qMin(w.strengthLow, strength);
         w.strengthHigh = qMax(w.strengthHigh, strength);
         ++w.count;
     }
-    if (w.count < RestWindowReadings)
+    if (w.count == 0 || samples[MotionSamples - 1].time - w.start < RestWindowUs)
         return;
     bool still = w.strengthHigh - w.strengthLow <= RestStrengthSpread;
     for (int axis = 0; axis < 3; ++axis) {
@@ -412,6 +432,138 @@ void JoyCon::checkLights()
     });
 }
 
+void JoyCon::setRumbleWanted(RumbleUser who, bool wanted)
+{
+    const int users = wanted ? m_rumbleUsers | int(who) : m_rumbleUsers & ~int(who);
+    const bool before = m_rumbleUsers != 0;
+    m_rumbleUsers = users;
+    if (before == (users != 0))
+        return;
+    if (users != 0) {
+        m_rumbleRelease.stop();
+        emit activeLinkWanted(true);
+    } else {
+        stopRumble();
+        m_rumbleRelease.start();
+    }
+}
+
+void JoyCon::setRumble(Motor motor, const Vibration &vibration)
+{
+    // Written to while its connection may sleep, the link would flap (setRumbleWanted).
+    if (m_rumbleUsers == 0)
+        return;
+    const int index = m_side == Side::Both && motor == Motor::Right ? 1 : 0;
+    m_rumble[index] = vibration;
+    Vibration &next = m_rumbleNext[index];
+    if (vibration.lowAmplitude >= next.lowAmplitude) {
+        next.lowAmplitude = vibration.lowAmplitude;
+        next.lowFrequency = vibration.lowFrequency;
+    }
+    if (vibration.highAmplitude >= next.highAmplitude) {
+        next.highAmplitude = vibration.highAmplitude;
+        next.highFrequency = vibration.highFrequency;
+    }
+    m_rumbleChanged = true;
+    traceRumble(vibration);
+}
+
+void JoyCon::stopRumble()
+{
+    m_rumble = {};
+    m_rumbleNext = {};
+    m_rumbleChanged = m_rumbleChanged || m_rumbling;
+}
+
+// After every report: whatever is due and allowed goes out. Right after a report is when
+// the Joy-Con listens best (the kernel's hid_nintendo does the same).
+void JoyCon::writeRumble()
+{
+    if (m_fd < 0 || !m_ready || m_quiet)
+        return;
+    const qint64 since = m_sinceWrite.isValid() ? m_sinceWrite.elapsed() : RumbleWriteMs;
+    const bool due = m_rumbleChanged || m_stopsLeft > 0 || (m_rumbling && since >= RumbleRefreshMs);
+    if (since < RumbleWriteMs || !due)
+        return;
+    QByteArray packet;
+    packet.append(char(OutputRumble));
+    packet.append(char(m_counter++ & 0x0f));
+    packet.append(takeRumbleData());
+    if (::write(m_fd, packet.constData(), packet.size()) < 0)
+        qCWarning(lcJoyCon).noquote() << name() << "write failed:" << std::strerror(errno);
+}
+
+// The rumble data for an output report about to be written, which then counts as written.
+QByteArray JoyCon::takeRumbleData()
+{
+    QByteArray data(2 * RumbleSize, Qt::Uninitialized);
+    for (int half = 0; half < 2; ++half) {
+        // A Joy-Con alone has its actuator in its own half; it is given the same in both.
+        const Vibration &v = m_rumbleNext[m_side == Side::Both ? half : 0];
+        encodeRumble(v.lowAmplitude, v.lowFrequency, v.highAmplitude, v.highFrequency,
+                     reinterpret_cast<quint8 *>(data.data()) + half * RumbleSize);
+    }
+    const bool rumbling = std::memcmp(data.constData(), RumbleOff, RumbleSize) != 0
+                          || std::memcmp(data.constData() + RumbleSize, RumbleOff, RumbleSize) != 0;
+    if (rumbling != m_rumbling)
+        qCDebug(lcJoyCon).noquote() << name() << (rumbling ? "rumbles" : "stops rumbling");
+    m_stopsLeft = rumbling ? 0 : m_rumbling ? RumbleStops - 1 : qMax(0, m_stopsLeft - 1);
+    m_rumbling = rumbling;
+    RumbleTrace &t = m_rumbleTrace;
+    if (t.clock.isValid()) {
+        ++t.writes;
+        const bool stopped = std::all_of(m_rumble.begin(), m_rumble.end(), [](const Vibration &v) {
+            return v.lowAmplitude <= 0 && v.highAmplitude <= 0;
+        });
+        if (!rumbling && stopped) {
+            const auto hz = [](const float (&r)[2]) {
+                return r[0] > r[1] ? QStringLiteral("-") : QStringLiteral("%1-%2 Hz").arg(r[0], 0, 'f', 0).arg(r[1], 0, 'f', 0);
+            };
+            qCDebug(lcJoyCon).noquote() << name() << "rumble of" << t.clock.elapsed() << "ms:" << t.values
+                                        << "values, shortest gap" << t.shortestGapUs / 1000.0 << "ms," << t.writes
+                                        << "writes; low up to" << t.lowMost << hz(t.lowFrequency) << "high up to"
+                                        << t.highMost << hz(t.highFrequency) << "; ms:low/high" << t.shape;
+            t = {};
+        }
+    }
+    m_rumbleNext = m_rumble;
+    m_rumbleChanged = false;
+    m_sinceWrite.start();
+    return data;
+}
+
+// For the log (debug level): what the game sends during one rumble.
+void JoyCon::traceRumble(const Vibration &v)
+{
+    if (!lcJoyCon().isDebugEnabled())
+        return;
+    RumbleTrace &t = m_rumbleTrace;
+    if (!t.clock.isValid()) {
+        if (v.lowAmplitude <= 0 && v.highAmplitude <= 0)
+            return;
+        t = {};
+        t.clock.start();
+        t.lowFrequency[0] = t.highFrequency[0] = 1e6f;
+    }
+    const qint64 us = t.clock.nsecsElapsed() / 1000;
+    if (t.values > 0 && (t.shortestGapUs < 0 || us - t.lastUs < t.shortestGapUs))
+        t.shortestGapUs = us - t.lastUs;
+    t.lastUs = us;
+    ++t.values;
+    t.lowMost = std::max(t.lowMost, v.lowAmplitude);
+    t.highMost = std::max(t.highMost, v.highAmplitude);
+    const auto range = [](float (&r)[2], float amplitude, float frequency) {
+        if (amplitude > 0) {
+            r[0] = std::min(r[0], frequency);
+            r[1] = std::max(r[1], frequency);
+        }
+    };
+    range(t.lowFrequency, v.lowAmplitude, v.lowFrequency);
+    range(t.highFrequency, v.highAmplitude, v.highFrequency);
+    if (t.values <= 40)
+        t.shape += QStringLiteral(" %1:%2/%3").arg(us / 1000).arg(v.lowAmplitude, 0, 'f', 2).arg(v.highAmplitude, 0, 'f', 2);
+}
+
 void JoyCon::readReports()
 {
     char buffer[512];
@@ -453,6 +605,8 @@ void JoyCon::handleReport(const QByteArray &report)
             m_gaps[m_gapIndex++ % m_gaps.size()] = quint16(qMin<qint64>(m_sinceReport.elapsed(), 0xffff));
         m_sinceReport.start();
         m_quietTimer.start();
+        // Written in step with the reports, which also stop while it is out of reach.
+        writeRumble();
     }
     if ((type != InputFull && type != InputSubcommandReply) || report.size() < RightStickOffset + 3)
         return;
@@ -481,36 +635,46 @@ void JoyCon::handleReport(const QByteArray &report)
         const float flip = m_side == Side::Right ? -1.0f : 1.0f;
         const float sign[3] = {1.0f, flip, flip};
         MotionReport samples;
-        // The readings' times. The controller takes a reading every 5 ms and sends three
-        // in a report, so each is 5 ms after the one before, across reports too. When a
-        // report arrives says little about that: the radio delivers them unevenly. What
-        // says how many reports were lost is the report's own timer (its second byte),
-        // which counts those 5 ms: 3 from one report to the next (measured: 2 to 4), 6 if
-        // one is missing between them, and so on. It wraps every 1.28 s; a silence longer
-        // than a second is taken from our own clock instead.
+        // The readings' times. The report's own timer (its second byte) counts 5 ms ticks
+        // and wraps every 1.28 s. A report carries three readings taken since the one
+        // before, spread evenly over the ticks between them: 3 ticks (15 ms, 67 reports a
+        // second) while the connection is in sniff mode, 2 or 3 (89 reports a second)
+        // while it is kept active for rumble (measured). So the readings' times come from
+        // the timer; when a report arrives says little, the radio delivers them unevenly.
+        // A step well beyond the usual one means reports were lost; a silence longer than
+        // a second is taken from our own clock instead.
         if (!m_motionClock.isValid())
             m_motionClock.start();
         // A second ahead, so that the very first readings' times, set back from the
         // arrival, aren't negative.
         const qint64 arrived = m_motionClock.nsecsElapsed() / 1000 + 1000000;
         const int timer = quint8(report[1]);
-        qint64 first;
+        qint64 last;
+        // The time this report's own readings cover.
+        qint64 span = MotionSamples * MotionIntervalUs;
         int lost = 0;
         const qint64 before = m_motionTime;
         if (m_motionTime == 0) {
-            first = arrived - (MotionSamples - 1) * MotionIntervalUs;
+            last = arrived;
         } else {
-            const qint64 reportUs = MotionSamples * MotionIntervalUs;
-            qint64 reports = qMax(1, qRound(((timer - m_lastTimer) & 0xff) / double(MotionSamples)));
+            qint64 ticks = (timer - m_lastTimer) & 0xff;
             if (arrived - m_lastArrived > 1000000)
-                reports = qMax<qint64>(1, (arrived - m_lastArrived + reportUs / 2) / reportUs);
+                ticks = (arrived - m_lastArrived + MotionIntervalUs / 2) / MotionIntervalUs;
+            ticks = qMax<qint64>(1, ticks);
+            const qint64 reports = qMax<qint64>(1, qRound(ticks / m_usualTicks));
             lost = int(reports - 1);
             m_lostReports += lost;
-            first = m_motionTime + MotionIntervalUs + (reports - 1) * reportUs;
+            // The usual step follows the connection's rhythm, which changes with its mode.
+            if (lost == 0)
+                m_usualTicks += (ticks - m_usualTicks) / 32;
+            last = m_motionTime + ticks * MotionIntervalUs;
+            span = ticks * MotionIntervalUs / reports;
         }
+        const qint64 spacing = span / MotionSamples;
+        const qint64 first = last - (MotionSamples - 1) * spacing;
         m_lastTimer = timer;
         m_lastArrived = arrived;
-        m_motionTime = first + (MotionSamples - 1) * MotionIntervalUs;
+        m_motionTime = last;
         // While the Joy-Con polls its rail (for the Ring-Con), what the rail says takes
         // the place of the third reading's accelerometer: 0, the ring's flex and the
         // ring's id, or all zeros with nothing attached (measured). The gyroscope half
@@ -521,7 +685,7 @@ void JoyCon::handleReport(const QByteArray &report)
         const bool rail = m_ringWanted && qFromLittleEndian<qint16>(third) == 0
                           && (railId == ExternalRingCon || (railId == 0 && railValue == 0));
         for (int n = 0; n < MotionSamples; ++n) {
-            samples[n].time = first + n * MotionIntervalUs;
+            samples[n].time = first + n * spacing;
             const char *raw = report.constData() + MotionOffset + n * MotionSampleSize;
             for (int axis = 0; axis < 3; ++axis) {
                 const int accel = qFromLittleEndian<qint16>(raw + 2 * axis);
@@ -550,7 +714,7 @@ void JoyCon::handleReport(const QByteArray &report)
             for (int j = 0; j < missing; ++j) {
                 const float share = float(j + 1) / float(missing + 1);
                 Motion &reading = filled[j % MotionSamples];
-                reading.time = before + (j + 1) * MotionIntervalUs;
+                reading.time = before + (j + 1) * (first - before) / (missing + 1);
                 for (int axis = 0; axis < 3; ++axis) {
                     reading.accel[axis] = m_lastMotion.accel[axis] + (samples[0].accel[axis] - m_lastMotion.accel[axis]) * share;
                     reading.gyro[axis] = m_lastMotion.gyro[axis] + (samples[0].gyro[axis] - m_lastMotion.gyro[axis]) * share;
@@ -622,7 +786,8 @@ void JoyCon::sendNext()
     QByteArray packet;
     packet.append(char(OutputSubcommand));
     packet.append(char(m_counter++ & 0x0f));
-    packet.append(reinterpret_cast<const char *>(RumbleOff), sizeof RumbleOff);
+    // The rumble goes on through a subcommand: one with "no vibration" would stop it.
+    packet.append(takeRumbleData());
     packet.append(char(next.id));
     packet.append(next.args);
     ++next.tries;

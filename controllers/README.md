@@ -51,7 +51,12 @@ This is an early version:
   them. Ring Fit Adventure runs with the ring and the leg strap. While a game is
   being played the controllers are the game's alone; Home still brings up the TV.
 
-Not there yet: rumble, the player lights as a game sets them, and the IR camera.
+A game in Eden makes the controllers rumble as it would on a Switch. While a game is
+being played, the controllers' connections are kept fully awake for that, which uses a
+little more of their battery. Bluetooth audio on the same machine (a soundbar,
+headphones) shares the radio with them and can make the Joy-Cons lose their connection
+while they rumble. Not there yet: the player lights as a game sets them, and the IR
+camera.
 
 ## Install
 
